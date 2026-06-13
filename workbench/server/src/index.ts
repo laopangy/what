@@ -16,6 +16,22 @@ app.use(logger);
 
 app.use("/api/chat", chatRouter);
 
+// Proxy Music server user/auth endpoints for the client
+app.use("/api/music", async (req, res) => {
+  try {
+    const target = `${config.modules.music}${req.url}`;
+    const fetchRes = await fetch(target, {
+      method: req.method,
+      headers: { "Content-Type": "application/json" },
+      body: req.method !== "GET" && req.method !== "HEAD" ? JSON.stringify(req.body) : undefined,
+    });
+    const json = await fetchRes.json();
+    res.status(fetchRes.status).json(json);
+  } catch {
+    res.status(502).json({ error: "Music server unreachable" });
+  }
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", modules: ["music"], timestamp: Date.now() });
 });

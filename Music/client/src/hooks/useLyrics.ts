@@ -40,8 +40,11 @@ export function useLyrics(songId?: string) {
 
       searchApi.songs(`${song.name} ${song.artist}`, 5).then((res) => {
         const data = res.data as Record<string, unknown> | undefined;
-        const inner = data?.data as Record<string, unknown> | undefined;
-        const records = (inner?.records ?? data?.data ?? []) as Array<Record<string, unknown>>;
+        if (!data) return;
+        // Handle both old nested format { data: { records: [...] } }
+        // and new flat format { records: [...] }
+        const inner = (data.data ?? data) as Record<string, unknown>;
+        const records = (inner?.records ?? []) as Array<Record<string, unknown>>;
         if (Array.isArray(records) && records.length > 0) {
           const best = records[0];
           const id = best.id ? String(best.id) : undefined;

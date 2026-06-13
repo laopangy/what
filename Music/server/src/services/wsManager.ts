@@ -3,6 +3,7 @@ import type { Server } from "http";
 import { config } from "../config.js";
 import { runNcm } from "./ncmExecutor.js";
 import { normalizeState } from "./stateTransform.js";
+import * as mpv from "./mpvController.js";
 
 let wss: WebSocketServer | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -48,12 +49,36 @@ export function setupWebSocket(server: Server): void {
 }
 
 async function sendPlaybackState(ws?: WebSocket): Promise<void> {
-  const result = await runNcm("state");
-  if (!result.success || !result.data) return;
+  // Try mpvController first (direct mpv IPC — more reliable)
+  const mpvState = await mpv.getState();
+  let state: { playing: boolean; song?: { name: string; artist: string; duration: number; position: number }; volume: number; currentIndex?: number; queueLength?: number };
 
-  const normalized = normalizeState(result.data);
-  const payload = JSON.stringify({ event: "playback:state", data: normalized });
-  const current = JSON.stringify(normalized);
+  if (mpvState && mpvState.filename) {
+    const meta = mpv.getCurrentMeta();
+    state = {
+      playing: mpvState.playing,
+      song: {
+        name: meta?.name || mpvState.filename,
+        artist: meta?.artist || "",
+        duration: meta?.duration || mpvState.duration,
+        position: mpvState.position,
+      },
+      volume: mpvState.volume,
+    };
+  } else if (mpvState) {
+    state = {
+      playing: mpvState.playing,
+      volume: mpvState.volume,
+    };
+  } else {
+    // Fallback to ncm-cli
+    const result = await runNcm("state");
+    if (!result.success || !result.data) return;
+    state = normalizeState(result.data);
+  }
+
+  const payload = JSON.stringify({ event: "playback:state", data: state });
+  const current = JSON.stringify(state);
 
   if (current === lastState) return;
   lastState = current;
@@ -96,4 +121,14 @@ export function notifyPlaybackChange(): void {
 
 export function getClientCount(): number {
   return clients.size;
+}
+
+/** Broadcast a custom event to all connected clients */
+export function broadcastEvent(event: string, data: unknown): void {
+  const payload = JSON.stringify({ event, data });
+  for (const client of clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
+  }
 }

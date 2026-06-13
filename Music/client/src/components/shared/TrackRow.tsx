@@ -13,9 +13,27 @@ export default function TrackRow({
 }) {
   const setCurrentSongId = usePlaybackStore((s) => s.setCurrentSongId);
 
+  const updateStore = usePlaybackStore((s) => s.update);
+  const storeVolume = usePlaybackStore((s) => s.volume);
+
   const handlePlay = () => {
     if (song.encryptedId) setCurrentSongId(song.encryptedId);
-    playbackApi.playSong(song.encryptedId, song.originalId);
+    // Optimistic UI update — shows song immediately without waiting for WebSocket
+    updateStore({
+      playing: true,
+      song: {
+        name: song.name,
+        artist: song.artists?.map(a => a.name).join(" / ") || "",
+        duration: song.duration / 1000,
+        position: 0,
+      },
+      volume: storeVolume,
+    });
+    playbackApi.playSong(song.encryptedId, song.originalId, {
+      name: song.name,
+      artist: song.artists?.map(a => a.name).join(" / "),
+      duration: song.duration / 1000,
+    });
   };
 
   return (

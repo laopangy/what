@@ -29,8 +29,10 @@ export const api = {
 // Playback
 export const playbackApi = {
   state: () => api.get("/playback/state"),
-  playSong: (encryptedId?: string, originalId?: number) =>
-    api.post("/playback/play-song", { encryptedId, originalId }),
+  playSong: (encryptedId?: string, originalId?: number, meta?: { name?: string; artist?: string; duration?: number }) =>
+    api.post("/playback/play-song", { encryptedId, originalId, name: meta?.name, artist: meta?.artist, duration: meta?.duration }),
+  playSongs: (songs: { encryptedId?: string; originalId?: number; name?: string; artist?: string; duration?: number }[]) =>
+    api.post("/playback/play-songs", { songs }),
   playPlaylist: (encryptedId?: string, originalId?: number) =>
     api.post("/playback/play-playlist", { encryptedId, originalId }),
   pause: () => api.post("/playback/pause"),
@@ -40,7 +42,12 @@ export const playbackApi = {
   prev: () => api.post("/playback/prev"),
   seek: (seconds: number) => api.post("/playback/seek", { seconds }),
   volume: (level: number) => api.post("/playback/volume", { level }),
+  shuffle: () => api.post("/playback/shuffle"),
+  loop: (mode: "none" | "single" | "list") => api.post("/playback/loop", { mode }),
   queue: () => api.get("/playback/queue"),
+  queueRemove: (index: number) => api.post("/playback/queue/remove", { index }),
+  queueAdd: (encryptedId?: string, originalId?: number, meta?: { name?: string; artist?: string }) =>
+    api.post("/playback/queue/add", { encryptedId, originalId, name: meta?.name, artist: meta?.artist }),
 };
 
 // Search
@@ -56,8 +63,10 @@ export const searchApi = {
 
 // Playlists
 export const playlistApi = {
-  created: (limit?: number) => api.get(`/playlist/created?limit=${limit || 50}`),
-  collected: (limit?: number) => api.get(`/playlist/collected?limit=${limit || 50}`),
+  created: (limit?: number, uid?: string) =>
+    api.get(`/playlist/created?limit=${limit || 50}${uid ? `&uid=${uid}` : ""}`),
+  collected: (limit?: number, uid?: string) =>
+    api.get(`/playlist/collected?limit=${limit || 50}${uid ? `&uid=${uid}` : ""}`),
   detail: (id: string) => api.get(`/playlist/${encodeURIComponent(id)}`),
   tracks: (id: string, limit?: number) =>
     api.get(`/playlist/${encodeURIComponent(id)}/tracks?limit=${limit || 50}`),
@@ -77,6 +86,17 @@ export const userApi = {
   profile: () => api.get("/user/profile"),
   history: (limit?: number) => api.get(`/user/history?limit=${limit || 100}`),
   liked: () => api.get("/user/liked"),
+  loginStatus: () => api.get<{ loggedIn: boolean; nickname?: string }>("/user/login-status"),
+  loginQr: () => api.post<{ qrKey: string; qrimg: string; message: string; alreadyLoggedIn?: boolean }>("/user/login-qr"),
+  search: (nickname: string) =>
+    api.get<{ userId: string; nickname: string; avatarUrl: string; followeds: number; signature: string }[]>(
+      `/user/search?nickname=${encodeURIComponent(nickname)}`
+    ),
+  follows: (limit?: number, offset?: number) =>
+    api.get<{
+      users: { userId: string; nickname: string; avatarUrl: string; followeds: number; signature: string }[];
+      more: boolean;
+    }>(`/user/follows?limit=${limit || 50}&offset=${offset || 0}`),
 };
 
 // Song
@@ -84,6 +104,29 @@ export const songApi = {
   lyric: (id: string) => api.get<{ lyric: string; transLyric?: string }>(`/song/${encodeURIComponent(id)}/lyric`),
   like: (id: string) => api.post(`/song/${encodeURIComponent(id)}/like`),
   dislike: (id: string) => api.post(`/song/${encodeURIComponent(id)}/dislike`),
+  isLiked: (id: string) => api.get<{ liked: boolean }>(`/song/${encodeURIComponent(id)}/is-liked`),
+};
+
+// Analyze
+export const analyzeApi = {
+  style: (playlistIds: string[]) =>
+    api.post<{
+      styleProfile: string;
+      genreTags: string[];
+      moodTags: string[];
+      eraTags: string[];
+      languageTags: string[];
+      favoritePatterns: string;
+      recommendedSongs: { id: string; name: string; artist: string; album: string }[];
+      totalSongs: number;
+      analyzedSongs: number;
+      sampled: boolean;
+    }>("/analyze/style", { playlistIds }),
+  generatePlaylist: (name: string, songIds: string[]) =>
+    api.post<{ playlistId: string; name: string; trackCount: number }>(
+      "/analyze/generate-playlist",
+      { name, songIds }
+    ),
 };
 
 // Theme

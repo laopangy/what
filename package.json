@@ -1,0 +1,61 @@
+{
+  "name": "what",
+  "version": "1.0.0",
+  "description": "阿潘阿潘潘的工具栈 — 个人全栈工具平台",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "npm run dev",
+    "predev": "node scripts/clean-ports.js",
+    "dev": "concurrently -n music,workbench,electron -c blue,green,magenta \"cd Music && npm run dev\" \"cd workbench && npm run dev\" \"wait-on http-get://localhost:5174 && electron .\"",
+    "dev:electron": "electron .",
+    "dev:web": "concurrently -n music,workbench -c blue,green \"cd Music && npm run dev\" \"cd workbench && npm run dev\"",
+    "login": "cd Music && npx tsx server/src/scripts/login.ts",
+    "build:music": "cd Music/client && npm run build",
+    "build:workbench": "cd workbench/client && npm run build",
+    "build": "npm run build:music && npm run build:workbench && electron-builder --win",
+    "postinstall": "cd Music && npm install && cd ../workbench && npm install"
+  },
+  "build": {
+    "appId": "com.laopangy.what",
+    "productName": "阿潘阿潘潘的工具栈",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "Music/client/dist/**/*",
+      "Music/server/src/**/*",
+      "Music/server/package.json",
+      "Music/server/tsconfig.json",
+      "workbench/client/dist/**/*",
+      "workbench/server/src/**/*",
+      "workbench/server/package.json",
+      "workbench/server/tsconfig.json"
+    ],
+    "extraResources": [
+      {
+        "from": "Music/server",
+        "to": "music-server"
+      },
+      {
+        "from": "workbench/server",
+        "to": "workbench-server"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.0",
+    "wait-on": "^8.0.0"
+  }
+}

@@ -1,5 +1,5 @@
 import type { ToolCall } from "../../types/chat";
-import { Wrench, ChevronDown, ChevronUp, Search, Play, Pause, SkipForward, SkipBack, Volume2, ListMusic, Heart, Sparkles, User, Clock, Plus, BookOpen, Disc, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, Play, Pause, SkipForward, SkipBack, Volume2, ListMusic, Heart, Sparkles, User, Clock, Plus, BookOpen, Disc, Zap } from "lucide-react";
 import { useState } from "react";
 
 const toolIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -38,24 +38,27 @@ export default function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
   const Icon = toolIcons[toolCall.name] || Zap;
   const label = toolLabels[toolCall.name] || toolCall.name;
 
-  const summary = toolCall.args
-    ? Object.values(toolCall.args).find((v) => typeof v === "string" && v.length > 0)
+  const summary: string | undefined = toolCall.args
+    ? (Object.values(toolCall.args).find((v) => typeof v === "string" && v.length > 0) as string)
     : undefined;
 
   return (
-    <div className="mb-2 text-xs">
+    <div className="mb-1.5 text-xs">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/10 border border-accent/20 text-accent-dim hover:bg-accent/15 transition-all"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-accent/8 border border-accent/15 text-accent-dim hover:bg-accent/12 hover:border-accent/25 smooth group"
       >
-        <Wrench className="w-3 h-3" />
-        <Icon className="w-3 h-3" />
+        <Icon className="w-3 h-3 text-accent-dim/70 group-hover:text-accent-dim smooth" />
         <span className="font-medium">{label}</span>
-        {summary && <span className="text-text-dim truncate max-w-[120px]">— {String(summary)}</span>}
-        {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        {summary && (
+          <span className="text-text-dim/50 truncate max-w-[120px]">· {String(summary)}</span>
+        )}
+        <span className="ml-auto text-accent-dim/40">
+          {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </span>
       </button>
       {open && toolCall.result !== undefined && (
-        <pre className="mt-1 p-2 rounded-lg bg-surface-raised border border-border text-[11px] text-text-dim overflow-auto max-h-32">
+        <pre className="mt-1.5 p-3 rounded-xl bg-surface-raised/60 border border-border/30 text-[11px] text-text-dim overflow-auto max-h-40 leading-relaxed">
           {JSON.stringify(toolCall.result, null, 2)}
         </pre>
       )}

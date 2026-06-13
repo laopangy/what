@@ -1,8 +1,10 @@
+import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import {
-   Play, Search, ListMusic, Sparkles, Heart, ListOrdered,
+   Play, Search, ListMusic, Sparkles, Heart, ListOrdered, LogIn, UserCheck,
 } from "lucide-react";
 import ThemePicker from "../theme/ThemePicker";
+import { userApi } from "../../api/client";
 
 const navItems = [
   { to: "/now-playing", icon: Play, label: "正在播放" },
@@ -16,16 +18,36 @@ const navItems = [
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-300 ${
     isActive
-      ? "bg-accent/15 text-accent-dim font-semibold shadow-[0_2px_12px_rgb(244_143_177_/_0.15)] border border-accent/20"
+      ? "bg-accent/10 text-accent-dim font-semibold shadow-[0_1px_3px_rgb(0_0_0_/_0.06)] border border-accent/20"
       : "text-text-dim hover:text-text hover:bg-accent/5 border border-transparent"
   }`;
 
 export default function Sidebar() {
+  const [loginStatus, setLoginStatus] = useState<{ loggedIn: boolean; nickname?: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    userApi.loginStatus().then((res) => {
+      if (!cancelled && res.success && res.data) {
+        setLoginStatus(res.data);
+      }
+    }).catch(() => {});
+
+    const timer = setInterval(() => {
+      userApi.loginStatus().then((res) => {
+        if (res.success && res.data) {
+          setLoginStatus(res.data);
+        }
+      }).catch(() => {});
+    }, 30_000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, []);
+
   return (
     <aside className="w-56 flex flex-col glass-strong border-r border-border/60 p-4 gap-1 rounded-r-3xl">
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-3 py-3 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-purple flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
           <Sparkles className="w-4 h-4 text-white" />
         </div>
         <div>
@@ -42,8 +64,31 @@ export default function Sidebar() {
         </NavLink>
       ))}
 
-      {/* Theme picker */}
+      {/* Login status */}
       <div className="border-t border-border/30 pt-1">
+        {loginStatus === null ? (
+          <div className="px-3 py-2 flex items-center gap-2 text-[11px] text-text-dim">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400/50 animate-pulse" />
+            检查登录状态...
+          </div>
+        ) : loginStatus.loggedIn ? (
+          <div className="px-3 py-2 flex items-center gap-2 text-[11px] text-emerald-400/80">
+            <UserCheck className="w-3.5 h-3.5" />
+            {loginStatus.nickname || "已登录"}
+          </div>
+        ) : (
+          <NavLink
+            to="/now-playing"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] text-amber-400/80 hover:bg-amber-400/5 transition-all border border-amber-400/20"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            未登录 — 点击登录
+          </NavLink>
+        )}
+      </div>
+
+      {/* Theme picker */}
+      <div className="pt-1">
         <ThemePicker />
       </div>
 

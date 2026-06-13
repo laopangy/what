@@ -1,108 +1,108 @@
 import { Router } from "express";
-import { runNcm } from "../services/ncmExecutor.js";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { search } = require("NeteaseCloudMusicApi");
 
 export const searchRouter = Router();
 
 interface NcmSong {
-  id: string;
-  originalId: number;
+  id: number;
   name: string;
   duration: number;
-  artists: { id: string; originalId?: number; name: string; coverImgUrl?: string | null }[];
-  fullArtists?: { id: string; originalId?: number; name: string; coverImgUrl?: string | null }[];
-  album: { id: string; originalId?: number; name: string };
-  coverImgUrl?: string;
+  artists: { id: number; name: string; img1v1Url?: string }[];
+  album: { id: number; name: string; picUrl?: string };
 }
 
 interface NcmPlaylist {
-  id: string;
-  originalId?: number;
+  id: number;
   name: string;
   description?: string | null;
-  coverUrl?: string;
   coverImgUrl?: string;
   trackCount?: number;
   playCount?: number;
-  creator?: { nickname: string; userId?: number; avatarUrl?: string | null };
+  creator?: { nickname: string; userId?: number; avatarUrl?: string };
 }
 
-interface NcmSearchResponse {
-  code?: number;
-  data?: {
-    recordCount?: number;
-    records?: NcmSong[];
-    playlists?: NcmPlaylist[];
-    albums?: unknown[];
-    artists?: unknown[];
-  };
-  // Some ncm-cli versions return records at top level
-  recordCount?: number;
-  records?: NcmSong[];
-  playlists?: NcmPlaylist[];
-  albums?: unknown[];
-  artists?: unknown[];
+function toHexId(numId: number): string {
+  return numId.toString(16).padStart(32, "0");
 }
 
 function mapSong(raw: NcmSong) {
   return {
-    id: raw.id,                                    // 32-char hex encrypted ID from ncm-cli
-    originalId: raw.originalId ?? Number(raw.id),   // numeric original ID
+    id: toHexId(raw.id),                          // 32-char hex encrypted ID
+    originalId: raw.id,                            // numeric original ID
     name: raw.name,
     duration: raw.duration,
     artists: (raw.artists || []).map((a) => ({
       name: a.name,
-      id: a.id || String(a.originalId || ""),
+      id: String(a.id || ""),
     })),
     album: {
       name: raw.album?.name || "",
-      id: raw.album?.id || "",
-      coverUrl: raw.coverImgUrl || "",
+      id: String(raw.album?.id || ""),
+      coverUrl: raw.album?.picUrl || "",
     },
-    coverImgUrl: raw.coverImgUrl || "",
+    coverImgUrl: raw.album?.picUrl || "",
   };
 }
 
 function mapPlaylist(raw: NcmPlaylist) {
   return {
-    id: raw.id,
-    originalId: raw.originalId,
+    id: toHexId(raw.id),
+    originalId: raw.id,
     name: raw.name,
     description: raw.description,
-    coverUrl: raw.coverUrl || raw.coverImgUrl,
+    coverUrl: raw.coverImgUrl,
     trackCount: raw.trackCount,
     playCount: raw.playCount,
     creator: raw.creator,
   };
 }
 
-async function doSearch(type: string, keyword: string, limit: number) {
-  const result = await runNcm("search", type, "--keyword", keyword, "--limit", String(limit));
+async function doSearch(type: number, keyword: string, limit: number) {
+  try {
+    const result = await search({ keywords: keyword, type, limit });
+    const body = result.body as {
+      code?: number;
+      result?: {
+        songCount?: number;
+        songs?: NcmSong[];
+        playlistCount?: number;
+        playlists?: NcmPlaylist[];
+      };
+    };
 
-  if (!result.success) {
-    return { success: false, error: result.error };
+    if (body.code !== 200) {
+      return { success: false, error: "搜索失败" };
+    }
+
+    const songs = (body.result?.songs || []).map(mapSong);
+    const playlists = (body.result?.playlists || []).map(mapPlaylist);
+
+    return {
+      success: true,
+      data: {
+        records: songs,
+        playlists: playlists.length > 0 ? playlists : undefined,
+      },
+    };
+  } catch (e: unknown) {
+    return { success: false, error: `搜索出错: ${e instanceof Error ? e.message : String(e)}` };
   }
-
-  const raw = result.data as NcmSearchResponse | undefined;
-  // ncm-cli nests data inside { code: 200, data: { records: [...] } }
-  // Also support top-level records for compatibility
-  const inner = raw?.data || raw;
-  const records = (inner?.records || []).map(mapSong);
-  const playlists = (inner?.playlists || []).map(mapPlaylist);
-
-  return {
-    success: true,
-    data: {
-      records,
-      playlists: playlists.length > 0 ? playlists : undefined,
-    },
-  };
 }
 
+/*
+ * NeteaseCloudMusicApi search types:
+ *   1  = single song
+ *   1000 = playlist
+ *   10 = album
+ *   1018 = all / comprehensive
+ */
 searchRouter.get("/songs", async (req, res, next) => {
   try {
     const q = String(req.query.q || "");
     const limit = Number(req.query.limit) || 30;
-    res.json(await doSearch("song", q, limit));
+    res.json(await doSearch(1, q, limit));
   } catch (e) { next(e); }
 });
 
@@ -110,7 +110,7 @@ searchRouter.get("/playlists", async (req, res, next) => {
   try {
     const q = String(req.query.q || "");
     const limit = Number(req.query.limit) || 30;
-    res.json(await doSearch("playlist", q, limit));
+    res.json(await doSearch(1000, q, limit));
   } catch (e) { next(e); }
 });
 
@@ -118,29 +118,36 @@ searchRouter.get("/albums", async (req, res, next) => {
   try {
     const q = String(req.query.q || "");
     const limit = Number(req.query.limit) || 30;
-    res.json(await doSearch("album", q, limit));
+    res.json(await doSearch(10, q, limit));
   } catch (e) { next(e); }
 });
 
 searchRouter.get("/all", async (req, res, next) => {
   try {
     const q = String(req.query.q || "");
-    // ncm-cli "all" search type for combined results
-    const result = await runNcm("search", "all", "--keyword", q, "--limit", "30");
+    // type 1018 = comprehensive search
+    const result = await search({ keywords: q, type: 1018, limit: 30 });
+    const body = result.body as {
+      code?: number;
+      result?: {
+        songCount?: number;
+        songs?: NcmSong[];
+        playlistCount?: number;
+        playlists?: NcmPlaylist[];
+      };
+    };
 
-    if (!result.success) {
-      res.json({ success: false, error: result.error });
+    if (body.code !== 200) {
+      res.json({ success: false, error: "搜索失败" });
       return;
     }
 
-    const raw = result.data as NcmSearchResponse | undefined;
-    const inner = raw?.data || raw;
-    const records = (inner?.records || []).map(mapSong);
-    const playlists = (inner?.playlists || []).map(mapPlaylist);
+    const songs = (body.result?.songs || []).map(mapSong);
+    const playlists = (body.result?.playlists || []).map(mapPlaylist);
 
     res.json({
       success: true,
-      data: { records, playlists: playlists.length > 0 ? playlists : undefined },
+      data: { records: songs, playlists: playlists.length > 0 ? playlists : undefined },
     });
   } catch (e) { next(e); }
 });

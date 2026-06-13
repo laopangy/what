@@ -53,9 +53,10 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => ({
     }
 
     // Never trust server volume — ncm-cli doesn't report mpv's actual volume
+    // Preserve existing song info if server state doesn't include it (mpvController)
     set({
       playing: state.playing,
-      song: state.song,
+      song: state.song || currentSong,
       localPosition: usePosition,
       lastUpdateTime: now,
     });

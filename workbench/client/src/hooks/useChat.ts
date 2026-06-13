@@ -1,5 +1,6 @@
 import { useChatStore } from "../stores/chatStore";
 import { chatApi } from "../api/client";
+import type { ChatMessage } from "../types/chat";
 
 export function useChat() {
   const { messages, isLoading, addMessage, setLoading } = useChatStore();
@@ -18,7 +19,7 @@ export function useChat() {
         addMessage({
           role: "assistant",
           content: res.data.content,
-          toolCalls: res.data.toolCalls,
+          toolCalls: res.data.toolCalls as ChatMessage["toolCalls"],
         });
       } else {
         addMessage({ role: "assistant", content: `出错了: ${res.error || "未知错误"}` });

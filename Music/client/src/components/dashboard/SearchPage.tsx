@@ -61,7 +61,7 @@ export default function SearchPage() {
         <button
           onClick={doSearch}
           disabled={!query.trim() || loading}
-          className="px-5 py-3 rounded-2xl bg-gradient-to-br from-accent to-purple text-white text-sm font-medium hover:shadow-[0_2px_12px_rgba(240,184,196,0.2)] disabled:opacity-30 disabled:shadow-none smooth"
+          className="px-5 py-3 rounded-2xl bg-accent text-white text-sm font-medium hover:bg-accent-dim disabled:opacity-30 smooth"
         >
           {loading ? "搜索中..." : "搜索"}
         </button>

@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Music, Play, Pause, GripVertical } from "lucide-react";
+import { Music, Play, Pause, GripVertical, Disc3 } from "lucide-react";
 import { onMusicEvent } from "../../api/musicSocket";
 import { usePlaybackStore } from "../../stores/playbackStore";
 
 const MUSIC_API = "http://localhost:3001/api";
 
 async function musicFetch(method: string, path: string) {
-  try {
-    await fetch(`${MUSIC_API}${path}`, { method });
-  } catch { /* ignore */ }
+  try { await fetch(`${MUSIC_API}${path}`, { method }); } catch { /* ignore */ }
 }
 
 export default function MiniPlayer() {
@@ -23,7 +21,6 @@ export default function MiniPlayer() {
   const dragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0, elX: 0, elY: 0 });
   const dragged = useRef(false);
-  const elRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const unsub = onMusicEvent("playback:state", (data) => {
@@ -32,15 +29,9 @@ export default function MiniPlayer() {
       const pl = (typeof d.playing === "boolean") ? d.playing : false;
       const sng = d.song as Record<string, unknown> | undefined;
       const songInfo = sng?.name
-        ? {
-            name: sng.name as string,
-            artist: (sng.artist as string) || "",
-            duration: (sng.duration as number) || 0,
-            position: (sng.position as number) || 0,
-          }
+        ? { name: sng.name as string, artist: (sng.artist as string) || "", duration: (sng.duration as number) || 0, position: (sng.position as number) || 0 }
         : null;
-      const vol = (typeof d.volume === "number") ? d.volume : 70;
-      update(pl, songInfo, vol);
+      update(pl, songInfo, (typeof d.volume === "number") ? d.volume : 70);
       setVisible(!!songInfo);
       if (songInfo) setPos(songInfo.position);
     });
@@ -52,9 +43,7 @@ export default function MiniPlayer() {
     const tick = () => {
       const now = Date.now();
       const s = usePlaybackStore.getState();
-      if (s.playing && s.song) {
-        setPos((prev) => Math.min(prev + (now - last) / 1000, s.song!.duration));
-      }
+      if (s.playing && s.song) setPos((prev) => Math.min(prev + (now - last) / 1000, s.song!.duration));
       last = now;
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -62,7 +51,6 @@ export default function MiniPlayer() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // Drag handlers
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     dragging.current = true;
@@ -92,12 +80,9 @@ export default function MiniPlayer() {
 
   const togglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
-    togglePlaying(); // instant UI feedback
-    if (playing) {
-      musicFetch("POST", "/playback/pause");
-    } else {
-      musicFetch("POST", "/playback/resume");
-    }
+    togglePlaying();
+    if (playing) musicFetch("POST", "/playback/pause");
+    else musicFetch("POST", "/playback/resume");
   };
 
   const openMusic = () => {
@@ -111,52 +96,58 @@ export default function MiniPlayer() {
 
   return (
     <div
-      ref={elRef}
-      className="fixed z-50 flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-raised/95 backdrop-blur border border-accent/30 shadow-lg hover:border-accent/50 transition-colors select-none max-w-[300px]"
+      className="fixed z-50 flex items-center gap-2.5 px-3 py-2 rounded-2xl
+        bg-surface-raised/90 backdrop-blur-xl border border-accent/20
+        shadow-[0_8px_32px_rgb(0_0_0_/_0.4),0_0_0_1px_rgb(99_102_241_/_0.1)]
+        hover:border-accent/40 hover:shadow-[0_8px_40px_rgb(0_0_0_/_0.5),0_0_20px_rgb(99_102_241_/_0.15)]
+        smooth select-none max-w-[300px]"
       style={{ left: drag.x, top: drag.y }}
     >
       {/* Drag handle */}
-      <span
-        onMouseDown={onMouseDown}
-        className="cursor-grab active:cursor-grabbing text-text-dim shrink-0"
-      >
+      <span onMouseDown={onMouseDown} className="cursor-grab active:cursor-grabbing text-text-dim/40 hover:text-text-dim/60 shrink-0">
         <GripVertical className="w-3 h-3" />
       </span>
 
-      {/* Play/Pause button */}
+      {/* Play/Pause */}
       <button
         onClick={togglePlay}
-        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
-          playing ? "bg-accent/20 hover:bg-accent/30" : "bg-accent/10 hover:bg-accent/20"
+        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 smooth ${
+          playing
+            ? "bg-gradient-to-br from-accent/30 to-purple/30 border border-accent/30 shadow-[0_2px_8px_rgb(99_102_241_/_0.2)]"
+            : "bg-accent/10 hover:bg-accent/15 border border-transparent"
         }`}
       >
         {playing ? (
-          <div className="flex gap-0.5 items-end h-3">
-            <span className="w-0.5 bg-accent-dim rounded-full animate-bounce" style={{ height: "60%", animationDelay: "0ms" }} />
-            <span className="w-0.5 bg-accent-dim rounded-full animate-bounce" style={{ height: "100%", animationDelay: "120ms" }} />
-            <span className="w-0.5 bg-accent-dim rounded-full animate-bounce" style={{ height: "40%", animationDelay: "240ms" }} />
+          <div className="flex gap-[3px] items-end h-3.5">
+            <span className="w-[3px] bg-accent-dim rounded-full animate-bounce" style={{ height: "60%", animationDelay: "0ms" }} />
+            <span className="w-[3px] bg-accent-dim rounded-full animate-bounce" style={{ height: "100%", animationDelay: "120ms" }} />
+            <span className="w-[3px] bg-accent-dim rounded-full animate-bounce" style={{ height: "40%", animationDelay: "240ms" }} />
           </div>
         ) : (
-          <Music className="w-3.5 h-3.5 text-accent-dim" />
+          <Disc3 className="w-4 h-4 text-accent-dim" />
         )}
       </button>
 
-      {/* Song info — click to open Music app */}
+      {/* Song info */}
       <div className="min-w-0 flex-1 cursor-pointer" onClick={openMusic}>
-        <div className="text-[11px] font-medium text-text truncate">{song?.name || "未在播放"}</div>
-        <div className="text-[10px] text-text-dim truncate">{song?.artist || ""}</div>
+        <div className="text-[11px] font-semibold text-text truncate tracking-tight">
+          {song?.name || "未在播放"}
+        </div>
+        <div className="text-[10px] text-text-dim/60 truncate mt-0.5">
+          {song?.artist || ""}
+        </div>
         {song && song.duration > 0 && (
-          <div className="mt-0.5 h-0.5 rounded-full bg-border overflow-hidden">
-            <div className="h-full rounded-full bg-accent transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div className="mt-1 h-[3px] rounded-full bg-border/40 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-accent to-purple smooth"
+              style={{ width: `${Math.min(progress, 100)}%` }}
+            />
           </div>
         )}
       </div>
 
-      {/* Play/Pause toggle */}
-      <button
-        onClick={togglePlay}
-        className="text-accent-dim hover:text-accent shrink-0 cursor-pointer p-0.5"
-      >
+      {/* Toggle */}
+      <button onClick={togglePlay} className="text-accent-dim/70 hover:text-accent-dim shrink-0 smooth p-1">
         {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
       </button>
     </div>

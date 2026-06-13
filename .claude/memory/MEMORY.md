@@ -1,0 +1,1 @@
+- [项目功能文档同步](project-documentation-sync.md) — PROJECT.md 需要与逻辑变更同步更新

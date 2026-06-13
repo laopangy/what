@@ -4,18 +4,35 @@ import { recommendApi, playbackApi } from "../../api/client";
 import TrackRow from "../shared/TrackRow";
 import LoadingSpinner from "../shared/LoadingSpinner";
 import EmptyState from "../shared/EmptyState";
+import LoginPrompt from "./LoginPrompt";
 import type { Song } from "../../types/ncm";
 
 export default function DailyRecommend() {
   const [loading, setLoading] = useState(true);
   const [songs, setSongs] = useState<Song[]>([]);
+  const [needLogin, setNeedLogin] = useState(false);
 
-  useEffect(() => {
+  const loadDaily = () => {
+    setLoading(true);
+    setNeedLogin(false);
     recommendApi.daily()
-      .then((res) => setSongs(extractSongs(res.data)))
+      .then((res) => {
+        const data = res.data as Record<string, unknown> | undefined;
+        if (!res.success && data?.needLogin) {
+          setNeedLogin(true);
+        } else {
+          setSongs(extractSongs(res.data));
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadDaily(); }, []);
+
+  if (needLogin) {
+    return <LoginPrompt onLogin={() => loadDaily()} />;
+  }
 
   if (loading) return <LoadingSpinner text="加载每日推荐..." />;
 
@@ -28,8 +45,8 @@ export default function DailyRecommend() {
         </div>
         {songs.length > 0 && (
           <button
-            onClick={() => { const f = songs[0]; if (f) playbackApi.playSong(f.encryptedId, f.originalId); }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-br from-accent to-purple text-white text-sm font-medium hover:shadow-[0_2px_12px_rgba(240,184,196,0.2)] smooth"
+            onClick={() => { playbackApi.playSongs(songs.map(s => ({ encryptedId: s.encryptedId, originalId: s.originalId, name: s.name, artist: s.artists?.map(a => a.name).join(" / "), duration: s.duration }))); }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-accent text-white text-sm font-medium hover:bg-accent-dim smooth"
           >
             <Play className="w-4 h-4 fill-current" /> 播放全部
           </button>
@@ -63,7 +80,7 @@ function extractSongs(data: unknown): Song[] {
     album: {
       name: raw.album && typeof raw.album === "object" ? String((raw.album as Record<string, unknown>).name ?? "") : "",
       id: raw.album && typeof raw.album === "object" && (raw.album as Record<string, unknown>).id ? String((raw.album as Record<string, unknown>).id) : undefined,
-      coverUrl: raw.coverImgUrl ? String(raw.coverImgUrl) : undefined,
+      coverUrl: (raw.coverImgUrl || raw.coverUrl) ? String(raw.coverImgUrl || raw.coverUrl) : undefined,
     },
     duration: Number(raw.duration ?? 0),
   }));

@@ -1,23 +1,25 @@
 @import "tailwindcss";
 
+/* ===================================================================
+   Cold Luxury Design Tokens
+   zinc + bone + rose — no warm cream, no AI purple, no glassmorphism
+   =================================================================== */
+
 @theme {
-  --color-accent: #f48fb1;
-  --color-accent-dim: #ec407a;
-  --color-purple: #b39ddb;
-  --color-pink: #ffab91;
-  --color-accent-mint: #80cbc4;
-  --color-accent-sky: #81d4fa;
-  --color-accent-butter: #ffe082;
-  --color-surface: #fffdfb;
+  --color-accent: #e11d48;
+  --color-accent-dim: #be123c;
+  --color-accent-soft: #ffe4e6;
+  --color-surface: #ffffff;
   --color-surface-raised: #ffffff;
-  --color-surface-glass: rgb(255 253 251 / 0.88);
-  --color-border: #e8c4b8;
-  --color-border-glow: #d4a99a;
-  --color-text: #5c4b51;
-  --color-text-dim: #a08e93;
-  --color-bg: #fef6f0;
+  --color-surface-glass: rgb(255 255 255 / 0.92);
+  --color-border: #e4e4e7;
+  --color-border-glow: #d4d4d8;
+  --color-text: #18181b;
+  --color-text-dim: #a1a1aa;
+  --color-bg: #fafafa;
 }
 
+/* ---- Base ---- */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
@@ -25,24 +27,15 @@
 
 body {
   margin: 0;
-  font-family: "Quicksand", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: var(--color-bg, #fef6f0);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--color-bg);
   color: var(--color-text);
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Subtle dot pattern background — moved to ::after so ::before is free for theme image */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background-image: radial-gradient(circle, rgb(210 170 160 / 0.15) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Theme image background — set via JS when a theme image is selected */
+/* Theme image overlay — set via JS when a theme image is selected */
 body::before {
   content: "";
   position: fixed;
@@ -57,76 +50,112 @@ body::before {
   z-index: 1;
 }
 
-/* Glass panels — soft warm frosted */
-.glass {
-  background: rgb(255 253 251 / 0.88);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--color-border);
-  border-radius: 1.25rem;
-  box-shadow: 0 4px 15px rgb(200 160 170 / 0.12);
-}
-
+/* ---- Panels — solid white + hairline border, no glass ---- */
+.glass,
 .glass-strong {
-  background: rgb(255 255 255 / 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--color-border-glow);
-  border-radius: 1.25rem;
-  box-shadow: 0 4px 20px rgb(200 160 170 / 0.15);
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04);
 }
 
-/* Soft text emphasis */
-.soft-text {
-  color: var(--color-text);
-}
-
-/* Soft warm shadow */
+/* ---- Soft shadow — zinc-tinted, subtle ---- */
 .soft-border {
-  box-shadow: 0 2px 12px rgb(220 160 170 / 0.15);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.05);
 }
 
-/* Pulse ring — pastel version */
+/* ---- Pulse ring — rose, restrained ---- */
 .pulse-ring {
   animation: pulseRingSoft 2s ease-out infinite;
 }
 @keyframes pulseRingSoft {
-  0% { box-shadow: 0 0 0 0 rgb(244 143 177 / 0.4); }
-  70% { box-shadow: 0 0 0 12px rgb(244 143 177 / 0); }
-  100% { box-shadow: 0 0 0 0 rgb(244 143 177 / 0); }
+  0%   { box-shadow: 0 0 0 0 rgb(225 29 72 / 0.25); }
+  70%  { box-shadow: 0 0 0 10px rgb(225 29 72 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(225 29 72 / 0); }
 }
 
-/* Bouncy entrance */
-@keyframes bounceIn {
-  0% { transform: scale(0.3); opacity: 0; }
-  50% { transform: scale(1.05); }
-  70% { transform: scale(0.95); }
-  100% { transform: scale(1); opacity: 1; }
+/* ---- Entrance — simple fade-up ---- */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.bounce-in {
-  animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+.animate-in {
+  animation: fadeUp 0.4s ease-out;
 }
 
-/* Gentle float */
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-.float {
-  animation: float 3s ease-in-out infinite;
+/* ---- Smooth transitions ---- */
+.smooth {
+  transition: all 0.2s ease;
 }
 
-/* Wiggle on hover */
-@keyframes wiggle {
-  0%, 100% { transform: rotate(0); }
-  25% { transform: rotate(-3deg); }
-  75% { transform: rotate(3deg); }
+/* ---- Range slider — rose accent ---- */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--color-accent) 0%,
+    var(--color-accent) var(--range-fill, 50%),
+    var(--color-border) var(--range-fill, 50%)
+  );
+  outline: none;
+  cursor: pointer;
 }
-.wiggle:hover {
-  animation: wiggle 0.3s ease-in-out;
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--color-accent);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.1);
+  transition: transform 0.15s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--color-accent);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.1);
 }
 
-/* Equalizer bars */
+/* ---- Scrollbar — zinc ---- */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-glow);
+}
+
+/* ---- Shimmer — zinc, restrained ---- */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgb(0 0 0 / 0.04) 25%,
+    rgb(0 0 0 / 0.06) 50%,
+    rgb(0 0 0 / 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---- Equalizer bars — rose, subtle ---- */
 .eq-bar {
   animation: eq 0.8s ease-in-out infinite alternate;
 }
@@ -136,63 +165,29 @@ body::before {
 .eq-bar:nth-child(4) { animation-duration: 0.7s; }
 .eq-bar:nth-child(5) { animation-duration: 0.8s; }
 @keyframes eq {
-  0% { height: 4px; }
-  100% { height: 16px; }
+  0%   { height: 3px; }
+  100% { height: 14px; }
 }
 
-/* Smooth transitions */
-.smooth {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+/* ---- Dark mode ---- */
+@media (prefers-color-scheme: dark) {
+  .glass,
+  .glass-strong {
+    background: #18181b;
+    border-color: #27272a;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+  }
 
-/* Custom range slider */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 6px;
-  border-radius: 3px;
-  background: linear-gradient(to right, var(--color-accent) 0%, var(--color-accent) var(--range-fill, 70%), var(--color-border) var(--range-fill, 70%));
-  outline: none;
-  cursor: pointer;
-}
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgb(244 143 177 / 0.4);
-  transition: all 0.2s;
-}
-input[type="range"]::-webkit-slider-thumb:hover {
-  box-shadow: 0 2px 14px rgb(244 143 177 / 0.6);
-  transform: scale(1.2);
-}
-input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgb(244 143 177 / 0.4);
-}
+  .soft-border {
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+  }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-border-glow); }
-
-/* Shimmer loading — pastel */
-.shimmer {
-  background: linear-gradient(90deg, rgb(244 143 177 / 0.08) 25%, rgb(179 157 219 / 0.12) 50%, rgb(244 143 177 / 0.08) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  input[type="range"]::-webkit-slider-thumb {
+    background: #27272a;
+    border-color: var(--color-accent);
+  }
+  input[type="range"]::-moz-range-thumb {
+    background: #27272a;
+    border-color: var(--color-accent);
+  }
 }

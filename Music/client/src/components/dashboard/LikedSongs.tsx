@@ -4,18 +4,35 @@ import { userApi, playbackApi } from "../../api/client";
 import TrackRow from "../shared/TrackRow";
 import LoadingSpinner from "../shared/LoadingSpinner";
 import EmptyState from "../shared/EmptyState";
+import LoginPrompt from "./LoginPrompt";
 import type { Song } from "../../types/ncm";
 
 export default function LikedSongs() {
   const [loading, setLoading] = useState(true);
   const [songs, setSongs] = useState<Song[]>([]);
+  const [needLogin, setNeedLogin] = useState(false);
 
-  useEffect(() => {
+  const loadLiked = () => {
+    setLoading(true);
+    setNeedLogin(false);
     userApi.liked()
-      .then((res) => setSongs(extractSongs(res.data)))
+      .then((res) => {
+        const data = res.data as Record<string, unknown> | undefined;
+        if (!res.success && data?.needLogin) {
+          setNeedLogin(true);
+        } else {
+          setSongs(extractSongs(res.data));
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadLiked(); }, []);
+
+  if (needLogin) {
+    return <LoginPrompt onLogin={() => loadLiked()} />;
+  }
 
   if (loading) return <LoadingSpinner text="加载收藏列表..." />;
 
@@ -23,8 +40,8 @@ export default function LikedSongs() {
     <div className="p-6 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink/20 to-purple/20 border border-pink/20 flex items-center justify-center">
-            <Heart className="w-6 h-6 text-pink fill-pink" />
+          <div className="w-12 h-12 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center">
+            <Heart className="w-6 h-6 text-accent fill-accent" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-text">我喜欢的音乐</h1>
@@ -33,8 +50,8 @@ export default function LikedSongs() {
         </div>
         {songs.length > 0 && (
           <button
-            onClick={() => { const f = songs[0]; if (f) playbackApi.playSong(f.encryptedId, f.originalId); }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-br from-pink to-purple text-white text-sm font-medium hover:shadow-[0_2px_12px_rgba(250,212,192,0.2)] smooth"
+            onClick={() => { playbackApi.playSongs(songs.map(s => ({ encryptedId: s.encryptedId, originalId: s.originalId, name: s.name, artist: s.artists?.map(a => a.name).join(" / "), duration: s.duration }))); }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-accent text-white text-sm font-medium hover:bg-accent-dim smooth"
           >
             <Play className="w-4 h-4 fill-current" /> 播放全部
           </button>
@@ -68,7 +85,7 @@ function extractSongs(data: unknown): Song[] {
     album: {
       name: raw.album && typeof raw.album === "object" ? String((raw.album as Record<string, unknown>).name ?? "") : "",
       id: raw.album && typeof raw.album === "object" && (raw.album as Record<string, unknown>).id ? String((raw.album as Record<string, unknown>).id) : undefined,
-      coverUrl: raw.coverImgUrl ? String(raw.coverImgUrl) : undefined,
+      coverUrl: (raw.coverImgUrl || raw.coverUrl) ? String(raw.coverImgUrl || raw.coverUrl) : undefined,
     },
     duration: Number(raw.duration ?? 0),
   }));

@@ -21,7 +21,6 @@ export default function NowPlaying() {
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [encryptedId, setEncryptedId] = useState<string | null>(null);
   const [liked, setLiked] = useState(false);
-
   // Fetch cover and ID when song changes
   useEffect(() => {
     if (!song) { setCoverUrl(null); setEncryptedId(null); setLiked(false); return; }
@@ -34,15 +33,26 @@ export default function NowPlaying() {
     }
     let cancelled = false;
     searchApi.songs(`${song.name} ${song.artist}`, 1).then((res) => {
-      if (cancelled || !res.success || !Array.isArray(res.data)) return;
-      const item = res.data[0] as Record<string, unknown> | undefined;
+      if (cancelled || !res.success || !res.data) return;
+      const data = res.data as Record<string, unknown>;
+      const records = Array.isArray(data) ? data : (data.records as Array<unknown>);
+      if (!Array.isArray(records) || records.length === 0) return;
+      const item = records[0] as Record<string, unknown> | undefined;
       if (!item) return;
       const album = item.album as Record<string, unknown> | undefined;
       const url = album?.coverUrl as string | undefined;
       const id = item.id as string | undefined;
-      if (url && id) {
-        coverCache.set(key, { url, encryptedId: id });
-        if (!cancelled) { setCoverUrl(url); setEncryptedId(id); }
+      // Always cache the ID (needed for like button), cover is optional
+      if (id) {
+        coverCache.set(key, { url: url || "", encryptedId: id });
+        if (!cancelled) {
+          if (url) setCoverUrl(url);
+          setEncryptedId(id);
+          // Check if already liked
+          songApi.isLiked(id).then(r => {
+            if (!cancelled && r.success && r.data) setLiked(r.data.liked);
+          }).catch(() => {});
+        }
       }
     });
     return () => { cancelled = true; };
@@ -176,7 +186,7 @@ export default function NowPlaying() {
             >
               <div
                 ref={fillRef}
-                className="h-full rounded-full bg-gradient-to-r from-accent via-purple to-pink relative"
+                className="h-full rounded-full bg-accent relative"
                 style={{ width: `${Math.min(progress, 100)}%` }}
               >
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-accent opacity-0 group-hover:opacity-100 smooth shadow-[0_1px_6px_rgba(240,184,196,0.3)]" />
@@ -197,7 +207,7 @@ export default function NowPlaying() {
               className={`p-5 rounded-2xl smooth ${
                 playing
                   ? "bg-accent/15 text-accent pulse-ring"
-                  : "bg-gradient-to-br from-accent to-purple text-white shadow-[0_2px_16px_rgba(240,184,196,0.2)]"
+                  : "bg-accent text-white"
               }`}
               onClick={togglePlay}
             >

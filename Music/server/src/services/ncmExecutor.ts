@@ -12,7 +12,7 @@ const CACHE_TTL: Record<string, number> = {
 
 const MUTATION_COMMANDS = [
   "play", "pause", "resume", "stop", "next", "prev", "seek", "volume",
-  "like", "dislike",
+  "like", "dislike", "playlist",
 ];
 
 function isMutation(command: string, args: string[] = []): boolean {

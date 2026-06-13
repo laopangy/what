@@ -46,7 +46,7 @@ export default function PlaylistDetail() {
             </p>
             <button
               onClick={() => { if (id) playbackApi.playPlaylist(id, undefined); }}
-              className="flex items-center gap-2 mt-4 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-accent to-purple text-white text-sm font-medium hover:shadow-[0_2px_12px_rgba(240,184,196,0.2)] smooth self-start"
+              className="flex items-center gap-2 mt-4 px-5 py-2.5 rounded-2xl bg-accent text-white text-sm font-medium hover:bg-accent-dim smooth self-start"
             >
               <Play className="w-4 h-4 fill-current" /> 播放全部
             </button>
@@ -74,7 +74,7 @@ function extractPlaylist(data: unknown): Playlist | null {
     id: String(inner.id ?? inner.originalId ?? ""),
     name: String(inner.name ?? ""),
     description: inner.describe ? String(inner.describe) : undefined,
-    coverUrl: inner.coverImgUrl ? String(inner.coverImgUrl) : undefined,
+    coverUrl: (inner.coverImgUrl || inner.coverUrl || inner.picUrl) ? String(inner.coverImgUrl || inner.coverUrl || inner.picUrl) : undefined,
     trackCount: inner.trackCount ? Number(inner.trackCount) : undefined,
     playCount: inner.playCount ? Number(inner.playCount) : undefined,
     creator: inner.creatorNickName ? { nickname: String(inner.creatorNickName) } : undefined,
@@ -97,9 +97,10 @@ function mapSong(raw: Record<string, unknown>): Song {
   const artists = Array.isArray(raw.artists)
     ? (raw.artists as Array<Record<string, unknown>>).map((a) => ({ name: String(a.name ?? ""), id: a.id ? String(a.id) : undefined }))
     : [];
-  const album = raw.album && typeof raw.album === "object"
-    ? { name: String((raw.album as Record<string, unknown>).name ?? ""), id: (raw.album as Record<string, unknown>).id ? String((raw.album as Record<string, unknown>).id) : undefined, coverUrl: (raw.album as Record<string, unknown>).coverImgUrl ? String((raw.album as Record<string, unknown>).coverImgUrl) : undefined }
-    : { name: "", id: undefined, coverUrl: undefined };
+  const al = raw.album as Record<string, unknown> | undefined;
+  const album = al
+    ? { name: String(al.name ?? ""), id: al.id ? String(al.id) : undefined, coverUrl: String(al.coverUrl || al.coverImgUrl || "") }
+    : { name: "", id: undefined, coverUrl: "" };
   return {
     id: String(raw.id ?? raw.originalId ?? ""),
     name: String(raw.name ?? ""),
