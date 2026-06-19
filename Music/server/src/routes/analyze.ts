@@ -15,11 +15,11 @@ const __promptsRaw = readFileSync(__promptsPath, "utf-8");
 function extractSection(markdown: string, sectionName: string): string {
   // "main": everything before the first named section marker
   if (sectionName === "main") {
-    const idx = markdown.indexOf("\n<!-- section:");
+    const idx = markdown.search(/\r?\n<!-- section:/);
     return cleanPrompt(idx >= 0 ? markdown.slice(0, idx) : markdown);
   }
   // Named sections: extract between markers
-  const regex = new RegExp(`<!-- section: ${sectionName} -->\\n([\\s\\S]*?)(?=\\n<!-- section:|$)`, "m");
+  const regex = new RegExp(`<!-- section: ${sectionName} -->\\r?\\n([\\s\\S]*?)(?=\\r?\\n<!-- section:|$)`, "m");
   const match = markdown.match(regex);
   if (!match) throw new Error(`Section "${sectionName}" not found in style-analysis.md`);
   return cleanPrompt(match[1]);
@@ -359,14 +359,17 @@ async function callAI(systemPrompt: string, userMessage: string, maxTokens = 163
     ],
   };
 
+  // Use Buffer.from to explicitly encode UTF-8 body.
+  // Node.js v23+ validates string args for Latin-1 on Windows; passing
+  // a Buffer sidesteps that entirely and works on all versions (22+).
   const res = await fetch(url, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "x-api-key": config.deepseek.apiKey,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify(body),
+    body: Buffer.from(JSON.stringify(body), "utf-8"),
   });
 
   if (!res.ok) {
@@ -502,14 +505,15 @@ async function analyzeBatch(
     ],
   };
 
+  // Buffer encoding avoids ByteString error on Node.js v23+ Windows
   const res = await fetch(`${config.deepseek.baseUrl}/v1/messages`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "x-api-key": config.deepseek.apiKey,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify(body),
+    body: Buffer.from(JSON.stringify(body), "utf-8"),
   });
 
   if (!res.ok) {
@@ -796,10 +800,11 @@ analyzeRouter.post("/style", async (req, res, next) => {
       .object({ playlistIds: z.array(z.string()).min(1).max(20) })
       .parse(req.body);
 
-    // 1. Fetch all tracks from all playlists concurrently
+    console.log("[analyze] Step 1 — fetching tracks...");
     const trackArrays = await Promise.all(
       playlistIds.map((id) => fetchPlaylistTracks(toNumeric(id)))
     );
+    console.log("[analyze] Step 1 — done fetching tracks");
 
     // 2. Flatten and deduplicate by song ID
     const seen = new Set<string>();
@@ -823,6 +828,7 @@ analyzeRouter.post("/style", async (req, res, next) => {
 
     // 3. Map to metadata
     const allMetas = allSongs.map(mapSongMeta);
+    console.log(`[analyze] Step 3 — ${allMetas.length} songs mapped`);
 
     // 4. Check AI key
     if (!config.deepseek.apiKey) {

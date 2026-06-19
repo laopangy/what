@@ -85,13 +85,15 @@ playbackRouter.get("/state", async (_req, res, next) => {
     // Get playback state from mpv directly (more reliable than ncm-cli)
     const mpvState = await mpv.getFullState();
     if (mpvState && mpvState.filename) {
+      const meta = mpv.getCurrentMeta();
       res.json({
         success: true,
         data: {
           playing: mpvState.playing,
           song: {
+            id: mpvState.songId,
             name: mpvState.filename,
-            artist: "",
+            artist: meta?.artist || "",
             duration: mpvState.duration,
             position: mpvState.position,
           },
@@ -140,7 +142,7 @@ playbackRouter.post("/play-songs", async (req, res, next) => {
 
     const MAX = 200;
     const selected = body.songs.slice(0, MAX);
-    const trackList: { url: string; name: string; artist: string; duration: number }[] = [];
+    const trackList: Array<{ songId: string; url: string; name: string; artist: string; duration: number }> = [];
 
     const BATCH = 5;
     for (let i = 0; i < selected.length; i += BATCH) {
@@ -153,14 +155,14 @@ playbackRouter.post("/play-songs", async (req, res, next) => {
         }
         if (!id) return null;
         const urlR = await getSongUrl(id);
-        return urlR ? { url: urlR.url, name: s.name || "", artist: s.artist || "", duration: (s.duration || 0) / 1000 } : null;
+        return urlR ? { songId: String(id), url: urlR.url, name: s.name || "", artist: s.artist || "", duration: (s.duration || 0) / 1000 } : null;
       }));
       for (const r of results) { if (r) trackList.push(r); }
     }
 
     if (trackList.length === 0) { res.json({ success: false, error: "没有可播放的歌曲" }); return; }
 
-    mpv.setPlaylistTracks(trackList.map(t => ({ name: t.name, artist: t.artist })));
+    mpv.setPlaylistTracks(trackList);
     const ok = await mpv.playPlaylist(trackList);
     if (!ok) { res.json({ success: false, error: "无法启动播放器" }); return; }
 
@@ -198,6 +200,7 @@ playbackRouter.post("/play-song", async (req, res, next) => {
     // Store metadata from client (preferred) or from ncm-cli search
     if (body.name) {
       mpv.setCurrentMeta({
+        songId: String(numericId),
         name: body.name,
         artist: body.artist || "",
         duration: body.duration || 0,
@@ -213,6 +216,7 @@ playbackRouter.post("/play-song", async (req, res, next) => {
         const song = detailBody?.songs?.[0];
         if (song) {
           mpv.setCurrentMeta({
+            songId: String(numericId),
             name: song.name,
             artist: (song.ar || []).map(a => a.name).join(" / "),
             duration: (song.dt || 0) / 1000,
@@ -239,7 +243,7 @@ playbackRouter.post("/play-song", async (req, res, next) => {
     const ok = await mpv.playUrl(songUrlResult.url);
     // Set single-song metadata AFTER playUrl clears old tracks
     const meta = mpv.getCurrentMeta();
-    if (meta) mpv.setPlaylistTracks([{ name: meta.name, artist: meta.artist }]);
+    if (meta) mpv.setPlaylistTracks([{ ...meta, url: songUrlResult.url }]);
     if (!ok) {
       res.json({ success: false, error: "无法启动 mpv 播放器" });
       return;
@@ -311,7 +315,7 @@ playbackRouter.post("/play-playlist", async (req, res, next) => {
     const songs = songBody?.songs || [];
 
     // 3. Resolve playable URLs with cookie (parallel, but limited concurrency)
-    const trackList: { url: string; name: string; artist: string; duration: number }[] = [];
+    const trackList: Array<{ songId: string; url: string; name: string; artist: string; duration: number }> = [];
     const BATCH_SIZE = 5;
     for (let i = 0; i < songs.length; i += BATCH_SIZE) {
       const batch = songs.slice(i, i + BATCH_SIZE);
@@ -319,7 +323,8 @@ playbackRouter.post("/play-playlist", async (req, res, next) => {
         batch.map(async (song) => {
           const urlResult = await getSongUrl(song.id);
           return urlResult
-            ? {
+              ? {
+                songId: String(song.id),
                 url: urlResult.url,
                 name: song.name,
                 artist: (song.ar || []).map((a) => a.name).join(" / "),
@@ -339,7 +344,7 @@ playbackRouter.post("/play-playlist", async (req, res, next) => {
     }
 
     // 4. Save playlist metadata for queue display
-    mpv.setPlaylistTracks(trackList.map(t => ({ name: t.name, artist: t.artist })));
+    mpv.setPlaylistTracks(trackList);
 
     // 5. Play via mpv
     const ok = await mpv.playPlaylist(trackList);
@@ -399,6 +404,7 @@ playbackRouter.post("/volume", async (req, res, next) => {
 playbackRouter.post("/shuffle", async (_req, res, next) => {
   try {
     const ok = await mpv.shufflePlaylist();
+    notifyPlaybackChange();
     res.json({ success: ok });
   } catch (e) { next(e); }
 });
@@ -451,8 +457,8 @@ playbackRouter.post("/queue/add", async (req, res, next) => {
     // Track metadata
     const tracks = await mpv.getPlaylist();
     mpv.setPlaylistTracks([
-      ...tracks.map(t => ({ name: t.name, artist: t.artist })),
-      { name: body.name || "未知歌曲", artist: body.artist || "" },
+      ...tracks,
+      { songId: String(songId), url: urlResult.url, name: body.name || "未知歌曲", artist: body.artist || "" },
     ]);
     res.json({ success: true });
   } catch (e) { next(e); }

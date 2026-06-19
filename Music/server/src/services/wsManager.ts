@@ -51,13 +51,14 @@ export function setupWebSocket(server: Server): void {
 async function sendPlaybackState(ws?: WebSocket): Promise<void> {
   // Try mpvController first (direct mpv IPC — more reliable)
   const mpvState = await mpv.getState();
-  let state: { playing: boolean; song?: { name: string; artist: string; duration: number; position: number }; volume: number; currentIndex?: number; queueLength?: number };
+  let state: { playing: boolean; song?: { id?: string; name: string; artist: string; duration: number; position: number }; volume: number; currentIndex?: number; queueLength?: number };
 
   if (mpvState && mpvState.filename) {
     const meta = mpv.getCurrentMeta();
     state = {
       playing: mpvState.playing,
       song: {
+        id: mpvState.songId,
         name: meta?.name || mpvState.filename,
         artist: meta?.artist || "",
         duration: meta?.duration || mpvState.duration,

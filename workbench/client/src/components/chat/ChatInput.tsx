@@ -33,13 +33,13 @@ export default function ChatInput({ onSend, disabled }: Props) {
   const canSend = !disabled && text.trim().length > 0;
 
   return (
-    <div className="p-4">
+    <div className="px-4 pb-3 pt-2">
       <div
-        className={`flex items-end gap-3 px-4 py-2.5 rounded-2xl transition-all duration-300
-          bg-surface-raised/60 border
+        className={`flex items-end gap-3 px-3.5 py-2 rounded-xl transition-all duration-200
+          bg-surface-raised/80 border shadow-[0_10px_28px_rgb(0_0_0_/_0.22)]
           ${focused
-            ? "border-accent/40 shadow-[0_0_24px_rgb(99_102_241_/_0.12)]"
-            : "border-border/40 hover:border-border/60"
+            ? "border-accent/45 shadow-[0_10px_30px_rgb(0_0_0_/_0.3),0_0_0_1px_rgb(217_154_22_/_0.08)]"
+            : "border-border/70 hover:border-border-glow/70"
           }`}
       >
         <textarea
@@ -52,15 +52,15 @@ export default function ChatInput({ onSend, disabled }: Props) {
           placeholder="输入消息，Enter 发送，Shift+Enter 换行…"
           rows={1}
           disabled={disabled}
-          className="flex-1 resize-none bg-transparent text-[14px] text-text placeholder:text-text-dim/50 outline-none py-1.5 disabled:opacity-50 leading-relaxed"
+          className="flex-1 resize-none bg-transparent text-[12px] text-text placeholder:text-text-dim/45 outline-none py-1.5 disabled:opacity-50 leading-relaxed"
         />
 
         <button
           onClick={handleSend}
           disabled={!canSend}
-          className={`shrink-0 p-2 rounded-xl smooth flex items-center justify-center ${
+          className={`shrink-0 p-2 rounded-lg smooth flex items-center justify-center ${
             canSend
-              ? "bg-gradient-to-br from-accent to-purple text-white shadow-[0_4px_16px_rgb(99_102_241_/_0.35)] hover:shadow-[0_6px_24px_rgb(99_102_241_/_0.45)] hover:scale-105 active:scale-95"
+              ? "bg-accent text-[#17130a] shadow-[0_4px_14px_rgb(217_154_22_/_0.18)] hover:bg-accent-dim"
               : disabled
                 ? "bg-accent/10 text-accent-dim/60"
                 : "bg-surface text-text-dim/30"

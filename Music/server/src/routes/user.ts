@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { createRequire } from "module";
 import { runNcm } from "../services/ncmExecutor.js";
-import { isLoggedIn, getLoginQr, checkLoginQr } from "../services/authHelper.js";
+import { isLoggedIn, getLoginQr, checkLoginQr, clearCookie } from "../services/authHelper.js";
 
 async function gateLogin(): Promise<{ needLogin: true; qrKey: string; qrimg: string; message: string } | null> {
   const status = await isLoggedIn();
@@ -147,7 +147,10 @@ userRouter.post("/login", async (_req, res, next) => {
 
 userRouter.post("/logout", async (_req, res, next) => {
   try {
+    // Clear ncm-cli session (if any)
     const result = await runNcm("logout");
+    // Clear API cookie from .env and in-memory config
+    clearCookie();
     res.json(result);
   } catch (e) { next(e); }
 });
@@ -266,7 +269,15 @@ userRouter.get("/liked", async (_req, res, next) => {
       songs?: Array<Record<string, unknown>>;
     };
 
-    const songs = (tracksBody.songs || []).map(mapSong);
+    // song_detail does not guarantee that songs follow the requested ID order.
+    // Restore the order returned by likelist so the UI matches Netease Cloud Music.
+    const tracksById = new Map(
+      (tracksBody.songs || []).map((track) => [String(track.id ?? ""), track]),
+    );
+    const songs = trackIds.flatMap((id) => {
+      const track = tracksById.get(String(id));
+      return track ? [mapSong(track)] : [];
+    });
     res.json({ success: true, data: songs });
   } catch (e) { next(e); }
 });

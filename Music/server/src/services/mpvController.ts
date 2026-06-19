@@ -10,7 +10,22 @@ import { spawn, type ChildProcess } from "child_process";
 import { createConnection, type Socket } from "net";
 
 const IPC_PIPE = "\\\\.\\pipe\\mpv-socket";
-const MPV_EXE = "mpv.com";
+// Try common install locations — shell:true spawn inherits parent env, so
+// mpv may not be in PATH if it was installed after the server started.
+import { existsSync } from "fs";
+function findMpv(): string {
+  const candidates = [
+    "C:/Program Files/MPV Player/mpv.com",          // winget default
+    "C:/Program Files/mpv/mpv.com",                 // manual install
+    "C:/Program Files (x86)/mpv/mpv.com",
+  ];
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return "mpv.com"; // PATH fallback
+}
+const MPV_EXE = findMpv();
+console.log("[mpvController] Using mpv at:", MPV_EXE);
 
 // ── IPC helpers ──────────────────────────────────────────────────────────────
 // Single-command send
@@ -80,21 +95,85 @@ function sendCommands(cmds: Record<string, unknown>[]): Promise<Record<string, u
 }
 
 // ── Metadata tracking ───────────────────────────────────────────────────────
-let currentMeta: { name: string; artist: string; duration: number } | null = null;
+export interface PlaylistTrack {
+  songId?: string;
+  name: string;
+  artist: string;
+  url?: string;
+  duration?: number;
+  mpvEntryId?: number;
+}
 
-export function setCurrentMeta(meta: { name: string; artist: string; duration: number } | null): void {
+let currentMeta: PlaylistTrack | null = null;
+
+export function setCurrentMeta(meta: PlaylistTrack | null): void {
   currentMeta = meta;
 }
 
-export function getCurrentMeta(): { name: string; artist: string; duration: number } | null {
+export function getCurrentMeta(): PlaylistTrack | null {
   return currentMeta;
 }
 
-// Track playlist metadata for queue display
-let playlistTracks: { name: string; artist: string; url?: string }[] = [];
+// Track playlist metadata for queue display and auto-advance detection
+let playlistTracks: PlaylistTrack[] = [];
+let lastTrackPos = -1; // used to detect auto-advance
 
-export function setPlaylistTracks(tracks: { name: string; artist: string; url?: string }[]): void {
+export function setPlaylistTracks(tracks: PlaylistTrack[]): void {
   playlistTracks = tracks;
+  lastTrackPos = -1; // reset so next getState detects the current track
+}
+
+interface MpvPlaylistEntry {
+  id?: number;
+  filename?: string;
+}
+
+async function getMpvPlaylistEntries(): Promise<MpvPlaylistEntry[]> {
+  const result = await sendCommand({ command: ["get_property", "playlist"] });
+  return Array.isArray(result.data) ? result.data as MpvPlaylistEntry[] : [];
+}
+
+/** Bind mpv's stable entry IDs to our metadata while both lists share an order. */
+async function bindPlaylistEntryIds(): Promise<void> {
+  try {
+    const entries = await getMpvPlaylistEntries();
+    if (entries.length !== playlistTracks.length) return;
+    playlistTracks = playlistTracks.map((track, index) => ({
+      ...track,
+      mpvEntryId: entries[index]?.id,
+      url: track.url || entries[index]?.filename,
+    }));
+  } catch { /* ignore */ }
+}
+
+/** Follow mpv's real order after playlist-shuffle instead of trusting old indexes. */
+async function syncPlaylistOrderFromMpv(): Promise<void> {
+  const entries = await getMpvPlaylistEntries();
+  if (entries.length === 0 || playlistTracks.length === 0) return;
+
+  const byEntryId = new Map(
+    playlistTracks
+      .filter((track) => typeof track.mpvEntryId === "number")
+      .map((track) => [track.mpvEntryId as number, track]),
+  );
+  const remaining = [...playlistTracks];
+  const reordered: PlaylistTrack[] = [];
+
+  for (const entry of entries) {
+    let track = typeof entry.id === "number" ? byEntryId.get(entry.id) : undefined;
+    if (!track && entry.filename) {
+      track = remaining.find((candidate) => candidate.url === entry.filename);
+    }
+    if (!track) return;
+    reordered.push(track);
+    const index = remaining.indexOf(track);
+    if (index >= 0) remaining.splice(index, 1);
+  }
+
+  if (reordered.length === playlistTracks.length) {
+    playlistTracks = reordered;
+    lastTrackPos = -1;
+  }
 }
 
 export async function appendToPlaylist(url: string): Promise<boolean> {
@@ -113,7 +192,7 @@ export async function removeFromPlaylist(index: number): Promise<boolean> {
   } catch { return false; }
 }
 
-export async function getPlaylist(): Promise<{ index: number; name: string; artist: string; current: boolean }[]> {
+export async function getPlaylist(): Promise<Array<PlaylistTrack & { index: number; current: boolean }>> {
   try {
     let currentPos = -1;
     try {
@@ -126,6 +205,10 @@ export async function getPlaylist(): Promise<{ index: number; name: string; arti
       index: i,
       name: meta.name,
       artist: meta.artist,
+      songId: meta.songId,
+      url: meta.url,
+      duration: meta.duration,
+      mpvEntryId: meta.mpvEntryId,
       current: i === currentPos,
     }));
   } catch {
@@ -164,6 +247,8 @@ async function doStart(): Promise<boolean> {
   }
 
   return new Promise((resolve) => {
+    // Use full path to mpv.com and shell:true to avoid ByteString errors on Windows
+    // Node.js v23+ has stricter argument validation that can fail with env vars containing non-ASCII
     mpvProc = spawn(MPV_EXE, [
       `--input-ipc-server=${IPC_PIPE}`,
       "--idle=yes",
@@ -246,7 +331,7 @@ export async function playUrl(url: string): Promise<boolean> {
  * Clears existing playlist, loads all tracks, and starts playing from the first.
  */
 export async function playPlaylist(
-  tracks: { url: string; name?: string; artist?: string; duration?: number }[],
+  tracks: Array<PlaylistTrack & { url: string }>,
 ): Promise<boolean> {
   const ok = await ensureMpv();
   if (!ok) return false;
@@ -262,6 +347,7 @@ export async function playPlaylist(
     // Save metadata for the first track
     if (tracks[0].name) {
       currentMeta = {
+        songId: tracks[0].songId,
         name: tracks[0].name,
         artist: tracks[0].artist || "",
         duration: tracks[0].duration || 0,
@@ -272,6 +358,8 @@ export async function playPlaylist(
     for (let i = 1; i < tracks.length; i++) {
       await sendCommand({ command: ["loadfile", tracks[i].url, "append"] });
     }
+
+    await bindPlaylistEntryIds();
 
     // Start playback
     await sendCommand({ command: ["set_property", "pause", false] });
@@ -331,7 +419,7 @@ async function syncMetaFromPlaylist(): Promise<void> {
     const pos = (posRes as any)?.data;
     if (typeof pos === "number" && pos >= 0 && pos < playlistTracks.length) {
       const t = playlistTracks[pos];
-      currentMeta = { name: t.name, artist: t.artist, duration: currentMeta?.duration || 0 };
+      currentMeta = { ...t, duration: t.duration || currentMeta?.duration || 0 };
     }
   } catch { /* ignore */ }
 }
@@ -378,6 +466,8 @@ export async function setVolume(level: number): Promise<boolean> {
 export async function shufflePlaylist(): Promise<boolean> {
   try {
     await sendCommand({ command: ["playlist-shuffle"] });
+    await syncPlaylistOrderFromMpv();
+    await syncMetaFromPlaylist();
     return true;
   } catch { return false; }
 }
@@ -409,6 +499,7 @@ export interface MpvState {
   position: number;
   volume: number;
   paused: boolean;
+  songId?: string;
 }
 
 // ── State queries ───────────────────────────────────────────────────────────
@@ -447,7 +538,19 @@ export async function getState(): Promise<MpvState | null> {
         const pos = (posRes as any)?.data;
         if (typeof pos === "number" && pos >= 0 && pos < playlistTracks.length) {
           const t = playlistTracks[pos];
-          currentMeta = { name: t.name, artist: t.artist, duration: currentMeta?.duration || 0 };
+          // Detect auto-advance: position changed → reset timer & metadata
+          if (pos !== lastTrackPos) {
+            lastTrackPos = pos;
+            playingSince = Date.now();
+            currentMeta = {
+              ...t,
+              name: t.name,
+              artist: t.artist,
+              duration: t.duration || currentMeta?.duration || 0,
+            };
+          } else {
+            currentMeta = { ...t, duration: t.duration || currentMeta?.duration || 0 };
+          }
         }
       } catch { /* ignore */ }
     }
@@ -459,6 +562,7 @@ export async function getState(): Promise<MpvState | null> {
       position,
       volume: 70,
       paused,
+      songId: currentMeta?.songId,
     };
   } catch {
     // IPC busy — fall back to process check
@@ -469,6 +573,7 @@ export async function getState(): Promise<MpvState | null> {
       position: playingSince ? (Date.now() - playingSince) / 1000 : 0,
       volume: 70,
       paused: false,
+      songId: currentMeta?.songId,
     };
   }
 }
@@ -478,6 +583,7 @@ let cachedFullState: MpvState | null = null;
 
 export async function getFullState(): Promise<MpvState | null> {
   try {
+    await syncMetaFromPlaylist();
     const r1 = await sendCommand({ command: ["get_property", "pause"] }).catch(() => null);
     const r2 = await sendCommand({ command: ["get_property", "duration"] }).catch(() => null);
     const r3 = await sendCommand({ command: ["get_property", "time-pos"] }).catch(() => null);
@@ -495,6 +601,7 @@ export async function getFullState(): Promise<MpvState | null> {
       position: Math.min((pos as number) || 0, (dur as number) || currentMeta?.duration || 0),
       volume: (vol as number) || 70,
       paused: (paus as boolean) || false,
+      songId: currentMeta?.songId,
     };
 
     cachedFullState = state;

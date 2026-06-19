@@ -1,6 +1,6 @@
 # 阿潘阿潘潘的工具栈 (what)
 
-个人工具栈项目，集成音乐播放、AI 助手、骑行、健身、旅游等模块。
+个人工具栈项目，集成音乐播放、AI 助手、定时器、骑行、健身、旅游等模块。
 
 ## 项目结构
 
@@ -17,6 +17,12 @@ what/
 │   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
 │   ├── server/             # Express 5 + TypeScript（调用 DeepSeek API）
 │   └── server/.env         # 【需创建】DeepSeek API Key
+├── Tools/                  # 🔧 工具模块（已上线）
+│   ├── package.json        # npm workspaces: ["client", "server"]
+│   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
+│   ├── server/             # Express 5 + TypeScript（node-cron 调度等）
+│   └── server/data/        # JSON 文件持久化（自动创建）
+│   └── 子工具: 定时器 ⏰
 ├── Cycling/                # 🚴 骑行模块（开发中，仅占位 package.json）
 ├── Fitness/                # 💪 健身模块（开发中，仅占位 package.json）
 └── Travel/                 # ✈️ 旅游模块（开发中，仅占位 package.json）
@@ -44,6 +50,7 @@ what/
 |------|---------|---------|
 | Music | 5173 | 3001 |
 | Workbench | 5174 | 3000 |
+| Tools | 5175 | 3002 |
 
 ### Vite 代理配置
 - Music client 的 `/api` → `http://localhost:3001`，`/ws` → `ws://localhost:3001`
@@ -146,6 +153,10 @@ npm run dev          # 同时启动 client:5173 + server:3001
 # 终端 2：启动 Workbench 模块（AI 助手）
 cd what/workbench
 npm run dev          # 同时启动 client:5174 + server:3000
+
+# 终端 3：启动 Tools 模块（工具集）
+cd what/Tools
+npm run dev          # 同时启动 client:5175 + server:3002
 ```
 
 ### 7. 访问
@@ -153,6 +164,7 @@ npm run dev          # 同时启动 client:5174 + server:3000
 - 门户页面：用浏览器打开 `what/index.html`
 - AI 工作台：http://localhost:5174
 - 音乐播放器：http://localhost:5173
+- 定时器：http://localhost:5175（工具模块首页）
 
 ## 启动验证清单
 
@@ -166,10 +178,12 @@ npm run dev          # 同时启动 client:5174 + server:3000
 | 6 | git clone 完成 | `git log -1` |
 | 7 | Music 依赖已安装 | `ls Music/node_modules/.package-lock.json` 存在 |
 | 8 | Workbench 依赖已安装 | `ls workbench/node_modules/.package-lock.json` 存在 |
-| 9 | `.env` 文件已创建 | `cat Music/server/.env workbench/server/.env` |
-| 10 | DeepSeek API Key 有效 | 启动 workbench 后发送消息测试 |
-| 11 | Music server 启动 | `curl http://localhost:3001/api/playback/state` |
-| 12 | Workbench server 启动 | `curl http://localhost:3000/api/chat` |
+| 9 | Tools 依赖已安装 | `ls Tools/node_modules/.package-lock.json` 存在 |
+| 10 | `.env` 文件已创建 | `cat Music/server/.env workbench/server/.env` |
+| 11 | DeepSeek API Key 有效 | 启动 workbench 后发送消息测试 |
+| 12 | Music server 启动 | `curl http://localhost:3001/api/playback/state` |
+| 13 | Workbench server 启动 | `curl http://localhost:3000/api/chat` |
+| 14 | Tools server 启动 | `curl http://localhost:3002/api/health` |
 
 ## 依赖关系图
 
@@ -210,6 +224,53 @@ workbench/client ──WebSocket────────────────
 | `/api/song/:id/lyric` | 歌词 |
 | `/api/playlist/created` | 创建的歌单 |
 | `/api/playlist/collected` | 收藏的歌单 |
+
+## Tools 服务器 API 端点（定时器）
+
+| 路由 | 用途 |
+|------|------|
+| `/api/timer` | 获取所有定时器 |
+| `/api/timer` (POST) | 创建定时器 |
+| `/api/timer/:id` | 获取单个定时器 |
+| `/api/timer/:id` (PUT) | 更新定时器 |
+| `/api/timer/:id` (DELETE) | 删除定时器 |
+| `/api/timer/:id/toggle` | 启用/禁用 |
+| `/api/timer/:id/trigger` | 手动触发执行 |
+| `/api/timer/:id/history` | 执行历史 |
+| `/api/timer/history/all` | 全部执行历史 |
+| `/api/health` | 健康检查 |
+
+### 定时器数据模型
+
+```json
+{
+  "id": "uuid",
+  "name": "定时器名称",
+  "description": "描述",
+  "cronExpression": "*/5 * * * *",
+  "taskType": "http-request | shell-command",
+  "taskConfig": {
+    "url": "https://...",
+    "method": "GET|POST",
+    "body": "...",
+    "command": "echo hello"
+  },
+  "enabled": true,
+  "lastRunAt": "ISO timestamp",
+  "createdAt": "ISO timestamp",
+  "updatedAt": "ISO timestamp"
+}
+```
+
+## Tools 服务器配置项
+
+配置通过 `Tools/server/src/config.ts` 从环境变量读取：
+
+| 环境变量 | 默认值 | 说明 |
+|----------|--------|------|
+| `PORT` | `3002` | 服务器端口 |
+| `CORS_ORIGIN` | `http://localhost:5175` | 允许的跨域来源 |
+| `DATA_DIR` | `../data` | JSON 数据存储目录 |
 
 ## Music 服务器配置项
 

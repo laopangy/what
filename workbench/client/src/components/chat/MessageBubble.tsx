@@ -26,11 +26,11 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
   const textQrUrl = !isUser && !loginQr ? detectQrUrlInText(message.content) : null;
 
   return (
-    <div className={`flex gap-3 msg-enter ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex gap-2.5 msg-enter ${isUser ? "justify-end" : "justify-start"}`}>
       {/* AI avatar */}
       {!isUser && (
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent/20 to-purple/20 border border-accent/20 flex items-center justify-center shrink-0 mt-0.5 shadow-[0_2px_8px_rgb(99_102_241_/_0.15)]">
-          <Sparkles className="w-3.5 h-3.5 text-accent-dim" />
+        <div className="w-7 h-7 rounded-lg bg-accent/12 border border-accent/25 flex items-center justify-center shrink-0 mt-0.5">
+          <Sparkles className="w-3.5 h-3.5 text-accent-dim" strokeWidth={1.7} />
         </div>
       )}
 
@@ -46,10 +46,10 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
 
         {/* Message bubble */}
         <div
-          className={`px-4 py-3 rounded-2xl text-[14px] leading-relaxed whitespace-pre-wrap ${
+          className={`px-3.5 py-2.5 rounded-xl text-[12px] leading-relaxed whitespace-pre-wrap ${
             isUser
-              ? "bg-gradient-to-br from-accent/20 to-purple/15 text-text rounded-br-md border border-accent/10"
-              : "glass border border-border/50 text-text rounded-bl-md"
+              ? "bg-accent/[0.13] text-text rounded-br-sm border border-accent/20"
+              : "glass border border-border/60 text-text rounded-bl-sm"
           }`}
         >
           {message.content}
@@ -62,8 +62,8 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
 
       {/* User avatar */}
       {isUser && (
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple/20 to-pink/20 border border-purple/20 flex items-center justify-center shrink-0 mt-0.5 shadow-[0_2px_8px_rgb(168_85_247_/_0.15)]">
-          <User className="w-3.5 h-3.5 text-purple" />
+        <div className="w-7 h-7 rounded-lg bg-purple/15 border border-purple/25 flex items-center justify-center shrink-0 mt-0.5">
+          <User className="w-3.5 h-3.5 text-[#b9829d]" strokeWidth={1.7} />
         </div>
       )}
     </div>

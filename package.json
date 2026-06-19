@@ -7,14 +7,15 @@
   "scripts": {
     "start": "npm run dev",
     "predev": "node scripts/clean-ports.js",
-    "dev": "concurrently -n music,workbench,electron -c blue,green,magenta \"cd Music && npm run dev\" \"cd workbench && npm run dev\" \"wait-on http-get://localhost:5174 && electron .\"",
+    "dev": "concurrently -n tools,music,workbench,electron -c yellow,blue,green,magenta \"cd Tools && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\" \"wait-on http-get://localhost:5174 && electron .\"",
     "dev:electron": "electron .",
-    "dev:web": "concurrently -n music,workbench -c blue,green \"cd Music && npm run dev\" \"cd workbench && npm run dev\"",
+    "dev:web": "concurrently -n tools,music,workbench -c yellow,blue,green \"cd Tools && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\"",
     "login": "cd Music && npx tsx server/src/scripts/login.ts",
     "build:music": "cd Music/client && npm run build",
     "build:workbench": "cd workbench/client && npm run build",
-    "build": "npm run build:music && npm run build:workbench && electron-builder --win",
-    "postinstall": "cd Music && npm install && cd ../workbench && npm install"
+    "build:tools": "cd Tools/client && npm run build",
+    "build": "npm run build:music && npm run build:workbench && npm run build:tools && electron-builder --win",
+    "postinstall": "cd Music && npm install && cd ../workbench && npm install && cd ../Tools && npm install"
   },
   "build": {
     "appId": "com.laopangy.what",
@@ -31,7 +32,11 @@
       "workbench/client/dist/**/*",
       "workbench/server/src/**/*",
       "workbench/server/package.json",
-      "workbench/server/tsconfig.json"
+      "workbench/server/tsconfig.json",
+      "Tools/client/dist/**/*",
+      "Tools/server/src/**/*",
+      "Tools/server/package.json",
+      "Tools/server/tsconfig.json"
     ],
     "extraResources": [
       {
@@ -41,6 +46,10 @@
       {
         "from": "workbench/server",
         "to": "workbench-server"
+      },
+      {
+        "from": "Tools/server",
+        "to": "tools-server"
       }
     ],
     "win": {

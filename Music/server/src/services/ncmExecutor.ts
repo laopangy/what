@@ -1,6 +1,10 @@
-import { exec } from "child_process";
+import { spawn } from "child_process";
 import { config } from "../config.js";
 import type { NcmResult } from "../types/ncm.js";
+import { writeFileSync, unlinkSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import { randomUUID } from "crypto";
 
 const cache = new Map<string, { data: unknown; expiry: number }>();
 const CACHE_TTL: Record<string, number> = {
@@ -49,33 +53,71 @@ export async function runNcm<T = unknown>(
     const quoted = allArgs.map((a) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a));
     const cmd = `${config.ncmCliCommand} ${config.ncmCliArgs.join(" ")} ${quoted.join(" ")}`;
     console.log(`[ncmExecutor] ${command} ${args.join(" ")}`);
-    exec(
-      cmd,
-      { timeout: 30_000, maxBuffer: 10 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (error) {
-          const msg = stderr || error.message;
-          resolve({ success: false, error: msg });
-          return;
-        }
 
-        const trimmed = stdout.trim();
-        if (!trimmed && isMutation(command, args)) {
-          console.warn(`[ncmExecutor] empty stdout for mutation: ${command} ${args.join(" ")}`);
-          resolve({ success: true, data: { ok: true } as T });
-          return;
-        }
-        try {
-          const data = JSON.parse(trimmed) as T;
-          if (!isMutation(command, args)) {
-            cache.set(cacheKey, { data, expiry: Date.now() + getCacheTTL(command) });
-          }
-          resolve({ success: true, data });
-        } catch {
-          resolve({ success: false, error: `Failed to parse JSON: ${stdout.slice(0, 200)}` });
-        }
+    // Write command to temp .bat file to avoid ByteString error on Node.js v24+
+    // Node.js v23+ validates spawn args for Latin-1, but song names/search keywords
+    // often contain Chinese characters (e.g. U+4F60 '你')
+    const tmpFile = join(tmpdir(), `ncm-${randomUUID()}.bat`);
+    const batContent = `@echo off\r\nchcp 65001 >nul 2>&1\r\n${cmd}\r\n`;
+    writeFileSync(tmpFile, batContent, "utf8");
+
+    const child = spawn("cmd.exe", ["/c", tmpFile], {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    const timeout = setTimeout(() => {
+      child.kill();
+      cleanup();
+      resolve({ success: false, error: "Command timed out" });
+    }, 30_000);
+
+    const cleanup = () => {
+      try { unlinkSync(tmpFile); } catch { /* ignore */ }
+    };
+
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      cleanup();
+
+      if (code !== 0 && code !== null) {
+        const msg = stderr || `Exit code: ${code}`;
+        resolve({ success: false, error: msg });
+        return;
       }
-    );
+
+      const trimmed = stdout.trim();
+      if (!trimmed && isMutation(command, args)) {
+        console.warn(`[ncmExecutor] empty stdout for mutation: ${command} ${args.join(" ")}`);
+        resolve({ success: true, data: { ok: true } as T });
+        return;
+      }
+      try {
+        const data = JSON.parse(trimmed) as T;
+        if (!isMutation(command, args)) {
+          cache.set(cacheKey, { data, expiry: Date.now() + getCacheTTL(command) });
+        }
+        resolve({ success: true, data });
+      } catch {
+        resolve({ success: false, error: `Failed to parse JSON: ${stdout.slice(0, 200)}` });
+      }
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timeout);
+      cleanup();
+      resolve({ success: false, error: err.message });
+    });
   });
 }
 

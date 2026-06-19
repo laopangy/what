@@ -21,49 +21,49 @@ export default function ChatPanel() {
   }, [messages, isLoading]);
 
   return (
-    <div className="flex flex-col h-full max-w-4xl mx-auto w-full">
+    <div className="flex flex-col h-full max-w-[860px] mx-auto w-full relative">
       {messages.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-8 px-6">
+        <div className="flex-1 flex flex-col items-center justify-center gap-5 px-6 pb-8">
           {/* Animated logo */}
           <div className="relative">
-            <div className="absolute inset-0 rounded-3xl bg-accent/20 blur-2xl animate-pulse" />
-            <div className="relative w-24 h-24 rounded-[1.75rem] bg-gradient-to-br from-accent via-purple to-pink flex items-center justify-center shadow-[0_8px_40px_rgb(99_102_241_/_0.35)] float">
-              <Sparkles className="w-12 h-12 text-white" />
+            <div className="absolute -inset-3 rounded-2xl bg-accent/10 blur-2xl" />
+            <div className="relative w-16 h-16 rounded-xl bg-accent flex items-center justify-center border border-[#f0c451]/50 shadow-[0_14px_32px_rgb(0_0_0_/_0.35)]">
+              <Sparkles className="w-8 h-8 text-[#17130a]" strokeWidth={1.7} />
             </div>
           </div>
 
           {/* Title */}
-          <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold text-text tracking-tight">
-              阿潘阿潘潘的<span className="bg-gradient-to-r from-accent via-purple to-pink bg-clip-text text-transparent">工作台</span>
+          <div className="text-center space-y-1.5">
+            <p className="text-[9px] uppercase tracking-[0.3em] text-accent-dim/65">Personal operating desk</p>
+            <h1 className="text-2xl font-semibold text-text tracking-tight">
+              阿潘阿潘潘的<span className="text-accent-dim">工作台</span>
             </h1>
-            <p className="text-text-dim/70 text-[15px] max-w-sm leading-relaxed">
+            <p className="text-text-dim/65 text-[12px] max-w-sm leading-relaxed">
               AI 智能助手 · 操控音乐、健身、骑行等模块
             </p>
           </div>
 
           {/* Hint chips */}
-          <div className="flex flex-wrap gap-2.5 justify-center max-w-lg">
+          <div className="grid grid-cols-2 gap-2 max-w-md w-full">
             {hints.map(({ text, icon: Icon }, i) => (
               <button
                 key={text}
                 onClick={() => sendMessage(text)}
-                className="group px-4 py-2.5 rounded-xl bg-surface-raised/60 border border-border/40 text-text-dim text-sm
-                           hover:bg-accent/10 hover:border-accent/30 hover:text-accent-dim smooth
-                           hover:shadow-[0_4px_20px_rgb(99_102_241_/_0.1)]"
+                className="group px-3 py-2 rounded-lg bg-surface-raised/65 border border-border/60 text-text-dim text-[11px] text-left
+                           hover:bg-accent/[0.08] hover:border-accent/30 hover:text-text smooth"
                 style={{ animationDelay: `${i * 80}ms` }}
               >
-                <Icon className="w-3.5 h-3.5 inline mr-2 group-hover:scale-110 smooth" />
+                <Icon className="w-3.5 h-3.5 inline mr-2 text-accent-dim/75 group-hover:text-accent-dim smooth" strokeWidth={1.7} />
                 {text}
               </button>
             ))}
           </div>
 
           {/* Bottom hint */}
-          <p className="text-xs text-text-dim/40">Shift + Enter 换行 · Enter 发送</p>
+          <p className="text-[10px] text-text-dim/35">Shift + Enter 换行 · Enter 发送</p>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           {messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} />
           ))}

@@ -96,10 +96,10 @@ export default function MiniPlayer() {
 
   return (
     <div
-      className="fixed z-50 flex items-center gap-2.5 px-3 py-2 rounded-2xl
-        bg-surface-raised/90 backdrop-blur-xl border border-accent/20
-        shadow-[0_8px_32px_rgb(0_0_0_/_0.4),0_0_0_1px_rgb(99_102_241_/_0.1)]
-        hover:border-accent/40 hover:shadow-[0_8px_40px_rgb(0_0_0_/_0.5),0_0_20px_rgb(99_102_241_/_0.15)]
+      className="fixed z-50 flex items-center gap-2.5 px-3 py-2 rounded-xl
+        bg-surface-raised/95 backdrop-blur-xl border border-border-glow/70
+        shadow-[0_10px_30px_rgb(0_0_0_/_0.5)]
+        hover:border-accent/45
         smooth select-none max-w-[300px]"
       style={{ left: drag.x, top: drag.y }}
     >
@@ -113,7 +113,7 @@ export default function MiniPlayer() {
         onClick={togglePlay}
         className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 smooth ${
           playing
-            ? "bg-gradient-to-br from-accent/30 to-purple/30 border border-accent/30 shadow-[0_2px_8px_rgb(99_102_241_/_0.2)]"
+            ? "bg-accent/20 border border-accent/35"
             : "bg-accent/10 hover:bg-accent/15 border border-transparent"
         }`}
       >
@@ -139,7 +139,7 @@ export default function MiniPlayer() {
         {song && song.duration > 0 && (
           <div className="mt-1 h-[3px] rounded-full bg-border/40 overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-accent to-purple smooth"
+              className="h-full rounded-full bg-accent smooth"
               style={{ width: `${Math.min(progress, 100)}%` }}
             />
           </div>

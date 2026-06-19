@@ -23,5 +23,5 @@ export default function MusicEmbed() {
     };
   }, []);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return <div ref={containerRef} className="w-full h-full bg-bg border-l border-border/30" />;
 }

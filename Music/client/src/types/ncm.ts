@@ -1,6 +1,7 @@
 export interface PlaybackState {
   playing: boolean;
   song?: {
+    id?: string;
     name: string;
     artist: string;
     duration: number;

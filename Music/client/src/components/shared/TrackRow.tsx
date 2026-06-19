@@ -22,6 +22,7 @@ export default function TrackRow({
     updateStore({
       playing: true,
       song: {
+        id: song.encryptedId || (song.originalId ? String(song.originalId) : undefined),
         name: song.name,
         artist: song.artists?.map(a => a.name).join(" / ") || "",
         duration: song.duration / 1000,

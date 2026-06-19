@@ -26,12 +26,13 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => ({
   lastSeekTime: 0,
 
   update: (state) => {
-    const { lastSeekTime, localPosition, lastUpdateTime, song: currentSong, playing: wasPlaying } = get();
+    const { currentSongId, lastSeekTime, localPosition, lastUpdateTime, song: currentSong, playing: wasPlaying } = get();
     const now = Date.now();
 
     // Detect song change: fully sync position from server
     const songChanged = currentSong?.name !== state.song?.name
-      || currentSong?.artist !== state.song?.artist;
+      || currentSong?.artist !== state.song?.artist
+      || (!!state.song?.id && currentSongId !== state.song.id);
 
     // Compute where tick() thinks we are right now
     const computedNow = wasPlaying && currentSong
@@ -57,6 +58,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => ({
     set({
       playing: state.playing,
       song: state.song || currentSong,
+      ...(songChanged ? { currentSongId: state.song?.id ?? null } : {}),
       localPosition: usePosition,
       lastUpdateTime: now,
     });

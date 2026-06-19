@@ -11,6 +11,7 @@ interface NcmStateRaw {
 export interface NormalizedPlaybackState {
   playing: boolean;
   song?: {
+    id?: string;
     name: string;
     artist: string;
     duration: number;

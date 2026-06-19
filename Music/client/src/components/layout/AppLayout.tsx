@@ -34,25 +34,25 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="h-screen flex flex-col bg-bg">
-      <header className="flex-shrink-0 h-14 flex items-center justify-between px-5 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+      <header className="flex-shrink-0 h-12 flex items-center justify-between px-4 border-b border-border/70 bg-surface/95 shadow-[0_8px_24px_rgb(0_0_0_/_0.16)]">
         <button onClick={() => navigate("/")}
           className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-          <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
+          <div className="w-7 h-7 rounded-md bg-accent flex items-center justify-center">
+            <Sparkles className="w-3.5 h-3.5 text-[#17130a]" />
           </div>
-          <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 tracking-tight">Music</span>
+          <span className="text-sm font-semibold text-text tracking-wide">Music</span>
         </button>
         <div className="flex items-center gap-1">
           <button onClick={() => navigate("/", { state: { forceHome: Date.now() } })}
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="首页">
+            className="p-2 rounded-md text-text-dim hover:text-accent-dim hover:bg-accent/10 transition-colors" title="首页">
             <Home className="w-4 h-4" />
           </button>
           <button onClick={() => navigate("/search")}
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="搜索">
+            className="p-2 rounded-md text-text-dim hover:text-accent-dim hover:bg-accent/10 transition-colors" title="搜索">
             <Search className="w-4 h-4" />
           </button>
           <button onClick={() => navigate("/now-playing")}
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="正在播放">
+            className="p-2 rounded-md text-text-dim hover:text-accent-dim hover:bg-accent/10 transition-colors" title="正在播放">
             <Play className="w-4 h-4" />
           </button>
         </div>

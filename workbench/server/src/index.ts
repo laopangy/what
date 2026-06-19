@@ -1,10 +1,10 @@
-import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { config } from "./config.js";
 import { registerPlugin } from "./tools/toolRegistry.js";
 import { musicPlugin } from "./tools/musicPlugin.js";
 import { chatRouter } from "./routes/chat.js";
+import { journalRouter } from "./routes/journal.js";
 import { errorHandler, logger } from "./middleware/errorHandler.js";
 
 registerPlugin(musicPlugin);
@@ -15,6 +15,7 @@ app.use(express.json());
 app.use(logger);
 
 app.use("/api/chat", chatRouter);
+app.use("/api/journal", journalRouter);
 
 // Proxy Music server user/auth endpoints for the client
 app.use("/api/music", async (req, res) => {
@@ -22,8 +23,9 @@ app.use("/api/music", async (req, res) => {
     const target = `${config.modules.music}${req.url}`;
     const fetchRes = await fetch(target, {
       method: req.method,
-      headers: { "Content-Type": "application/json" },
-      body: req.method !== "GET" && req.method !== "HEAD" ? JSON.stringify(req.body) : undefined,
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      // Buffer avoids ByteString error on Node.js v23+ Windows
+      body: req.method !== "GET" && req.method !== "HEAD" ? Buffer.from(JSON.stringify(req.body), "utf-8") : undefined,
     });
     const json = await fetchRes.json();
     res.status(fetchRes.status).json(json);

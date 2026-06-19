@@ -40,7 +40,7 @@ export default function LoginQRCard({ qrCodeUrl, message }: Props) {
 
   if (loggedIn) {
     return (
-      <div className="my-3 p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-mint-500/5 border border-emerald-500/30 text-center shadow-[0_4px_20px_rgb(52_211_153_/_0.1)]">
+      <div className="my-3 p-5 rounded-xl bg-accent-mint/10 border border-accent-mint/30 text-center">
         <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto mb-3">
           <Check className="w-5 h-5 text-emerald-400" />
         </div>
@@ -54,11 +54,11 @@ export default function LoginQRCard({ qrCodeUrl, message }: Props) {
 
   if (!qrCodeUrl) {
     return (
-      <div className="my-3 p-5 rounded-2xl bg-surface-raised/60 border border-border/40 text-center">
+      <div className="my-3 p-5 rounded-xl bg-surface-raised/60 border border-border/60 text-center">
         <p className="text-sm text-text-dim">{message || "请先登录网易云音乐"}</p>
         <button
           onClick={() => window.open("http://localhost:5173/now-playing", "_blank")}
-          className="mt-3 px-5 py-2.5 rounded-xl bg-gradient-to-r from-accent/20 to-purple/20 border border-accent/20 text-accent-dim text-sm font-medium hover:from-accent/30 hover:to-purple/30 smooth"
+          className="mt-3 px-5 py-2.5 rounded-lg bg-accent/15 border border-accent/25 text-accent-dim text-sm font-medium hover:bg-accent/20 smooth"
         >
           打开音乐播放器登录
         </button>
@@ -67,7 +67,7 @@ export default function LoginQRCard({ qrCodeUrl, message }: Props) {
   }
 
   return (
-    <div className="my-3 p-5 rounded-2xl bg-surface-raised/40 border border-accent/20 shadow-[0_4px_24px_rgb(99_102_241_/_0.08)]">
+    <div className="my-3 p-5 rounded-xl bg-surface-raised/55 border border-accent/20 shadow-[0_12px_28px_rgb(0_0_0_/_0.2)]">
       <div className="flex items-center gap-2.5 mb-4">
         <div className="w-7 h-7 rounded-lg bg-accent/15 border border-accent/20 flex items-center justify-center">
           <QrCode className="w-3.5 h-3.5 text-accent-dim" />

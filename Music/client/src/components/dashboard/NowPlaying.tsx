@@ -24,11 +24,21 @@ export default function NowPlaying() {
   // Fetch cover and ID when song changes
   useEffect(() => {
     if (!song) { setCoverUrl(null); setEncryptedId(null); setLiked(false); return; }
-    const key = `${song.name}|${song.artist}`;
+    const key = `${currentSongId ?? ""}|${song.name}|${song.artist}`;
+    setCoverUrl(null);
+    setEncryptedId(currentSongId);
+    setLiked(false);
+
+    if (currentSongId) {
+      songApi.isLiked(currentSongId).then((result) => {
+        if (result.success && result.data) setLiked(result.data.liked);
+      }).catch(() => {});
+    }
+
     if (coverCache.has(key)) {
       const cached = coverCache.get(key)!;
       setCoverUrl(cached.url);
-      setEncryptedId(cached.encryptedId);
+      setEncryptedId(currentSongId || cached.encryptedId);
       return;
     }
     let cancelled = false;
@@ -41,7 +51,7 @@ export default function NowPlaying() {
       if (!item) return;
       const album = item.album as Record<string, unknown> | undefined;
       const url = album?.coverUrl as string | undefined;
-      const id = item.id as string | undefined;
+      const id = currentSongId || item.id as string | undefined;
       // Always cache the ID (needed for like button), cover is optional
       if (id) {
         coverCache.set(key, { url: url || "", encryptedId: id });
@@ -49,14 +59,16 @@ export default function NowPlaying() {
           if (url) setCoverUrl(url);
           setEncryptedId(id);
           // Check if already liked
-          songApi.isLiked(id).then(r => {
-            if (!cancelled && r.success && r.data) setLiked(r.data.liked);
-          }).catch(() => {});
+          if (!currentSongId) {
+            songApi.isLiked(id).then(r => {
+              if (!cancelled && r.success && r.data) setLiked(r.data.liked);
+            }).catch(() => {});
+          }
         }
       }
     });
     return () => { cancelled = true; };
-  }, [song?.name, song?.artist]);
+  }, [song?.name, song?.artist, currentSongId]);
 
   const toggleLike = () => {
     if (!encryptedId) return;

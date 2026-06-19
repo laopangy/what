@@ -1,22 +1,37 @@
 @import "tailwindcss";
 
-/* ===================================================================
-   Cold Luxury Design Tokens
-   zinc + bone + rose — no warm cream, no AI purple, no glassmorphism
-   =================================================================== */
+/* Cinematic amber design tokens shared with the desktop workbench. */
 
 @theme {
-  --color-accent: #e11d48;
-  --color-accent-dim: #be123c;
-  --color-accent-soft: #ffe4e6;
-  --color-surface: #ffffff;
-  --color-surface-raised: #ffffff;
-  --color-surface-glass: rgb(255 255 255 / 0.92);
-  --color-border: #e4e4e7;
-  --color-border-glow: #d4d4d8;
-  --color-text: #18181b;
-  --color-text-dim: #a1a1aa;
-  --color-bg: #fafafa;
+  --color-accent: #d99a16;
+  --color-accent-dim: #f0c451;
+  --color-accent-soft: #453712;
+  --color-surface: #15140e;
+  --color-surface-raised: #211f15;
+  --color-surface-glass: rgb(21 20 14 / 0.92);
+  --color-border: #39331f;
+  --color-border-glow: #5b4d25;
+  --color-text: #eee6cc;
+  --color-text-dim: #9c947b;
+  --color-bg: #0b0b08;
+  --color-zinc-50: #f7f1dc;
+  --color-zinc-100: #eee6cc;
+  --color-zinc-200: #d8cfb2;
+  --color-zinc-300: #bfb69b;
+  --color-zinc-400: #9c947b;
+  --color-zinc-500: #7d765f;
+  --color-zinc-600: #5f5947;
+  --color-zinc-700: #494331;
+  --color-zinc-800: #302d20;
+  --color-zinc-900: #211f15;
+  --color-zinc-950: #0b0b08;
+  --color-rose-400: #f0c451;
+  --color-rose-500: #d99a16;
+  --color-rose-600: #b7790d;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.75rem;
+  --radius-3xl: 1rem;
 }
 
 /* ---- Base ---- */
@@ -33,6 +48,7 @@ body {
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.01em;
 }
 
 /* Theme image overlay — set via JS when a theme image is selected */
@@ -42,7 +58,9 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background: none;
+  background:
+    radial-gradient(ellipse 75% 55% at 55% -10%, rgb(217 154 22 / 0.11), transparent 60%),
+    repeating-linear-gradient(0deg, rgb(255 238 180 / 0.012) 0 1px, transparent 1px 4px);
 }
 
 #root {
@@ -50,13 +68,22 @@ body::before {
   z-index: 1;
 }
 
-/* ---- Panels — solid white + hairline border, no glass ---- */
+/* Legacy light/dark utility pairs now resolve to the single cinematic theme. */
+.bg-white { background-color: var(--color-surface) !important; }
+.bg-zinc-50, .bg-zinc-100 { background-color: var(--color-surface-raised) !important; }
+.text-zinc-800, .text-zinc-700 { color: var(--color-text) !important; }
+.text-zinc-500, .text-zinc-400, .text-zinc-300 { color: var(--color-text-dim) !important; }
+.border-zinc-200, .border-zinc-100 { border-color: var(--color-border) !important; }
+.ring-zinc-200, .ring-zinc-200\/80 { --tw-ring-color: rgb(57 51 31 / 0.8) !important; }
+.divide-zinc-100 > :not(:last-child) { border-color: rgb(57 51 31 / 0.65) !important; }
+
+/* ---- Panels ---- */
 .glass,
 .glass-strong {
-  background: #ffffff;
+  background: rgb(25 24 16 / 0.9);
   border: 1px solid var(--color-border);
-  border-radius: 1rem;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04);
+  border-radius: 0.625rem;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.22);
 }
 
 /* ---- Soft shadow — zinc-tinted, subtle ---- */
@@ -64,14 +91,14 @@ body::before {
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.05);
 }
 
-/* ---- Pulse ring — rose, restrained ---- */
+/* ---- Pulse ring ---- */
 .pulse-ring {
   animation: pulseRingSoft 2s ease-out infinite;
 }
 @keyframes pulseRingSoft {
-  0%   { box-shadow: 0 0 0 0 rgb(225 29 72 / 0.25); }
-  70%  { box-shadow: 0 0 0 10px rgb(225 29 72 / 0); }
-  100% { box-shadow: 0 0 0 0 rgb(225 29 72 / 0); }
+  0%   { box-shadow: 0 0 0 0 rgb(217 154 22 / 0.22); }
+  70%  { box-shadow: 0 0 0 10px rgb(217 154 22 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(217 154 22 / 0); }
 }
 
 /* ---- Entrance — simple fade-up ---- */
@@ -109,7 +136,7 @@ input[type="range"]::-webkit-slider-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #ffffff;
+  background: #211f15;
   border: 2px solid var(--color-accent);
   cursor: pointer;
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.1);
@@ -122,7 +149,7 @@ input[type="range"]::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #ffffff;
+  background: #211f15;
   border: 2px solid var(--color-accent);
   cursor: pointer;
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.1);
@@ -169,25 +196,8 @@ input[type="range"]::-moz-range-thumb {
   100% { height: 14px; }
 }
 
-/* ---- Dark mode ---- */
-@media (prefers-color-scheme: dark) {
-  .glass,
-  .glass-strong {
-    background: #18181b;
-    border-color: #27272a;
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
-  }
-
-  .soft-border {
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
-  }
-
-  input[type="range"]::-webkit-slider-thumb {
-    background: #27272a;
-    border-color: var(--color-accent);
-  }
-  input[type="range"]::-moz-range-thumb {
-    background: #27272a;
-    border-color: var(--color-accent);
-  }
+button:active, a:active { transform: translateY(1px); }
+button:focus-visible, a:focus-visible {
+  outline: 1px solid var(--color-accent-dim);
+  outline-offset: 2px;
 }

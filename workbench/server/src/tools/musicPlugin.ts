@@ -11,9 +11,10 @@ async function musicFetch<T = unknown>(
 ): Promise<T> {
   const opts: RequestInit = {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json; charset=utf-8" },
   };
-  if (body) opts.body = JSON.stringify(body);
+  // Buffer avoids ByteString error on Node.js v23+ Windows
+  if (body) opts.body = Buffer.from(JSON.stringify(body), "utf-8");
   const res = await fetch(`${MUSIC_URL}${path}`, opts);
   const json = await res.json();
   // Pass through needLogin responses from Music server

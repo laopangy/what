@@ -46,7 +46,7 @@ export default function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
     <div className="mb-1.5 text-xs">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-accent/8 border border-accent/15 text-accent-dim hover:bg-accent/12 hover:border-accent/25 smooth group"
+        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-accent/[0.07] border border-accent/20 text-accent-dim hover:bg-accent/[0.11] hover:border-accent/30 smooth group"
       >
         <Icon className="w-3 h-3 text-accent-dim/70 group-hover:text-accent-dim smooth" />
         <span className="font-medium">{label}</span>
@@ -58,7 +58,7 @@ export default function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
         </span>
       </button>
       {open && toolCall.result !== undefined && (
-        <pre className="mt-1.5 p-3 rounded-xl bg-surface-raised/60 border border-border/30 text-[11px] text-text-dim overflow-auto max-h-40 leading-relaxed">
+        <pre className="mt-1.5 p-3 rounded-lg bg-bg/70 border border-border/60 text-[10px] text-text-dim overflow-auto max-h-40 leading-relaxed">
           {JSON.stringify(toolCall.result, null, 2)}
         </pre>
       )}

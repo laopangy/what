@@ -517,7 +517,7 @@ POST /api/playback/play-song { encryptedId, originalId, name, artist, duration }
 | `/api/playback/prev` | POST | 上一首 |
 | `/api/playback/seek` | POST | 跳转（body: `{ seconds }`） |
 | `/api/playback/volume` | POST | 音量（body: `{ level }`） |
-| `/api/playback/shuffle` | POST | 🆕 随机播放 |
+| `/api/playback/shuffle` | POST | 🆕 随机播放（同步 mpv 真实队列顺序，保证歌曲信息与歌词一致） |
 | `/api/playback/loop` | POST | 🆕 循环模式（body: `{ mode }`） |
 | `/api/playback/queue` | GET | 播放队列（mpv playlist） |
 | `/api/playback/queue/add` | POST | 添加到队列 |
@@ -540,7 +540,7 @@ POST /api/playback/play-song { encryptedId, originalId, name, artist, duration }
 | `/api/user/logout` | POST | 🆕 退出登录 |
 | `/api/user/profile` | GET | 用户信息 |
 | `/api/user/history` | GET | 播放历史（`?limit=`） |
-| `/api/user/liked` | GET | 喜欢的歌曲 |
+| `/api/user/liked` | GET | 喜欢的歌曲（保持网易云收藏列表顺序，最多 200 首） |
 | `/api/song/:id/lyric` | GET | 歌词 |
 | `/api/song/:id/like` | POST | 收藏歌曲 |
 | `/api/song/:id/dislike` | POST | 取消收藏 |
@@ -666,6 +666,11 @@ authHelper.getLoginQr()
 |------|------|------|
 | `/` | `ChatPanel` | AI 对话界面 |
 | `/music` | `MusicEmbed` | 🆕 嵌入 Music 应用（Electron webview） |
+| `/journal` | `JournalEmbed` | 嵌入随手记 |
+| `/tools` | `ToolsEmbed` | 嵌入工具模块 |
+| `/cycling` | `PlaceholderPage` | 骑行模块占位页 |
+| `/fitness` | `PlaceholderPage` | 健身模块占位页 |
+| `/travel` | `PasswordGate` + `PlaceholderPage` | 密码保护的旅行模块占位页 |
 
 #### 组件树
 
@@ -687,9 +692,29 @@ App
     │   │   │   └── 🆕 LoginQRCard（登录二维码卡片，内嵌在 AI 消息中）
     │   │   ├── TypingIndicator（加载动画）
     │   │   └── ChatInput（输入框 + 发送按钮）
-    │   └── MusicEmbed（Electron webview）
+    │   ├── MusicEmbed（Electron webview）
+    │   ├── JournalEmbed / ToolsEmbed（Electron webview）
+    │   └── PlaceholderPage / PasswordGate
     └── MiniPlayer（浮动迷你播放器，可拖拽）
 ```
+
+#### 视觉设计系统（2026-08）
+
+Workbench、Music 与 Tools 使用从参考插画提炼的统一“暗室琥珀”设计语言，不直接使用参考图作为界面背景：
+
+| 令牌类型 | 规范 |
+|----------|------|
+| 背景 | `#0b0b08` 近黑褐，叠加低透明琥珀径向光与轻微横向材质纹理 |
+| 表面 | `#15140e` / `#211f15` 两级烟熏橄榄黑，用明度区分层级 |
+| 主强调 | `#d99a16` 琥珀黄；悬停/文字强调使用 `#f0c451` |
+| 辅助色 | 灰紫 `#82556e`、砖红 `#a4514d`、橄榄绿 `#7f8750`，仅用于状态和小面积提示 |
+| 文字 | 主文字 `#eee6cc`，次文字 `#9c947b`，避免纯白造成刺眼对比 |
+| 圆角 | 主要控制在 6–12px；弹窗和大容器不超过 16px |
+| 阴影/边框 | 暖灰褐细边框，短距离黑色环境阴影；取消大面积紫色霓虹光 |
+| 字号 | 正文 11–13px，页面标题 18–22px，以字重、字距和明度构建层级 |
+| 交互 | 选中项使用左侧琥珀色标记；悬停轻微提亮边框/表面；按下位移 1px；键盘焦点清晰可见 |
+
+适配规则：Workbench 侧栏宽 208px、Electron 自定义标题栏高 32px；工具统计区在窄窗口由四列降为两列，内容卡片由双列降为单列，保证 1280×800 及 900×600 仍可完整操作。
 
 #### 状态管理
 
@@ -951,6 +976,7 @@ what/
 
 **窗口管理**：
 - 主窗口（1280×800）：加载 Workbench（`localhost:5174` 开发 / `dist/index.html` 生产）
+- 使用无边框窗口和工作台自定义深色标题栏；支持拖动、双击最大化/还原，并提供定制的最小化、最大化和关闭按钮
 - 开发模式显示加载动画（带进度条和状态文字），自动重试连接（20次，每次1.5s）
 - 关闭主窗口 → 最小化到托盘（不退出）
 - 关闭窗口 → 隐藏（不销毁）
@@ -1112,8 +1138,12 @@ npm run build
 | 2025-06-09 | 潘高远 | Workbench | 🆕 **登录集成**：musicPlugin 新增 get_user_profile/get_login_qr 工具、登录预检（ensureLogin）机制、LOGIN_REQUIRED_TOOLS 集合；Workbench server 新增 `/api/music/*` 代理；LoginQRCard 组件；MusicEmbed webview 组件 | `workbench/server/src/tools/musicPlugin.ts`, `workbench/server/src/index.ts`, `workbench/client/src/components/chat/LoginQRCard.tsx`, `MusicEmbed.tsx` |
 | 2025-06-09 | 潘高远 | 根目录 | 🆕 **启动脚本**：start.bat（一键启动 + .env 检查 + Cookie 提示）、start.vbs（静默启动）、scripts/clean-ports.js（端口清理 + mpv 进程清理）、npm run login 脚本 | `start.bat`, `start.vbs`, `scripts/clean-ports.js`, `package.json` |
 | 2025-06-09 | 潘高远 | Music/后端 | 🔄 **轮询间隔调整**：wsManager 默认轮询从 5s 改为 15s（mpv IPC 轮询更轻量，降低系统开销） | `Music/server/src/config.ts`, `Music/server/src/services/wsManager.ts` |
+| 2026-08-07 | Codex | Music/后端 | 修复“我喜欢的音乐”顺序错乱：歌曲详情返回后按 `likelist` 的 ID 顺序重排，确保展示顺序与网易云一致 | `Music/server/src/routes/user.ts`, `PROJECT.md` |
+| 2026-08-07 | Codex | Electron/Workbench | 移除工作台原生白色标题栏，改为无边框窗口与自定义深色标题栏；定制最小化、最大化、关闭按钮及悬停效果，保留拖动和双击最大化操作 | `electron/main.js`, `electron/preload.js`, `workbench/client/src/components/layout/WindowTitleBar.tsx`, `WorkbenchLayout.tsx`, `PROJECT.md` |
+| 2026-08-07 | Codex | Music | 修复乱序播放后歌曲信息、时长、封面/收藏状态和歌词错位：按 mpv 稳定队列项 ID 同步真实队列，播放状态携带歌曲 ID，前端信息随切歌更新并防止旧歌词请求覆盖 | `Music/server/src/services/mpvController.ts`, `routes/playback.ts`, `services/wsManager.ts`, `Music/client/src/stores/playbackStore.ts`, `hooks/useLyrics.ts`, `types/ncm.ts`, `components/dashboard/NowPlaying.tsx`, `components/shared/TrackRow.tsx`, `PROJECT.md` |
+| 2026-08-07 | Codex | Workbench/Music/Tools | 基于参考插画重构全局视觉基调：建立暗黑褐、琥珀黄、灰橄榄与少量灰紫的跨模块设计令牌；统一标题栏、侧栏、对话、卡片、按钮、输入框、嵌入页及窄窗口响应式布局 | `workbench/client/src/index.css`, `components/**`, `Music/client/src/index.css`, `components/layout/AppLayout.tsx`, `Tools/client/src/index.css`, `components/**`, `electron/main.js`, `PROJECT.md` |
 
 ---
 
 > **文档维护者**：潘高远  
-> **最后更新**：2025-06-09
+> **最后更新**：2026-08-07

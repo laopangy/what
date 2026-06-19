@@ -58,15 +58,24 @@ async function callDeepSeek(
     body.tools = tools;
   }
 
+  // Buffer encoding avoids ByteString error on Node.js v23+ Windows
+  console.log("[chatService] callDeepSeek — building body");
+  const bodyStr = JSON.stringify(body);
+  console.log(`[chatService] callDeepSeek — body length: ${bodyStr.length}`);
+  const bodyBuf = Buffer.from(bodyStr, "utf-8");
+  console.log(`[chatService] callDeepSeek — buffer length: ${bodyBuf.length}, sending fetch...`);
+
   const res = await fetch(url, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "x-api-key": config.deepseek.apiKey,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify(body),
+    body: bodyBuf,
   });
+
+  console.log("[chatService] callDeepSeek — response received");
 
   if (!res.ok) {
     const err = await res.text();

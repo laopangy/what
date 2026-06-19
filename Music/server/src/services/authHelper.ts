@@ -166,6 +166,26 @@ export async function checkLoginQr(qrKey: string): Promise<{
   }
 }
 
+/** Clear cookie from Music/server/.env AND in-memory config */
+export function clearCookie(): void {
+  try {
+    const envPath = resolve(process.cwd(), ".env");
+    const fs = require("fs");
+    if (existsSync(envPath)) {
+      let lines = fs.readFileSync(envPath, "utf-8").split("\n");
+      lines = lines.filter((l: string) => !l.startsWith("NETEASE_COOKIE="));
+      let output = lines.join("\n");
+      if (output && !output.endsWith("\n")) output += "\n";
+      fs.writeFileSync(envPath, output);
+      console.log("[authHelper] Cookie removed from .env");
+    }
+    config.netease.cookie = "";
+    console.log("[authHelper] In-memory config cleared");
+  } catch (e) {
+    console.error("[authHelper] Failed to clear cookie:", e);
+  }
+}
+
 /** Save cookie string to Music/server/.env AND update in-memory config */
 function saveCookieToEnv(cookie: string): void {
   try {

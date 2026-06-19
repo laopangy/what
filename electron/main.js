@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, dialog } = require("electron");
+const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const http = require("http");
@@ -17,6 +17,22 @@ const isDev = !app.isPackaged;
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
+
+function isMainWindowEvent(event) {
+  return mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents;
+}
+
+ipcMain.on("window:minimize", (event) => {
+  if (isMainWindowEvent(event)) mainWindow.minimize();
+});
+ipcMain.on("window:toggle-maximize", (event) => {
+  if (!isMainWindowEvent(event)) return;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+});
+ipcMain.on("window:close", (event) => {
+  if (isMainWindowEvent(event)) mainWindow.close();
+});
 
 // ── Tray Icon PNG ────────────────────────────────────────────────────────────
 function createPNG(size, r, g, b) {
@@ -151,6 +167,8 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280, height: 800, minWidth: 900, minHeight: 600,
     title: "阿潘阿潘潘的工具栈", icon,
+    backgroundColor: "#0b0b08",
+    frame: false,
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, webviewTag: true },
     show: false,
   });
@@ -200,6 +218,9 @@ async function retryLoad(win, url, maxRetries, delayMs) {
 
 // ── App Lifecycle ────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  // Hide default menu bar (File, Edit, View, etc.)
+  Menu.setApplicationMenu(null);
+
   createTray();
   await createMainWindow();
 });
