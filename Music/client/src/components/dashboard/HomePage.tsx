@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Heart, ListMusic, Clock, Play, ChevronRight, Disc3 } from "lucide-react";
+import { Sparkles, Heart, ListMusic, Clock, Play, ChevronRight, Disc3, Lightbulb } from "lucide-react";
 import { recommendApi, userApi, playlistApi, playbackApi } from "../../api/client";
 import type { Song, Playlist } from "../../types/ncm";
+import WorkPlaylistButton from "./WorkPlaylistButton";
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export default function HomePage() {
   const [liked, setLiked] = useState<Song[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [history, setHistory] = useState<Song[]>([]);
+  const [personalized, setPersonalized] = useState<Playlist[]>([]);
   const [ready, setReady] = useState(false);
 
   // Load all data, then show page
@@ -20,9 +22,10 @@ export default function HomePage() {
       userApi.liked().then(r => extractSongs(r.data)).catch(() => [] as Song[]),
       playlistApi.created(10).then(r => extractPlaylists(r.data)).catch(() => [] as Playlist[]),
       userApi.history(8).then(r => extractSongs(r.data)).catch(() => [] as Song[]),
-    ]).then(([d, l, p, h]) => {
+      recommendApi.personalized(10).then(r => extractPlaylists(r.data)).catch(() => [] as Playlist[]),
+    ]).then(([d, l, p, h, rp]) => {
       if (c) return;
-      setDaily(d); setLiked(l); setPlaylists(p); setHistory(h);
+      setDaily(d); setLiked(l); setPlaylists(p); setHistory(h); setPersonalized(rp);
       setTimeout(() => { if (!c) setReady(true); }, 300); // brief delay for smooth transition
     });
     return () => { c = true; };
@@ -85,6 +88,9 @@ export default function HomePage() {
         </div>
       </button>
 
+      {/* ======== 一键生成上班歌单 ======== */}
+      <WorkPlaylistButton />
+
       {/* ======== 我的歌单 ======== */}
       <SectionHeader icon={<ListMusic className="w-4 h-4" />} title="我的歌单"
         more={playlists.length > 0 ? () => navigate("/playlists") : undefined} />
@@ -96,6 +102,20 @@ export default function HomePage() {
           </div>
         ) : (
           <EmptyCard icon={<ListMusic className="w-6 h-6" />} text="暂无歌单" onClick={() => navigate("/playlists")} />
+        )
+      )}
+
+      {/* ======== 猜你喜欢 ======== */}
+      <SectionHeader icon={<Lightbulb className="w-4 h-4" />} title="猜你喜欢"
+        more={personalized.length > 0 ? () => navigate("/personalized") : undefined} />
+      {(personalized.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {personalized.map(pl => (
+              <PlaylistTile key={pl.id} playlist={pl} onClick={() => navigate(`/playlist/${pl.id}`)} />
+            ))}
+          </div>
+        ) : (
+          <EmptyCard icon={<Lightbulb className="w-6 h-6" />} text="登录后获取个性化推荐" />
         )
       )}
 

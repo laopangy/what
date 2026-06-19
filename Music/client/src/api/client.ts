@@ -17,8 +17,26 @@ async function request<T>(
   };
   if (body) opts.body = JSON.stringify(body);
 
-  const res = await fetch(`${BASE}${path}`, opts);
-  return res.json();
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, opts);
+  } catch (e) {
+    return { success: false, error: `网络请求失败: ${(e as Error).message}` };
+  }
+
+  if (!res.ok && res.status >= 500) {
+    const text = await res.text().catch(() => "");
+    return { success: false, error: `服务器错误 (${res.status}): ${text.slice(0, 200)}` };
+  }
+
+  try {
+    const json = await res.json();
+    return json as ApiResponse<T>;
+  } catch {
+    // Empty or non-JSON response
+    const text = await res.text().catch(() => "");
+    return { success: false, error: text ? `响应异常: ${text.slice(0, 200)}` : "服务器返回空响应，请重试" };
+  }
 }
 
 export const api = {
@@ -79,6 +97,8 @@ export const playlistApi = {
 export const recommendApi = {
   daily: () => api.get("/recommend/daily"),
   fm: () => api.get("/recommend/fm"),
+  personalized: (limit?: number) =>
+    api.get(`/recommend/personalized?limit=${limit || 30}`),
 };
 
 // User
@@ -112,6 +132,7 @@ export const analyzeApi = {
   style: (playlistIds: string[]) =>
     api.post<{
       styleProfile: string;
+      tasteClusters: { name: string; percentage: number; description: string; keyArtists: string[] }[];
       genreTags: string[];
       moodTags: string[];
       eraTags: string[];
@@ -121,12 +142,27 @@ export const analyzeApi = {
       totalSongs: number;
       analyzedSongs: number;
       sampled: boolean;
+      filteredLikedSongs: number;
     }>("/analyze/style", { playlistIds }),
   generatePlaylist: (name: string, songIds: string[]) =>
     api.post<{ playlistId: string; name: string; trackCount: number }>(
       "/analyze/generate-playlist",
       { name, songIds }
     ),
+  workPlaylist: () =>
+    api.post<{
+      playlistId: string;
+      name: string;
+      trackCount: number;
+      totalDuration: string;
+      discoveredTotal: number;
+      excludedKnownCount: number;
+      aiRecommendedCount: number;
+      styleProfile: string;
+      tasteClusters: { name: string; percentage: number; description: string; keyArtists: string[] }[];
+      genreTags: string[];
+      moodTags: string[];
+    }>("/analyze/work-playlist"),
 };
 
 // Theme

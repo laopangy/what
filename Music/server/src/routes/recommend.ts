@@ -3,7 +3,7 @@ import { createRequire } from "module";
 import { isLoggedIn, getLoginQr } from "../services/authHelper.js";
 import { config } from "../config.js";
 const require = createRequire(import.meta.url);
-const { recommend_songs, personal_fm } = require("NeteaseCloudMusicApi");
+const { recommend_songs, personal_fm, personalized } = require("NeteaseCloudMusicApi");
 type ApiFn = (opts: Record<string, unknown>) => Promise<{ body: unknown }>;
 
 export const recommendRouter = Router();
@@ -64,6 +64,29 @@ recommendRouter.get("/daily", async (_req, res, next) => {
     }
     const songs = body.data?.dailySongs || [];
     res.json({ success: true, data: mapSongs(songs) });
+  } catch (e) { next(e); }
+});
+
+recommendRouter.get("/personalized", async (req, res, next) => {
+  try {
+    const cookie = getCookie();
+    const limit = Math.min(Number(req.query.limit) || 30, 100);
+
+    const result = await (personalized as ApiFn)({ cookie, limit });
+    const body = result.body as { code?: number; result?: Array<Record<string, unknown>> };
+    if (body.code !== 200) {
+      res.json({ success: false, error: "获取推荐歌单失败" });
+      return;
+    }
+    const playlists = (body.result || []).map((pl: Record<string, unknown>) => ({
+      id: String(pl.id || ""),
+      name: pl.name as string,
+      coverUrl: (pl.picUrl || pl.coverImgUrl) as string || "",
+      playCount: (pl.playCount as number) || 0,
+      trackCount: (pl.trackCount as number) || 0,
+      description: (pl.copywriter || pl.name) as string || "",
+    }));
+    res.json({ success: true, data: playlists });
   } catch (e) { next(e); }
 });
 

@@ -54,7 +54,7 @@ function mapSong(raw: RawSong) {
     id: Number(raw.id).toString(16).padStart(32, "0"),
     originalId: raw.id,
     name: raw.name,
-    duration: (raw.dt || 0) / 1000,
+    duration: raw.dt || 0,
     artists: (raw.ar || []).map((a) => ({ name: a.name, id: String(a.id) })),
     album: {
       name: raw.al?.name || "",
@@ -142,7 +142,7 @@ playlistRouter.get("/:id", async (req, res, next) => {
 playlistRouter.get("/:id/tracks", async (req, res, next) => {
   try {
     const cookie = getCookie();
-    const limit = Number(req.query.limit) || 50;
+    const limit = Number(req.query.limit) || 500;
     const opts: Record<string, unknown> = { id: toNumeric(req.params.id), limit };
     if (cookie) opts.cookie = cookie;
     const result = await playlist_track_all(opts);
@@ -151,7 +151,7 @@ playlistRouter.get("/:id/tracks", async (req, res, next) => {
       res.json({ success: false, error: "获取歌单歌曲失败" });
       return;
     }
-    const songs = (body.songs || []).slice(0, limit).map(mapSong);
+    const songs = (body.songs || []).map(mapSong);
     res.json({ success: true, data: songs });
   } catch (e) { next(e); }
 });

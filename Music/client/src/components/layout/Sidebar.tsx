@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import {
-   Play, Search, ListMusic, Sparkles, Heart, ListOrdered, LogIn, UserCheck,
+   Play, Search, ListMusic, Sparkles, Heart, ListOrdered, LogIn, UserCheck, Lightbulb,
 } from "lucide-react";
 import ThemePicker from "../theme/ThemePicker";
 import { userApi } from "../../api/client";
@@ -11,6 +11,7 @@ const navItems = [
   { to: "/search", icon: Search, label: "搜索" },
   { to: "/playlists", icon: ListMusic, label: "歌单" },
   { to: "/daily", icon: Sparkles, label: "每日推荐" },
+  { to: "/personalized", icon: Lightbulb, label: "猜你喜欢" },
   { to: "/liked", icon: Heart, label: "我喜欢的" },
   { to: "/queue", icon: ListOrdered, label: "播放队列" },
 ];

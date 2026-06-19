@@ -16,6 +16,7 @@ import {
   User,
   X,
   Users,
+  Layers,
 } from "lucide-react";
 import { playlistApi, analyzeApi, userApi } from "../../api/client";
 import { onSocketEvent } from "../../api/socket";
@@ -33,6 +34,7 @@ type PageState = "select" | "analyzing" | "results" | "generated";
 
 interface AnalysisData {
   styleProfile: string;
+  tasteClusters: { name: string; percentage: number; description: string; keyArtists: string[] }[];
   genreTags: string[];
   moodTags: string[];
   eraTags: string[];
@@ -42,6 +44,7 @@ interface AnalysisData {
   totalSongs: number;
   analyzedSongs: number;
   sampled: boolean;
+  filteredLikedSongs: number;
 }
 
 // ── component ──
@@ -602,6 +605,44 @@ export default function StyleAnalyzer() {
           <p className="text-sm text-accent-dim italic">{analysis.favoritePatterns}</p>
         </div>
 
+        {/* taste clusters */}
+        {analysis.tasteClusters && analysis.tasteClusters.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold text-text flex items-center gap-2">
+              <Layers className="w-4 h-4 text-accent" />
+              品味聚类
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {analysis.tasteClusters.map((cluster, i) => (
+                <div
+                  key={i}
+                  className="p-4 rounded-2xl bg-surface-raised border border-accent/10 space-y-2 hover:border-accent/20 smooth"
+                >
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-text">{cluster.name}</h4>
+                    <span className="text-xs font-mono text-accent-dim bg-accent/10 px-2 py-0.5 rounded-full">
+                      ~{cluster.percentage}%
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-dim leading-relaxed">{cluster.description}</p>
+                  {cluster.keyArtists && cluster.keyArtists.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {cluster.keyArtists.map((artist) => (
+                        <span
+                          key={artist}
+                          className="px-2 py-0.5 rounded-full text-xs bg-accent/5 text-accent-dim border border-accent/10"
+                        >
+                          {artist}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* tags */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <TagSection icon={<Tag className="w-4 h-4" />} title="流派" tags={analysis.genreTags} color="bg-purple-500/10 text-purple-400 border-purple-500/20" />
@@ -616,6 +657,11 @@ export default function StyleAnalyzer() {
             <Music className="w-4 h-4 text-accent" />
             精选推荐 ({analysis.recommendedSongs.length} 首)
           </h3>
+          {analysis.filteredLikedSongs > 0 && (
+            <p className="text-xs text-amber-400/80 bg-amber-500/5 border border-amber-500/10 rounded-xl px-3 py-1.5">
+              🔍 已自动排除 {analysis.filteredLikedSongs} 首红心歌曲，避免重复推荐
+            </p>
+          )}
           <div className="rounded-2xl border border-accent/15 bg-surface overflow-hidden divide-y divide-accent/5">
             {analysis.recommendedSongs.map((song, i) => (
               <div

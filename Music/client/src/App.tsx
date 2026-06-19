@@ -9,6 +9,7 @@ import DailyRecommend from "./components/dashboard/DailyRecommend";
 import LikedSongs from "./components/dashboard/LikedSongs";
 import QueueView from "./components/dashboard/QueueView";
 import StyleAnalyzer from "./components/dashboard/StyleAnalyzer";
+import PersonalizedPlaylists from "./components/dashboard/PersonalizedPlaylists";
 import { useTheme } from "./hooks/useTheme";
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/liked" element={<LikedSongs />} />
         <Route path="/queue" element={<QueueView />} />
         <Route path="/analyze" element={<StyleAnalyzer />} />
+        <Route path="/personalized" element={<PersonalizedPlaylists />} />
       </Routes>
     </AppLayout>
   );

@@ -15,7 +15,7 @@ export default function PlaylistDetail() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    Promise.all([playlistApi.detail(id), playlistApi.tracks(id)])
+    Promise.all([playlistApi.detail(id), playlistApi.tracks(id, 500)])
       .then(([detailRes, tracksRes]) => {
         setPlaylist(extractPlaylist(detailRes.data));
         setTracks(extractSongs(tracksRes.data));
