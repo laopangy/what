@@ -55,7 +55,7 @@ export default function PlaylistDetail() {
       )}
       {tracks.length > 0 ? (
         <div className="space-y-0.5">
-          {tracks.map((song, i) => <TrackRow key={song.id || `${i}`} song={song} index={i} />)}
+          {tracks.map((song, i) => <TrackRow key={song.id || `${i}`} song={song} index={i} queue={tracks} />)}
         </div>
       ) : (
         <p className="text-sm text-text-dim text-center py-12">暂无歌曲</p>

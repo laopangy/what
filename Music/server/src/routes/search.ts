@@ -1,16 +1,20 @@
 import { Router } from "express";
+import { searchQQSongs } from "../services/qqMusic.js";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const { search } = require("NeteaseCloudMusicApi");
+const { search, song_detail } = require("NeteaseCloudMusicApi");
 
 export const searchRouter = Router();
 
 interface NcmSong {
   id: number;
   name: string;
-  duration: number;
-  artists: { id: number; name: string; img1v1Url?: string }[];
-  album: { id: number; name: string; picUrl?: string };
+  duration?: number;
+  dt?: number;
+  artists?: { id: number; name: string; img1v1Url?: string }[];
+  ar?: { id: number; name: string; img1v1Url?: string }[];
+  album?: { id: number; name: string; picUrl?: string };
+  al?: { id: number; name: string; picUrl?: string };
 }
 
 interface NcmPlaylist {
@@ -28,21 +32,23 @@ function toHexId(numId: number): string {
 }
 
 function mapSong(raw: NcmSong) {
+  const artists = raw.artists || raw.ar || [];
+  const album = raw.album || raw.al;
   return {
     id: toHexId(raw.id),                          // 32-char hex encrypted ID
     originalId: raw.id,                            // numeric original ID
     name: raw.name,
-    duration: raw.duration,
-    artists: (raw.artists || []).map((a) => ({
+    duration: raw.duration || raw.dt || 0,
+    artists: artists.map((a) => ({
       name: a.name,
       id: String(a.id || ""),
     })),
     album: {
-      name: raw.album?.name || "",
-      id: String(raw.album?.id || ""),
-      coverUrl: raw.album?.picUrl || "",
+      name: album?.name || "",
+      id: String(album?.id || ""),
+      coverUrl: album?.picUrl || "",
     },
-    coverImgUrl: raw.album?.picUrl || "",
+    coverImgUrl: album?.picUrl || "",
   };
 }
 
@@ -57,6 +63,21 @@ function mapPlaylist(raw: NcmPlaylist) {
     playCount: raw.playCount,
     creator: raw.creator,
   };
+}
+
+async function mapSongsWithDetails(rawSongs: NcmSong[]): Promise<ReturnType<typeof mapSong>[]> {
+  if (rawSongs.length === 0) return [];
+  try {
+    const result = await song_detail({ ids: rawSongs.map((song) => song.id).join(",") });
+    const body = result.body as { code?: number; songs?: NcmSong[] };
+    if (body.code === 200 && body.songs) {
+      const details = new Map(body.songs.map((song) => [song.id, song]));
+      return rawSongs.map((song) => mapSong(details.get(song.id) || song));
+    }
+  } catch {
+    // Search results remain usable even if the optional cover enrichment fails.
+  }
+  return rawSongs.map(mapSong);
 }
 
 async function doSearch(type: number, keyword: string, limit: number) {
@@ -76,7 +97,7 @@ async function doSearch(type: number, keyword: string, limit: number) {
       return { success: false, error: "搜索失败" };
     }
 
-    const songs = (body.result?.songs || []).map(mapSong);
+    const songs = await mapSongsWithDetails(body.result?.songs || []);
     const playlists = (body.result?.playlists || []).map(mapPlaylist);
 
     return {
@@ -102,6 +123,11 @@ searchRouter.get("/songs", async (req, res, next) => {
   try {
     const q = String(req.query.q || "");
     const limit = Number(req.query.limit) || 30;
+    if (String(req.query.provider || "netease") === "qq") {
+      const records = await searchQQSongs(q, limit);
+      res.json({ success: true, data: { records } });
+      return;
+    }
     res.json(await doSearch(1, q, limit));
   } catch (e) { next(e); }
 });
@@ -142,7 +168,7 @@ searchRouter.get("/all", async (req, res, next) => {
       return;
     }
 
-    const songs = (body.result?.songs || []).map(mapSong);
+    const songs = await mapSongsWithDetails(body.result?.songs || []);
     const playlists = (body.result?.playlists || []).map(mapPlaylist);
 
     res.json({

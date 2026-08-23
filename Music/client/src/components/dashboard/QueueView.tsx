@@ -6,35 +6,42 @@ import EmptyState from "../shared/EmptyState";
 import type { QueueItem } from "../../types/ncm";
 
 interface RawQueueEntry {
-  index: number;
-  current: boolean;
-  label: string;
-  prefix: string;
+  index?: number;
+  current?: boolean;
+  label?: string;
+  prefix?: string;
+  name?: string;
+  artist?: string;
 }
 
-function parseItem(raw: RawQueueEntry): QueueItem {
+function parseItem(raw: RawQueueEntry, fallbackIndex = 0): QueueItem {
+  const directName = typeof raw.name === "string" ? raw.name.trim() : "";
+  const directArtist = typeof raw.artist === "string" ? raw.artist.trim() : "";
   const label = raw.label ?? "";
   const idx = label.lastIndexOf(" - ");
-  const name = idx > 0 ? label.slice(0, idx).trim() : label.trim();
-  const artist = idx > 0 ? label.slice(idx + 3).trim() : "";
+  const name = directName || (idx > 0 ? label.slice(0, idx).trim() : label.trim());
+  const artist = directArtist || (idx > 0 ? label.slice(idx + 3).trim() : "");
   return {
-    index: raw.index,
+    index: typeof raw.index === "number" ? raw.index : fallbackIndex,
     name,
     artist,
-    current: raw.current,
+    current: Boolean(raw.current),
     prefix: raw.prefix?.trim() ?? "",
   };
 }
 
 function extractQueue(data: unknown): QueueItem[] {
+  if (Array.isArray(data)) {
+    return data.map((entry, index) => parseItem(entry as RawQueueEntry, index));
+  }
   const d = data as Record<string, unknown> | undefined;
   if (!d) return [];
   const queueArr = d.queue as Array<RawQueueEntry> | undefined;
-  if (Array.isArray(queueArr)) return queueArr.map(parseItem);
-  // Also try data.queue or just data
+  if (Array.isArray(queueArr)) return queueArr.map((entry, index) => parseItem(entry, index));
+  // Also support legacy nested response shapes.
   const inner = (d.data as Record<string, unknown>) ?? d;
-  const arr = (inner.queue as Array<RawQueueEntry>) ?? (inner as unknown as Array<RawQueueEntry>);
-  if (Array.isArray(arr)) return arr.map((r, i) => parseItem({ index: i + 1, current: false, label: r.label ?? String(r ?? ""), prefix: r.prefix ?? "" }));
+  const arr = inner.queue as Array<RawQueueEntry> | undefined;
+  if (Array.isArray(arr)) return arr.map((entry, index) => parseItem(entry, index));
   return [];
 }
 
@@ -84,7 +91,7 @@ export default function QueueView() {
                 <span className={`w-6 text-xs text-right tabular-nums flex-shrink-0 ${
                   isCurrent ? "text-accent-dim font-semibold" : "text-text-dim/50"
                 }`}>
-                  {isCurrent && item.prefix ? item.prefix : item.index}
+                  {isCurrent && item.prefix ? item.prefix : item.index + 1}
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm truncate ${isCurrent ? "text-accent-dim font-medium" : "text-text"}`}>

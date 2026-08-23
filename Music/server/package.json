@@ -9,7 +9,9 @@
   },
   "dependencies": {
     "@music163/ncm-cli": "^0.1.5",
+    "@sansenjian/qq-music-api": "^2.4.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^5.1.0",
     "NeteaseCloudMusicApi": "^4.32.0",
     "uuid": "^10.0.0",

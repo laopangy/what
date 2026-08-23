@@ -5,11 +5,12 @@ import { formatTime } from "../../utils/formatTime";
 import type { Song } from "../../types/ncm";
 
 export default function TrackRow({
-  song, index, showCover = true,
+  song, index, showCover = true, queue,
 }: {
   song: Song;
   index?: number;
   showCover?: boolean;
+  queue?: Song[];
 }) {
   const setCurrentSongId = usePlaybackStore((s) => s.setCurrentSongId);
 
@@ -17,7 +18,7 @@ export default function TrackRow({
   const storeVolume = usePlaybackStore((s) => s.volume);
 
   const handlePlay = () => {
-    if (song.encryptedId) setCurrentSongId(song.encryptedId);
+    setCurrentSongId(song.id || song.encryptedId || null);
     // Optimistic UI update — shows song immediately without waiting for WebSocket
     updateStore({
       playing: true,
@@ -30,10 +31,28 @@ export default function TrackRow({
       },
       volume: storeVolume,
     });
+    if (queue && index !== undefined) {
+      playbackApi.playSongs(queue.slice(index).map((item) => ({
+        provider: item.provider,
+        providerId: item.providerId,
+        qqMid: item.qqMid,
+        mediaMid: item.mediaMid,
+        encryptedId: item.encryptedId,
+        originalId: item.originalId,
+        name: item.name,
+        artist: item.artists?.map((artist) => artist.name).join(" / "),
+        duration: item.duration,
+      })));
+      return;
+    }
     playbackApi.playSong(song.encryptedId, song.originalId, {
       name: song.name,
       artist: song.artists?.map(a => a.name).join(" / "),
       duration: song.duration / 1000,
+      provider: song.provider,
+      providerId: song.providerId,
+      qqMid: song.qqMid,
+      mediaMid: song.mediaMid,
     });
   };
 
@@ -57,6 +76,7 @@ export default function TrackRow({
       <div className="flex-1 min-w-0">
         <p className="text-sm truncate text-text">{song.name}</p>
         <p className="text-xs text-text-dim truncate">
+          {song.provider === "qq" ? "QQ音乐 · " : ""}
           {song.artists?.map((a) => a.name).join(" / ")}
           {song.album?.name ? ` · ${song.album.name}` : ""}
         </p>

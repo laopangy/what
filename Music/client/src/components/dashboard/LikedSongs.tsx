@@ -58,7 +58,7 @@ export default function LikedSongs() {
         )}
       </div>
       {songs.length > 0 ? (
-        <div className="space-y-0.5">{songs.map((s, i) => <TrackRow key={s.id || `${i}`} song={s} index={i} />)}</div>
+        <div className="space-y-0.5">{songs.map((s, i) => <TrackRow key={s.id || `${i}`} song={s} index={i} queue={songs} />)}</div>
       ) : (
         <EmptyState icon={<Heart className="w-12 h-12" />} title="还没有收藏歌曲" description="听歌时点击红心即可收藏" />
       )}

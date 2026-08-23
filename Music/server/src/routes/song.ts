@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { createRequire } from "module";
 import { config } from "../config.js";
+import { getQQLyric } from "../services/qqMusic.js";
 const require = createRequire(import.meta.url);
 const { lyric, like } = require("NeteaseCloudMusicApi");
 
@@ -21,6 +22,10 @@ function getCookie(): string | undefined {
 
 songRouter.get("/:id/lyric", async (req, res, next) => {
   try {
+    if (req.params.id.startsWith("qq:")) {
+      res.json({ success: true, data: await getQQLyric(req.params.id.slice(3)) });
+      return;
+    }
     const songId = toNumericId(req.params.id);
     const result = await lyric({ id: songId });
     const body = result.body as {
@@ -42,6 +47,10 @@ songRouter.get("/:id/lyric", async (req, res, next) => {
 
 songRouter.post("/:id/like", async (req, res, next) => {
   try {
+    if (req.params.id.startsWith("qq:")) {
+      res.json({ success: false, error: "暂不支持同步 QQ 音乐收藏" });
+      return;
+    }
     const cookie = getCookie();
     if (!cookie) { res.json({ success: false, error: "未登录" }); return; }
     const songId = toNumericId(req.params.id);
@@ -53,6 +62,10 @@ songRouter.post("/:id/like", async (req, res, next) => {
 
 songRouter.post("/:id/dislike", async (req, res, next) => {
   try {
+    if (req.params.id.startsWith("qq:")) {
+      res.json({ success: false, error: "暂不支持同步 QQ 音乐收藏" });
+      return;
+    }
     const cookie = getCookie();
     if (!cookie) { res.json({ success: false, error: "未登录" }); return; }
     const songId = toNumericId(req.params.id);
@@ -66,6 +79,10 @@ songRouter.post("/:id/dislike", async (req, res, next) => {
 /** Check if a song is liked by the current user. */
 songRouter.get("/:id/is-liked", async (req, res, next) => {
   try {
+    if (req.params.id.startsWith("qq:")) {
+      res.json({ success: true, data: { liked: false } });
+      return;
+    }
     const cookie = getCookie();
     if (!cookie) { res.json({ success: true, data: { liked: false } }); return; }
     const songId = toNumericId(req.params.id);

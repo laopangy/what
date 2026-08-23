@@ -96,6 +96,12 @@
 
 - **mpv 直连控制**：因 ncm-cli v0.1.5 `play --song --encrypted-id` 的 bug，Music server 改为通过 mpv JSON IPC named pipe 直接控制播放。`ncm-cli` 仅用于搜索、歌单、推荐等数据操作，不再用于播放控制。
 - **登录认证系统**：新增网易云音乐扫码登录流程（QR code），通过 `NETEASE_COOKIE` 环境变量支持 VIP 歌曲完整播放。
+- **多音源搜索与播放**：搜索页可切换网易云音乐与 QQ 音乐；QQ 音乐接入歌曲搜索、播放 URL 和歌词，复用现有 mpv 播放链路。
+- **统一账号与服务设置**：Music 客户端提供网易云/QQ 双二维码登录、退出登录和 DeepSeek API Key 配置；音乐账号 Cookie 与 AI 密钥均只保存在本机且不回显。网易云未登录不再阻塞整个播放器，QQ 搜索和公开歌曲可独立使用。
+- **双音源 Music 主页**：主页顶部可切换网易云与 QQ 音乐并记住选择；网易云保留每日推荐、收藏、歌单和最近播放；QQ 音乐读取扫码账号的“我喜欢”、创建歌单和收藏歌单，歌单可进入详情并播放单曲或全部歌曲；同时通过当前榜单接口分别展示热歌、流行指数和新歌榜，保留榜单原始顺序与内容。
+- **应用内返回导航**：非首页页面在顶栏显示返回按钮，优先返回上一次应用内操作；直接打开深层链接且没有可返回历史时安全回到 Music 首页。
+- **动态专辑色播放页**：“正在播放”由网易云与 QQ 音乐共用，采用大封面、纵向滚动歌词和底部通栏控制布局；两种音源的封面都会作为模糊环境背景，并自动提取代表色同步歌词高亮、进度、播放按钮和音量控件。直接打开页面会立即同步当前播放状态，歌词加载兼容 React 严格模式的重复副作用检查，不再等待 WebSocket 轮询或错误显示“暂无歌词”。
+- **列表连续播放**：网易云与 QQ 的歌单、收藏、每日推荐、搜索结果和榜单点击任意歌曲时，会从所选歌曲开始将后续歌曲一并加入播放队列；当前歌曲结束后由 mpv 自动续播下一首。
 
 ### 2.3 npm Workspaces 组织
 
@@ -115,8 +121,9 @@ what/                          # 仓库根目录（Electron 入口）
 │   └── server/                # Express 5 后端
 ├── scripts/
 │   └── clean-ports.js         # 启动前清理端口占用
-├── start.bat                  # 一键启动脚本（检查 .env + 安装依赖）
-└── start.vbs                  # 静默启动（隐藏命令行窗口）
+├── setup.ps1                  # Windows 图形化环境检测、选择安装与启动
+├── start.bat                  # 命令行入口：打开 setup.ps1
+└── start.vbs                  # 无控制台入口：打开 setup.ps1
 ```
 
 ---
@@ -175,14 +182,15 @@ what/                          # 仓库根目录（Electron 入口）
 
 | 路径 | 组件 | 功能 |
 |------|------|------|
-| `/` | `MusicHome` | 智能首页：播放中 → NowPlaying，空闲 → HomePage |
+| `/` | `MusicHome` | 智能首页：播放中 → NowPlaying，空闲 → 网易云/QQ 双音源 HomePage |
 | `/now-playing` | `NowPlaying` | 正在播放（封面 + 歌词） |
-| `/search` | `SearchPage` | 搜索歌曲/歌单/专辑 |
+| `/search` | `SearchPage` | 网易云/QQ 音源切换；搜索歌曲，网易云另支持歌单/专辑 |
 | `/playlists` | `PlaylistBrowser` | 我的歌单（创建/收藏） |
 | `/playlist/:id` | `PlaylistDetail` | 歌单详情 + 歌曲列表 |
 | `/daily` | `DailyRecommend` | 每日推荐 |
 | `/liked` | `LikedSongs` | 我喜欢的音乐 |
 | `/queue` | `QueueView` | 播放队列 |
+| `/settings` | `SettingsPage` | 网易云/QQ 扫码登录、退出登录及 DeepSeek API 设置 |
 
 > **注意**：路由 `/` 移除了 `Navigate` 重定向，改为 `MusicHome` 智能组件。点击 Header 中的"首页"按钮通过 `forceHome` state 强制显示 HomePage。
 
@@ -190,7 +198,7 @@ what/                          # 仓库根目录（Electron 入口）
 
 ```
 App
-└── AppLayout（检查登录状态 → 未登录显示 LoginPrompt）
+└── AppLayout（登录非阻塞，账号状态集中在 SettingsPage）
     ├── Header（顶部导航栏）
     │   ├── Logo（→ 首页 forceHome）
     │   ├── 首页按钮（forceHome: Date.now()）
@@ -523,10 +531,16 @@ POST /api/playback/play-song { encryptedId, originalId, name, artist, duration }
 | `/api/playback/queue/add` | POST | 添加到队列 |
 | `/api/playback/queue/remove` | POST | 🆕 移除队列项 |
 | `/api/playback/queue/clear` | POST | 清空队列 |
-| `/api/search/songs` | GET | 搜索歌曲（`?q=&limit=`） |
+| `/api/search/songs` | GET | 搜索歌曲（`?q=&limit=&provider=netease|qq`） |
 | `/api/search/playlists` | GET | 搜索歌单 |
 | `/api/search/albums` | GET | 搜索专辑 |
 | `/api/search/all` | GET | 综合搜索 |
+| `/api/settings/status` | GET | 获取网易云/QQ 登录状态和 AI 配置状态，不返回敏感值 |
+| `/api/settings/ai` | POST | 保存 DeepSeek API Key、API 地址和模型到 Music/Workbench `.env` |
+| `/api/settings/qq/login-qr` | POST | 生成 QQ 登录二维码，服务端保管临时登录签名 |
+| `/api/settings/qq/login-check` | POST | 轮询 QQ 扫码状态，成功后保存 `QQ_MUSIC_COOKIE` |
+| `/api/settings/qq/logout` | POST | 清除 QQ 音乐 Cookie |
+| `/api/qq/home` | GET | 获取 QQ 热歌、流行指数、新歌榜及账号状态 |
 | `/api/playlist/created` | GET | 创建的歌单 |
 | `/api/playlist/collected` | GET | 收藏的歌单 |
 | `/api/playlist/:id` | GET | 歌单详情 |
@@ -950,8 +964,9 @@ what/
 ├── electron/             # Electron 主进程
 │   ├── main.js           #  主进程：窗口、托盘、音乐 API 调用
 │   └── preload.js        #  预加载：contextBridge（isElectron, platform）
-├── start.bat             # 🆕 一键启动（检查 .env + 安装依赖 + npm run dev）
-├── start.vbs             # 🆕 静默启动（隐藏命令行窗口）
+├── setup.ps1             # 图形化环境检测、可选安装、进度日志与启动
+├── start.bat             # 打开图形安装器（保留可见终端入口）
+├── start.vbs             # 打开图形安装器（隐藏 PowerShell 控制台）
 ├── scripts/
 │   └── clean-ports.js    # 🆕 启动前清理端口占用 + mpv 进程
 ├── Music/                # 不变
@@ -963,14 +978,43 @@ what/
 
 | 命令 | 说明 |
 |------|------|
-| `npm run dev` | 一键启动：①清理端口 → ② Music + Workbench 并发启动 → ③ Electron |
+| `npm run dev` | 一键启动：①清理端口 → ② Tools + Music + Workbench 并发启动 → ③ Electron |
 | `npm run dev:electron` | 仅启动 Electron（需服务已运行） |
-| `npm run dev:web` | 仅启动 Music + Workbench（无 Electron） |
+| `npm run dev:web` | 仅启动 Tools + Music + Workbench（无 Electron） |
 | `npm run login` | 🆕 执行扫码登录脚本，自动保存 Cookie 到 .env |
 | `npm run build:music` | Vite 构建 Music client |
 | `npm run build:workbench` | Vite 构建 Workbench client |
 | `npm run build` | 构建前端 + 打包 exe |
-| `npm run postinstall` | 安装根依赖后自动安装 Music + Workbench 依赖 |
+| `npm run postinstall` | 安装根依赖后自动安装 Music + Workbench + Tools 依赖 |
+
+**图形化安装器（`setup.ps1`）**：
+
+- 启动时检测 Node.js 22、Git for Windows、mpv、ncm-cli、四组 npm 依赖及两个 `.env` 文件
+- 采用 show-first 启动：窗口立即呈现“正在检测”，再由短延时任务执行首次扫描，避免双击后无反馈
+- 首次扫描及“重新检测”采用延迟执行以先完成界面绘制：按钮显示“检测中”、进度条进入 Marquee 模式、各组件显示检测状态，完成后展示 100% 与缺失项数量
+- VBS 正常显示启动进程，GUI 出现后自行隐藏控制台；VBS/PowerShell 两层均提供启动失败提示
+- `start.vbs` 使用无 BOM 的纯 ASCII 源码，避免 Windows Script Host 在第 1 行第 1 个字符报 `800A0408` 编译错误
+- 默认每次启动都显示安装器；全部环境与 API Key 完成后才出现“以后直接启动”按钮
+- 跳过偏好保存在 `%LOCALAPPDATA%\WhatToolStack\setup-preferences.json`；仅在所有必需检查仍通过时生效，缺失任一必需项会强制恢复安装器，可选 Git 不阻塞
+- 安装器提供“启动后自动关闭”开关并默认启用；项目进程拉起后短暂展示启动状态再自动关闭，关闭该开关可保留窗口，选择与跳过偏好保存在同一配置文件
+- `setup.ps1 -ForceShow` 可忽略跳过偏好，重新打开安装器修改密钥或维护依赖
+- 已安装项显示版本并禁用选择，缺失项支持单选、多选或“一键安装全部并启动”
+- Git for Windows 是默认不勾选的可选项，不影响项目就绪状态或“以后直接启动”；可单独勾选，或通过“选择全部缺失项”一起安装
+- Git 使用 WinGet 包 ID `Git.Git` 安装，安装后刷新 PATH 并复检版本，用于本地提交以及通过 GitHub HTTPS 凭据流程上传代码
+- ncm-cli、项目依赖依赖 Node.js；漏选 Node 时会提示自动补充，并始终按正确顺序执行
+- Node 优先通过 WinGet 安装；失败时从 Node.js 官方 `latest-v22.x` 下载 MSI，并按官方 `SHASUMS256.txt` 校验
+- mpv 使用明确的 WinGet 包 ID `shinchiro.mpv`，避免同名包歧义
+- npm 依赖通过根目录 `npm install` 安装，根 `postinstall` 继续安装 Music、Workbench、Tools workspace
+- npm 下载配置有限时重试与 120 秒单次请求超时；优先使用 npmmirror，失败后自动切换官方源，且配置由根安装传递给全部 workspace
+- 环境配置只补充缺失项并更新本机 ncm-cli 路径，不覆盖已有 API Key、端口等用户设置
+- 密钥区域提供掩码输入、“保存密钥”和“申请密钥”；保存时同步写入 Music/workbench，且不把明文写入 UI 状态或日志
+- 启动前检查密钥状态；未配置时允许继续启动基础功能，但会明确提示三个 AI 功能不可用
+- Worker 子进程写入 JSONL 状态和文本日志，GUI 定时读取，展示单项状态、总进度和失败原因
+- 长时间 npm 下载期间，GUI 持续展示已用时间；Worker 意外退出且未写入最终状态时，GUI 会立即结束忙碌状态并提示重新尝试
+- 安装期间“仅安装选择项”按钮切换为“取消安装”；用户确认取消或关闭窗口时会终止本次 Worker 的完整进程树，避免 npm 后台残留和目录占用
+- Worker 将控制台与 PowerShell 原生命令编码统一为 UTF-8/65001，避免 WinGet 中文输出被 GBK 错误解码
+- npm 的 stderr warning 仅写入日志，安装成功与否以真实退出码判断，避免弃用警告中断安装链路
+- 支持 `powershell -File setup.ps1 -CheckOnly` 输出 JSON 检测结果，便于诊断
 
 ### 6.4 主进程功能
 
@@ -1023,13 +1067,14 @@ npm run build
 - `extraResources`: 将 `Music/server` 和 `workbench/server` 复制到 `resources/`
 - Windows 目标：NSIS 安装程序（允许自定义安装目录）
 
-### 6.6 前提依赖（用户仍需预装）
+### 6.6 本地前提依赖
 
 | 依赖 | 说明 |
 |------|------|
-| Node.js ≥ 22 | Electron 运行时 |
-| mpv 播放器 | Music 模块的音频播放后端 |
-| ncm-cli | 网易云音乐 CLI（需先 `ncm-cli login`） |
+| Node.js ≥ 22 | Electron 运行时；可由图形安装器安装 |
+| mpv 播放器 | Music 模块的音频播放后端；可由图形安装器安装 |
+| ncm-cli | 网易云音乐 CLI；可由图形安装器安装，账号登录仍需用户扫码 |
+| WinGet | 用于安装 mpv；缺失时需安装/修复 Windows“应用安装程序” |
 
 ---
 
@@ -1068,13 +1113,14 @@ npm run build
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
 | `PORT` | `3001` | 服务端口 |
-| `NCM_CLI_PATH` | `C:\Users\mmhm\AppData\Roaming\npm\ncm-cli.cmd` | ncm-cli 路径 |
+| `NCM_CLI_PATH` | `%APPDATA%\npm\ncm-cli.cmd` | ncm-cli 路径；图形安装器会写入检测到的绝对路径 |
 | `THEME_IMAGES_DIR` | `../client/public/images` | 主题图片目录 |
 | `ANTHROPIC_BASE_URL` | `https://api.deepseek.com/anthropic` | LLM API 地址 |
 | `ANTHROPIC_AUTH_TOKEN` | (空) | API Key |
 | `ANTHROPIC_MODEL` | `deepseek-v4-pro` | 模型名称 |
 | `CORS_ORIGIN` | `http://localhost:5173` | 跨域来源 |
 | `NETEASE_COOKIE` | (空) | 🆕 网易云 Cookie（`MUSIC_U=xxx`，支持 VIP 歌曲） |
+| `QQ_MUSIC_COOKIE` | (空) | QQ 音乐 Cookie（公开搜索/歌词无需配置，会员或版权受限歌曲播放需要） |
 
 内部常量：
 - `playback.pollIntervalMs`: `15000`（🔄 从 5000 改为 15000，降低 mpv IPC 轮询频率）
@@ -1119,6 +1165,7 @@ npm run build
 ### 外部依赖
 - **ncm-cli**：网易云音乐命令行工具（`@music163/ncm-cli`）— 仅用于数据操作
 - **NeteaseCloudMusicApi**：网易云音乐 Node.js API（获取播放 URL + 登录状态）
+- **@sansenjian/qq-music-api**：QQ 音乐 SDK（歌曲搜索、播放 URL、歌词）
 - **mpv**：跨平台媒体播放器（🎯 通过 JSON IPC 直连控制）
 - **DeepSeek API**：LLM 服务（Anthropic Messages 兼容接口）
 
@@ -1142,8 +1189,26 @@ npm run build
 | 2026-08-07 | Codex | Electron/Workbench | 移除工作台原生白色标题栏，改为无边框窗口与自定义深色标题栏；定制最小化、最大化、关闭按钮及悬停效果，保留拖动和双击最大化操作 | `electron/main.js`, `electron/preload.js`, `workbench/client/src/components/layout/WindowTitleBar.tsx`, `WorkbenchLayout.tsx`, `PROJECT.md` |
 | 2026-08-07 | Codex | Music | 修复乱序播放后歌曲信息、时长、封面/收藏状态和歌词错位：按 mpv 稳定队列项 ID 同步真实队列，播放状态携带歌曲 ID，前端信息随切歌更新并防止旧歌词请求覆盖 | `Music/server/src/services/mpvController.ts`, `routes/playback.ts`, `services/wsManager.ts`, `Music/client/src/stores/playbackStore.ts`, `hooks/useLyrics.ts`, `types/ncm.ts`, `components/dashboard/NowPlaying.tsx`, `components/shared/TrackRow.tsx`, `PROJECT.md` |
 | 2026-08-07 | Codex | Workbench/Music/Tools | 基于参考插画重构全局视觉基调：建立暗黑褐、琥珀黄、灰橄榄与少量灰紫的跨模块设计令牌；统一标题栏、侧栏、对话、卡片、按钮、输入框、嵌入页及窄窗口响应式布局 | `workbench/client/src/index.css`, `components/**`, `Music/client/src/index.css`, `components/layout/AppLayout.tsx`, `Tools/client/src/index.css`, `components/**`, `electron/main.js`, `PROJECT.md` |
+| 2026-08-22 | Codex | 根目录/安装流程 | 新增 Windows 图形化本地环境安装器：自动检测与跳过已安装项，支持单选、多选、一键全部安装并启动，提供安装顺序、进度、日志、失败重试、安全的 `.env` 初始化及 DeepSeek Key 掩码录入；同步补齐 dotenv 直接依赖、动态 ncm-cli 默认路径及锁文件包名 | `setup.ps1`, `start.bat`, `start.vbs`, `Music/server/.env.example`, `workbench/server/.env.example`, `Music/server/src/config.ts`, `Music/server/package.json`, `Music/package-lock.json`, `Tools/package-lock.json`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-22 | Codex | 根目录/启动体验 | 安装器默认每次显示；环境全部完成后提供“以后直接启动”，偏好仅在所有检查通过时生效，缺失任一项会自动恢复安装器，并支持 `-ForceShow` 强制打开 | `setup.ps1`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-22 | Codex | 根目录/npm 安装 | 修复 npm 安装中断后界面仍显示执行中的问题；增加下载耗时提示、请求超时与重试，并在官方源失败时自动切换 npmmirror 国内镜像 | `setup.ps1`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-22 | Codex | 根目录/npm 安装 | 根据实际安装日志将 npmmirror 调整为 npm 首选源、官方源作为兜底；增加取消安装与关闭窗口时终止完整进程树，避免残留 npm 并发占用全局安装目录 | `setup.ps1`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-22 | Codex | 根目录/启动入口 | 修复 `start.vbs` 被 UTF-8 BOM 编码后 Windows Script Host 在第 1 行报 `800A0408` 无效字符的问题，启动脚本改为无 BOM 的纯 ASCII | `start.vbs`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-22 | Codex | 根目录/启动体验 | 新增“启动后自动关闭”开关并默认启用；项目进程启动后自动关闭安装器，也可取消勾选保留窗口，选择写入本机安装器偏好 | `setup.ps1`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-22 | Codex | 根目录/检测体验 | 修复点击“重新检测”无即时反馈的问题：检测前先刷新 UI，展示滚动进度、逐项检测状态并禁用重复操作，完成后显示 100% 和缺失项数量 | `setup.ps1`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-22 | Codex | Music/多音源 | 保留网易云功能并接入 QQ 音乐歌曲搜索、播放和歌词；搜索页新增音源切换，播放请求携带 provider/MID，安装器随项目依赖自动安装 SDK 并生成可选 Cookie 配置 | `Music/server/src/services/qqMusic.ts`, `routes/search.ts`, `routes/playback.ts`, `routes/song.ts`, `config.ts`, `Music/client/src/components/dashboard/SearchPage.tsx`, `components/dashboard/NowPlaying.tsx`, `components/shared/TrackRow.tsx`, `types/ncm.ts`, `api/client.ts`, `Music/server/package.json`, `Music/package-lock.json`, `setup.ps1`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-23 | Codex | Music/账号设置 | 新增统一“账号与服务设置”页面：网易云与 QQ 音乐双二维码登录/退出、DeepSeek API Key/地址/模型配置；服务端保存 Cookie/密钥且不向前端回显，网易云未登录不再阻塞 QQ 搜索与公开播放 | `Music/server/src/services/qqMusic.ts`, `services/envFile.ts`, `routes/settings.ts`, `index.ts`, `Music/client/src/components/dashboard/SettingsPage.tsx`, `components/layout/AppLayout.tsx`, `App.tsx`, `api/client.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-23 | Codex | Music/双音源主页 | Music 主页新增网易云/QQ 音源切换并记忆选择；QQ 首页接入热歌、流行指数和新歌榜，每榜 12 首，支持单曲及整榜播放，网易云原有首页功能保持不变 | `Music/server/src/services/qqMusic.ts`, `routes/qq.ts`, `routes/playback.ts`, `index.ts`, `Music/client/src/components/dashboard/HomePage.tsx`, `api/client.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-23 | Codex | Music/QQ 个人主页与榜单 | QQ 首页接入扫码账号的“我喜欢”、创建歌单和收藏歌单信息；榜单从失效的旧接口迁移到 `ToplistInfoServer/GetDetail`，按 QQ 原始内容分别展示热歌、流行指数和新歌榜，不进行人为去重 | `Music/server/src/services/qqMusic.ts`, `routes/qq.ts`, `Music/client/src/components/dashboard/HomePage.tsx`, `api/client.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-23 | Codex | Music/正在播放 | 参考 QQ 音乐重构沉浸式播放页：大幅专辑封面、环境模糊背景、居中歌词与通栏控制；安全代理 QQ/网易云封面并提取代表色，动态同步整页强调色；修复刷新页面不立即同步歌曲及歌词初次定位到可视区外的问题 | `Music/server/src/routes/theme.ts`, `Music/client/src/components/dashboard/NowPlaying.tsx`, `LyricsPanel.tsx`, `components/layout/AppLayout.tsx`, `hooks/usePlaybackState.ts`, `index.css`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-23 | Codex | Music/QQ 歌单与导航 | QQ 的“我喜欢”、创建歌单、收藏歌单卡片接入独立详情页，支持歌曲列表、单曲播放和播放全部；顶栏新增基于应用历史的返回按钮，无历史时回到首页 | `Music/server/src/services/qqMusic.ts`, `routes/qq.ts`, `Music/client/src/components/dashboard/QQPlaylistDetail.tsx`, `HomePage.tsx`, `components/layout/AppLayout.tsx`, `api/client.ts`, `App.tsx`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-23 | Codex | Music/双音源播放样式 | 修复网易云搜索返回新版 `al/ar/dt` 字段且搜索结果缺少封面 URL 的兼容问题；批量补充歌曲详情并统一为播放器所需的专辑、歌手、时长结构，使动态专辑色播放页同时适用于网易云与 QQ 音乐 | `Music/server/src/routes/search.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-23 | Codex | Music/连续播放 | 修复从歌曲列表点歌时队列退化为单曲、播放结束后无法续播的问题；网易云与 QQ 的歌单、收藏、每日推荐、搜索结果及榜单现在会保留所选歌曲之后的列表上下文并自动切换下一首 | `Music/client/src/components/shared/TrackRow.tsx`, `components/dashboard/DailyRecommend.tsx`, `LikedSongs.tsx`, `PlaylistDetail.tsx`, `QQPlaylistDetail.tsx`, `SearchPage.tsx`, `HomePage.tsx`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-23 | Codex | Music/歌词 | 修复 React 严格模式重复执行副作用时，首次歌词请求被清理、第二次请求又被防重复标记拦截，导致网易云与 QQ 播放页统一显示“暂无歌词”的问题；改为按歌曲身份安全重载并防止旧请求覆盖新歌曲 | `Music/client/src/hooks/useLyrics.ts`, `PROJECT.md` |
+| 2026-08-23 | Codex | Music/播放队列 | 修复独立播放队列页面仍按旧版 `label` 字符串解析新版歌曲对象，导致歌名显示为 `[object Object]` 的问题；兼容新旧队列结构并统一显示歌名、歌手、当前播放状态及从 1 开始的序号 | `Music/client/src/components/dashboard/QueueView.tsx`, `PROJECT.md` |
+| 2026-08-24 | Codex | 根目录/安装流程 | 增加 Git for Windows 可选安装项：自动检测版本、已安装跳过、支持单独或批量选择，通过 WinGet `Git.Git` 安装；Git 缺失不阻塞项目启动与跳过安装器 | `setup.ps1`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 
 > **文档维护者**：潘高远  
-> **最后更新**：2026-08-07
+> **最后更新**：2026-08-24

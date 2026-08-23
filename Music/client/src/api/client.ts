@@ -47,9 +47,36 @@ export const api = {
 // Playback
 export const playbackApi = {
   state: () => api.get("/playback/state"),
-  playSong: (encryptedId?: string, originalId?: number, meta?: { name?: string; artist?: string; duration?: number }) =>
-    api.post("/playback/play-song", { encryptedId, originalId, name: meta?.name, artist: meta?.artist, duration: meta?.duration }),
-  playSongs: (songs: { encryptedId?: string; originalId?: number; name?: string; artist?: string; duration?: number }[]) =>
+  playSong: (encryptedId?: string, originalId?: number, meta?: {
+    name?: string;
+    artist?: string;
+    duration?: number;
+    provider?: "netease" | "qq";
+    providerId?: string;
+    qqMid?: string;
+    mediaMid?: string;
+  }) => api.post("/playback/play-song", {
+    encryptedId,
+    originalId,
+    name: meta?.name,
+    artist: meta?.artist,
+    duration: meta?.duration,
+    provider: meta?.provider,
+    providerId: meta?.providerId,
+    qqMid: meta?.qqMid,
+    mediaMid: meta?.mediaMid,
+  }),
+  playSongs: (songs: {
+    provider?: "netease" | "qq";
+    providerId?: string;
+    qqMid?: string;
+    mediaMid?: string;
+    encryptedId?: string;
+    originalId?: number;
+    name?: string;
+    artist?: string;
+    duration?: number;
+  }[]) =>
     api.post("/playback/play-songs", { songs }),
   playPlaylist: (encryptedId?: string, originalId?: number) =>
     api.post("/playback/play-playlist", { encryptedId, originalId }),
@@ -70,8 +97,8 @@ export const playbackApi = {
 
 // Search
 export const searchApi = {
-  songs: (q: string, limit?: number) =>
-    api.get(`/search/songs?q=${encodeURIComponent(q)}&limit=${limit || 30}`),
+  songs: (q: string, limit?: number, provider: "netease" | "qq" = "netease") =>
+    api.get(`/search/songs?q=${encodeURIComponent(q)}&limit=${limit || 30}&provider=${provider}`),
   playlists: (q: string, limit?: number) =>
     api.get(`/search/playlists?q=${encodeURIComponent(q)}&limit=${limit || 30}`),
   albums: (q: string, limit?: number) =>
@@ -108,6 +135,12 @@ export const userApi = {
   liked: () => api.get("/user/liked"),
   loginStatus: () => api.get<{ loggedIn: boolean; nickname?: string }>("/user/login-status"),
   loginQr: () => api.post<{ qrKey: string; qrimg: string; message: string; alreadyLoggedIn?: boolean }>("/user/login-qr"),
+  loginCheck: (qrKey: string) => api.post<{
+    status: "waiting" | "confirming" | "success" | "expired" | "error";
+    nickname?: string;
+    message?: string;
+  }>("/user/login-check", { qrKey }),
+  logout: () => api.post("/user/logout"),
   search: (nickname: string) =>
     api.get<{ userId: string; nickname: string; avatarUrl: string; followeds: number; signature: string }[]>(
       `/user/search?nickname=${encodeURIComponent(nickname)}`
@@ -117,6 +150,58 @@ export const userApi = {
       users: { userId: string; nickname: string; avatarUrl: string; followeds: number; signature: string }[];
       more: boolean;
     }>(`/user/follows?limit=${limit || 50}&offset=${offset || 0}`),
+};
+
+export interface SettingsStatus {
+  ai: { configured: boolean; baseUrl: string; model: string };
+  netease: { loggedIn: boolean; nickname?: string };
+  qq: { loggedIn: boolean; uin?: string };
+}
+
+export const settingsApi = {
+  status: () => api.get<SettingsStatus>("/settings/status"),
+  saveAi: (apiKey: string, baseUrl: string, model: string) =>
+    api.post<{ configured: boolean; baseUrl: string; model: string }>("/settings/ai", { apiKey, baseUrl, model }),
+  qqLoginQr: () => api.post<{ qrKey: string; qrimg: string; message: string; alreadyLoggedIn?: boolean }>("/settings/qq/login-qr"),
+  qqLoginCheck: (qrKey: string) => api.post<{
+    status: "waiting" | "success" | "expired" | "error";
+    message?: string;
+    uin?: string;
+  }>("/settings/qq/login-check", { qrKey }),
+  qqLogout: () => api.post("/settings/qq/logout"),
+};
+
+export interface QQHomeChart {
+  id: string;
+  name: string;
+  coverUrl: string;
+  tracks: import("../types/ncm").Song[];
+}
+
+export interface QQHomePlaylist {
+  id: string;
+  name: string;
+  coverUrl: string;
+  trackCount?: number;
+  playCount?: number;
+  kind: "liked" | "created" | "collected";
+}
+
+export const qqApi = {
+  home: () => api.get<{
+    account: { loggedIn: boolean; uin?: string };
+    library: {
+      liked?: QQHomePlaylist;
+      created: QQHomePlaylist[];
+      collected: QQHomePlaylist[];
+    };
+    charts: QQHomeChart[];
+  }>("/qq/home"),
+  playlist: (id: string) => api.get<QQHomePlaylist & {
+    description?: string;
+    creator?: string;
+    tracks: import("../types/ncm").Song[];
+  }>(`/qq/playlist/${encodeURIComponent(id)}`),
 };
 
 // Song

@@ -12,9 +12,17 @@ export function usePlaybackState(): void {
   const prevSongKey = useRef<string | null>(null);
 
   useEffect(() => {
-    return onSocketEvent("playback:state", (data) => {
+    let cancelled = false;
+    playbackApi.state().then((result) => {
+      if (!cancelled && result.success && result.data) update(result.data as PlaybackState);
+    }).catch(() => {});
+    const unsubscribe = onSocketEvent("playback:state", (data) => {
       update(data as PlaybackState);
     });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [update]);
 
   // Sync UI volume to mpv when a new song starts playing

@@ -33,7 +33,8 @@ function cookieStr(): string {
 
 export const config = {
   port: parseInt(process.env.PORT || "3001"),
-  ncmCliCommand: process.env.NCM_CLI_PATH || "C:\\Users\\mmhm\\AppData\\Roaming\\npm\\ncm-cli.cmd",
+  ncmCliCommand: process.env.NCM_CLI_PATH
+    || (process.env.APPDATA ? path.join(process.env.APPDATA, "npm", "ncm-cli.cmd") : "ncm-cli.cmd"),
   ncmCliArgs: [] as string[],
   themeImagesDir: process.env.THEME_IMAGES_DIR
     || path.resolve(process.cwd(), "..", "client", "public", "images"),
@@ -47,6 +48,9 @@ export const config = {
   },
   netease: {
     cookie: cookieStr(),
+  },
+  qq: {
+    cookie: process.env.QQ_MUSIC_COOKIE || "",
   },
   playback: {
     pollIntervalMs: 15000,

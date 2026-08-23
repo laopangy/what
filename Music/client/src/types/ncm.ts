@@ -22,6 +22,10 @@ export interface Song {
   id: string;
   encryptedId?: string;
   originalId?: number;
+  provider?: "netease" | "qq";
+  providerId?: string;
+  qqMid?: string;
+  mediaMid?: string;
   artists: { name: string; id?: string }[];
   album: { name: string; id?: string; coverUrl?: string };
   duration: number;

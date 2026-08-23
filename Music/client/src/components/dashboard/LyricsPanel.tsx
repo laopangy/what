@@ -13,11 +13,11 @@ export default function LyricsPanel({
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const el = containerRef.current.children[currentIndex] as HTMLElement | undefined;
+    const el = containerRef.current.children[currentIndex + 1] as HTMLElement | undefined;
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  }, [currentIndex]);
+  }, [currentIndex, lyrics.length]);
 
   if (lyrics.length === 0) {
     return (
@@ -30,7 +30,7 @@ export default function LyricsPanel({
   }
 
   return (
-    <div ref={containerRef} className="h-full overflow-y-auto scroll-smooth pr-2">
+    <div ref={containerRef} className="h-full overflow-y-auto scroll-smooth px-2 text-center player-lyrics-scroll">
       {/* Extra space at top so first line can scroll to center */}
       <div className="h-[40vh]" />
       {lyrics.map((line, i) => {
@@ -39,12 +39,12 @@ export default function LyricsPanel({
         return (
           <p
             key={i}
-            className={`text-base transition-all duration-500 px-3 py-2.5 ${
+            className={`text-base lg:text-lg transition-all duration-500 px-3 py-2 ${
               isCurrent
-                ? "text-accent-dim font-bold text-lg scale-105 origin-left"
+                ? "text-accent-dim font-semibold text-xl lg:text-2xl scale-105"
                 : isPast
-                  ? "text-text-dim/35"
-                  : "text-text-dim/60"
+                  ? "text-white/28"
+                  : "text-white/58"
             }`}
           >
             {line.text}

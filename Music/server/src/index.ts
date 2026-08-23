@@ -19,6 +19,8 @@ import { userRouter } from "./routes/user.js";
 import { songRouter } from "./routes/song.js";
 import { themeRouter } from "./routes/theme.js";
 import { analyzeRouter } from "./routes/analyze.js";
+import { settingsRouter } from "./routes/settings.js";
+import { qqRouter } from "./routes/qq.js";
 
 const app = express();
 app.use(cors({
@@ -43,6 +45,8 @@ app.use("/api/user", userRouter);
 app.use("/api/song", songRouter);
 app.use("/api/theme", themeRouter);
 app.use("/api/analyze", analyzeRouter);
+app.use("/api/settings", settingsRouter);
+app.use("/api/qq", qqRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: Date.now() });

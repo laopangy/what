@@ -8,10 +8,12 @@ import EmptyState from "../shared/EmptyState";
 import type { Song, Playlist } from "../../types/ncm";
 
 type Tab = "songs" | "playlists" | "albums";
+type Provider = "netease" | "qq";
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("songs");
+  const [provider, setProvider] = useState<Provider>("netease");
   const [loading, setLoading] = useState(false);
   const [songs, setSongs] = useState<Song[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -23,7 +25,7 @@ export default function SearchPage() {
     setHasSearched(true);
     try {
       if (tab === "songs") {
-        const res = await searchApi.songs(query);
+        const res = await searchApi.songs(query, undefined, provider);
         setSongs(extractSongs(res.data));
       } else if (tab === "playlists") {
         const res = await searchApi.playlists(query);
@@ -31,7 +33,7 @@ export default function SearchPage() {
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [query, tab]);
+  }, [query, tab, provider]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") doSearch();
@@ -46,6 +48,26 @@ export default function SearchPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <h1 className="text-xl font-bold mb-5 text-text">搜索</h1>
+
+      <div className="flex gap-1 mb-4 p-1 w-fit rounded-2xl glass border border-border/50">
+        {(["netease", "qq"] as Provider[]).map((source) => (
+          <button
+            key={source}
+            onClick={() => {
+              setProvider(source);
+              setTab("songs");
+              setSongs([]);
+              setPlaylists([]);
+              setHasSearched(false);
+            }}
+            className={`px-4 py-2 rounded-xl text-xs smooth ${
+              provider === source ? "bg-accent text-white" : "text-text-dim hover:text-text"
+            }`}
+          >
+            {source === "netease" ? "网易云音乐" : "QQ 音乐"}
+          </button>
+        ))}
+      </div>
 
       <div className="flex gap-2 mb-6">
         <div className="flex-1 flex items-center gap-3 glass rounded-2xl border border-border/50 focus-within:border-accent/40 focus-within:shadow-[0_2px_12px_rgba(240,184,196,0.1)] smooth px-4 py-3">
@@ -68,7 +90,7 @@ export default function SearchPage() {
       </div>
 
       <div className="flex gap-1 mb-6">
-        {tabs.map(({ key, label }) => (
+        {tabs.filter(({ key }) => provider === "netease" || key === "songs").map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -89,7 +111,7 @@ export default function SearchPage() {
         tab === "songs" ? (
           songs.length > 0 ? (
             <div className="space-y-0.5">
-              {songs.map((song, i) => <TrackRow key={song.id || `${i}`} song={song} index={i} />)}
+              {songs.map((song, i) => <TrackRow key={song.id || `${i}`} song={song} index={i} queue={songs} />)}
             </div>
           ) : (
             <EmptyState icon={<Search className="w-10 h-10" />} title="没有找到歌曲" />
@@ -127,6 +149,10 @@ function extractSongs(data: unknown): Song[] {
     name: String(raw.name ?? ""),
     encryptedId: raw.id ? String(raw.id) : undefined,
     originalId: raw.originalId ? Number(raw.originalId) : undefined,
+    provider: raw.provider === "qq" ? "qq" : "netease",
+    providerId: raw.providerId ? String(raw.providerId) : undefined,
+    qqMid: raw.qqMid ? String(raw.qqMid) : undefined,
+    mediaMid: raw.mediaMid ? String(raw.mediaMid) : undefined,
     artists: Array.isArray(raw.artists)
       ? (raw.artists as Array<Record<string, unknown>>).map((a) => ({ name: String(a.name ?? ""), id: a.id ? String(a.id) : undefined }))
       : [],

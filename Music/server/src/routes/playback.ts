@@ -7,6 +7,7 @@ import * as mpv from "../services/mpvController.js";
 import { config } from "../config.js";
 import { isLoggedIn, getLoginQr } from "../services/authHelper.js";
 import { z } from "zod";
+import { getQQPlayUrl } from "../services/qqMusic.js";
 const require = createRequire(import.meta.url);
 const { song_url } = require("NeteaseCloudMusicApi");
 const { playlist_detail, song_detail } = require("NeteaseCloudMusicApi");
@@ -125,11 +126,12 @@ playbackRouter.get("/state", async (_req, res, next) => {
 
 playbackRouter.post("/play-songs", async (req, res, next) => {
   try {
-    const loginGate = await gateLogin();
-    if (loginGate) { res.json({ success: false, ...loginGate }); return; }
-
     const body = z.object({
       songs: z.array(z.object({
+        provider: z.enum(["netease", "qq"]).optional().default("netease"),
+        providerId: z.string().optional(),
+        qqMid: z.string().optional(),
+        mediaMid: z.string().optional(),
         encryptedId: z.string().optional(),
         originalId: z.number().optional(),
         name: z.string().optional(),
@@ -140,6 +142,11 @@ playbackRouter.post("/play-songs", async (req, res, next) => {
 
     if (body.songs.length === 0) { res.json({ success: false, error: "歌曲列表为空" }); return; }
 
+    if (body.songs.some((song) => song.provider === "netease")) {
+      const loginGate = await gateLogin();
+      if (loginGate) { res.json({ success: false, ...loginGate }); return; }
+    }
+
     const MAX = 200;
     const selected = body.songs.slice(0, MAX);
     const trackList: Array<{ songId: string; url: string; name: string; artist: string; duration: number }> = [];
@@ -148,6 +155,18 @@ playbackRouter.post("/play-songs", async (req, res, next) => {
     for (let i = 0; i < selected.length; i += BATCH) {
       const batch = selected.slice(i, i + BATCH);
       const results = await Promise.all(batch.map(async (s) => {
+        if (s.provider === "qq") {
+          const songMid = s.qqMid || s.providerId;
+          if (!songMid) return null;
+          const url = await getQQPlayUrl(songMid, s.mediaMid);
+          return url ? {
+            songId: `qq:${songMid}`,
+            url,
+            name: s.name || "",
+            artist: s.artist || "",
+            duration: (s.duration || 0) / 1000,
+          } : null;
+        }
         let id = s.originalId || null;
         if (!id && s.encryptedId) {
           const p = parseInt(s.encryptedId, 16);
@@ -173,17 +192,55 @@ playbackRouter.post("/play-songs", async (req, res, next) => {
 
 playbackRouter.post("/play-song", async (req, res, next) => {
   try {
-    // Check login first
-    const loginGate = await gateLogin();
-    if (loginGate) { res.json({ success: false, ...loginGate }); return; }
-
     const body = z.object({
+      provider: z.enum(["netease", "qq"]).optional().default("netease"),
+      providerId: z.string().optional(),
+      qqMid: z.string().optional(),
+      mediaMid: z.string().optional(),
       encryptedId: z.string().optional(),
       originalId: z.number().optional(),
       name: z.string().optional(),
       artist: z.string().optional(),
       duration: z.number().optional(),
     }).parse(req.body);
+
+    if (body.provider === "qq") {
+      const songMid = body.qqMid || body.providerId;
+      if (!songMid) {
+        res.json({ success: false, error: "无法确定 QQ 音乐歌曲 MID" });
+        return;
+      }
+      const url = await getQQPlayUrl(songMid, body.mediaMid);
+      if (!url) {
+        res.json({
+          success: false,
+          error: config.qq.cookie
+            ? "QQ 音乐未返回播放地址（歌曲可能下架或版权受限）"
+            : "QQ 音乐未返回播放地址；会员或受限歌曲需在 .env 配置 QQ_MUSIC_COOKIE",
+        });
+        return;
+      }
+      mpv.setCurrentMeta({
+        songId: `qq:${songMid}`,
+        name: body.name || "未知歌曲",
+        artist: body.artist || "",
+        duration: body.duration || 0,
+      });
+      const ok = await mpv.playUrl(url);
+      const meta = mpv.getCurrentMeta();
+      if (meta) mpv.setPlaylistTracks([{ ...meta, url }]);
+      if (!ok) {
+        res.json({ success: false, error: "无法启动 mpv 播放器" });
+        return;
+      }
+      notifyPlaybackChange();
+      res.json({ success: true, data: { message: "开始播放（QQ 音乐）" } });
+      return;
+    }
+
+    // Netease playback still requires a Netease login.
+    const loginGate = await gateLogin();
+    if (loginGate) { res.json({ success: false, ...loginGate }); return; }
 
     // Determine numeric song ID (parseInt handles 32-char hex, Number() does not)
     let numericId: number | null = body.originalId || null;

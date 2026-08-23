@@ -7,7 +7,7 @@
 ```
 what/
 ├── index.html              # 门户页面（导航卡片）
-├── Music/                  # 🎵 网易云音乐播放器（已上线）
+├── Music/                  # 🎵 网易云 + QQ 音乐播放器（已上线）
 │   ├── package.json        # npm workspaces: ["client", "server"]
 │   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
 │   ├── server/             # Express 5 + TypeScript（调用 ncm-cli）
@@ -58,84 +58,80 @@ what/
 
 ## 新电脑完整配置流程
 
-### 1. 基础环境安装
+### 推荐：使用图形化安装器
 
-```bash
-# Node.js 22.x LTS（必需）
-winget install OpenJS.NodeJS.LTS
-# 或从 https://nodejs.org 下载安装
+新电脑拉取代码后，直接双击根目录的 `start.vbs` 或 `start.bat`。二者都会打开 `setup.ps1` 图形化安装器。
+`start.vbs` 必须保持纯 ASCII、无 BOM；Windows Script Host 无法稳定解析 UTF-8 BOM 的 VBScript 文件。
 
-# 验证
-node -v   # 应显示 v22.x
-npm -v    # 应显示 10.x+
+安装器提供以下能力：
+
+- 自动检测 Node.js 22、Git for Windows、mpv、ncm-cli、项目 npm 依赖和 `.env`
+- 双击后先显示安装器和“正在检测”状态，再执行首次扫描；启动失败会弹窗并写入临时错误日志
+- 必需环境全部完成后显示“以后直接启动”；只有用户主动启用后才跳过安装器，任何必需项缺失都会强制恢复显示（可选 Git 不阻塞）
+- “启动后自动关闭”默认开启；项目进程拉起后约 0.8 秒关闭安装器，可取消勾选以保留窗口，选择会记入本机偏好
+- 已安装项自动跳过，显示检测到的版本
+- 支持单选、多选、“仅安装选择项”和“一键安装全部并启动”
+- 自动按 Node → Git → mpv → ncm-cli → 项目依赖 → 环境配置的顺序处理；Git 是默认不勾选的可选项
+- 显示总体进度、当前项目、持续更新的已用时间和详细安装日志；失败项可单独重试
+- 首次检测和“重新检测”会立即禁用重复操作、显示滚动进度条与“检测中”状态，检测完成后显示 100% 和缺失项数量
+- Worker 强制使用 UTF-8/代码页 65001 采集 WinGet 与 npm 输出；npm warning 会记录但不再误判为安装失败
+- npm 安装使用明确的网络超时与自动重试；优先使用 npmmirror 国内镜像，失败后自动切换官方源，设置会传递给各子项目安装
+- 后台安装进程意外退出时立即恢复可操作状态并弹窗提示，不会一直停留在“执行中”
+- 安装期间可点击“取消安装”；关闭窗口也会先终止本次 Worker 及其 npm 子进程，避免残留安装相互占用目录
+- 自动创建 `Music/server/.env`、`workbench/server/.env`，并写入本机 ncm-cli 路径
+- 提供隐藏输入框保存 DeepSeek API Key，并同时写入两份 `.env`；密钥不会显示或进入安装日志
+- 提供“申请密钥”入口；未配置时启动前会明确提醒 AI 功能不可用
+- 已有 `.env` 内容会保留，不覆盖 API Key、端口等用户配置
+
+也可直接运行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\setup.ps1
+
+# 仅输出 JSON 检测结果，不打开窗口、不安装
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1 -CheckOnly
+
+# 即使启用了“以后直接启动”，仍强制打开安装器
+powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\setup.ps1 -ForceShow
 ```
 
-### 2. mpv 播放器 + ncm-cli（Music 模块必需）
+> mpv 通过 WinGet 包 `shinchiro.mpv` 安装。如果系统缺少 WinGet，需要先从 Microsoft Store 安装或修复“应用安装程序”。Node.js 在 WinGet 不可用时会从 Node.js 官方 `latest-v22.x` 下载，并校验官方 SHA-256。
 
-```bash
-# 安装 mpv 播放器
-winget install mpv
+### 首次安装后的用户配置
 
-# 验证 mpv
-mpv --version
+安装器可以创建可启动的 `.env`，并提供安全输入框保存用户自己的密钥：
 
-# 全局安装 ncm-cli
+- 点击“申请密钥”打开 DeepSeek API Keys 页面，创建后粘贴到安装器并点击“保存密钥”
+- 同一个 Key 会写入 `Music/server/.env` 和 `workbench/server/.env` 的 `ANTHROPIC_AUTH_TOKEN`；Tools 复用 workbench 配置
+- 在 Music 客户端右上角进入“账号与服务设置”，可分别扫描网易云和 QQ 音乐二维码登录；Cookie 自动保存到本机 `.env`
+- 也可运行 `npm run login`，在终端扫描二维码登录网易云
+- QQ 音乐公开搜索、歌词和榜单无需登录；扫码登录后主页会读取“我喜欢”、创建歌单和收藏歌单，会员/版权受限歌曲也会使用该登录态
+- QQ 首页的“我喜欢”、创建歌单和收藏歌单均可进入独立详情页，支持单曲与整单播放；非首页页面可使用顶栏返回按钮回到上一步
+- 网易云与 QQ 音乐共用同一个“正在播放”页面：均从当前专辑封面提取代表色，并将封面环境色同步到背景、歌词和播放控件；封面像素通过受限的 QQ/网易云图片代理读取
+- 网易云与 QQ 的歌单、收藏、每日推荐、搜索结果和榜单点歌时会保留所选歌曲之后的列表上下文，当前歌曲结束后自动续播下一首
+- DeepSeek API Key 可在安装器或 Music“账号与服务设置”中配置，密钥只写入本机且不会回显
+- `.env` 格式可参考 `Music/server/.env.example` 和 `workbench/server/.env.example`
+
+### 手动安装备用流程
+
+```powershell
+# Node.js 22 LTS
+winget install --id OpenJS.NodeJS.LTS -e
+
+# Git for Windows（可选，用于提交并上传 GitHub）
+winget install --id Git.Git -e
+
+# Music 播放器
+winget install --id shinchiro.mpv -e
+
+# 网易云 CLI
 npm install -g @music163/ncm-cli
 
-# 登录网易云音乐（生成认证信息）
-ncm-cli login
-
-# 记录 ncm-cli 路径（后面配置 .env 要用）
-where ncm-cli
-# 典型输出：C:\Users\<用户名>\AppData\Roaming\npm\ncm-cli.cmd
+# 根目录执行一次即可；postinstall 会安装三个子模块
+npm install
 ```
 
-### 3. 克隆项目并安装依赖
-
-```bash
-git clone https://github.com/laopangy/what.git
-cd what
-
-# 安装 Music 依赖
-cd Music && npm install
-
-# 安装 Workbench 依赖
-cd ../workbench && npm install
-```
-
-### 4. 创建 .env 文件（⚠️ 关键步骤）
-
-文件被 .gitignore 排除，需手动创建。
-
-#### Music/server/.env
-
-```env
-PORT=3001
-# 用上面 where ncm-cli 查到的实际路径替换
-NCM_CLI_PATH=C:\Users\<你的用户名>\AppData\Roaming\npm\ncm-cli.cmd
-THEME_IMAGES_DIR=../client/public/images
-CORS_ORIGIN=http://localhost:5173
-
-# 以下为 AI 选歌功能（可选，不填则 AI 选歌不可用）
-ANTHROPIC_AUTH_TOKEN=你的DeepSeek_API_Key
-ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic
-ANTHROPIC_MODEL=deepseek-v4-pro
-```
-
-#### workbench/server/.env
-
-```env
-PORT=3000
-CORS_ORIGIN=http://localhost:5174
-MUSIC_API_URL=http://localhost:3001
-
-# AI 对话功能（必需！没有 Key 工作台无法使用）
-ANTHROPIC_AUTH_TOKEN=你的DeepSeek_API_Key
-ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic
-ANTHROPIC_MODEL=deepseek-v4-pro
-```
-
-### 5. 获取 DeepSeek API Key
+### 获取 DeepSeek API Key
 
 1. 访问 https://platform.deepseek.com
 2. 注册/登录
@@ -143,23 +139,20 @@ ANTHROPIC_MODEL=deepseek-v4-pro
 4. 充值或确认有可用额度
 5. 将 Key 填入两个 .env 文件
 
-### 6. 启动项目
+### 启动项目
 
-```bash
-# 终端 1：启动 Music 模块（音乐播放器）
-cd what/Music
-npm run dev          # 同时启动 client:5173 + server:3001
+```powershell
+# 图形化检测后启动（推荐）
+.\start.bat
 
-# 终端 2：启动 Workbench 模块（AI 助手）
-cd what/workbench
-npm run dev          # 同时启动 client:5174 + server:3000
+# 已安装完成时直接启动完整 Electron 版本
+npm run dev
 
-# 终端 3：启动 Tools 模块（工具集）
-cd what/Tools
-npm run dev          # 同时启动 client:5175 + server:3002
+# 只启动 Web 服务
+npm run dev:web
 ```
 
-### 7. 访问
+### 访问
 
 - 门户页面：用浏览器打开 `what/index.html`
 - AI 工作台：http://localhost:5174
@@ -180,7 +173,7 @@ npm run dev          # 同时启动 client:5175 + server:3002
 | 8 | Workbench 依赖已安装 | `ls workbench/node_modules/.package-lock.json` 存在 |
 | 9 | Tools 依赖已安装 | `ls Tools/node_modules/.package-lock.json` 存在 |
 | 10 | `.env` 文件已创建 | `cat Music/server/.env workbench/server/.env` |
-| 11 | DeepSeek API Key 有效 | 启动 workbench 后发送消息测试 |
+| 11 | DeepSeek API Key 已配置 | 安装器显示“已配置”；有效性需启动 workbench 后发送消息测试 |
 | 12 | Music server 启动 | `curl http://localhost:3001/api/playback/state` |
 | 13 | Workbench server 启动 | `curl http://localhost:3000/api/chat` |
 | 14 | Tools server 启动 | `curl http://localhost:3002/api/health` |
@@ -216,7 +209,7 @@ workbench/client ──WebSocket────────────────
 | `/api/playback/seek` | 跳转 |
 | `/api/playback/volume` | 音量 |
 | `/api/playback/queue` | 队列 |
-| `/api/search/songs` | 搜索歌曲 |
+| `/api/search/songs` | 搜索歌曲；`provider=netease|qq` 选择音源 |
 | `/api/search/playlists` | 搜索歌单 |
 | `/api/search/albums` | 搜索专辑 |
 | `/api/recommend/daily` | 每日推荐 |
@@ -224,6 +217,14 @@ workbench/client ──WebSocket────────────────
 | `/api/song/:id/lyric` | 歌词 |
 | `/api/playlist/created` | 创建的歌单 |
 | `/api/playlist/collected` | 收藏的歌单 |
+| `/api/settings/status` | 音乐账号与 AI 配置状态（不返回密钥/Cookie） |
+| `/api/settings/ai` | 保存 DeepSeek API Key、地址和模型 |
+| `/api/settings/qq/login-qr` | 获取 QQ 登录二维码 |
+| `/api/settings/qq/login-check` | 检查 QQ 扫码状态并保存 Cookie |
+| `/api/settings/qq/logout` | 退出 QQ 音乐登录 |
+| `/api/qq/home` | QQ 音乐账号歌单信息，以及热歌、流行指数、新歌榜的原始榜单内容 |
+| `/api/qq/playlist/:id` | QQ 音乐歌单详情与完整歌曲列表 |
+| `/api/theme/cover-image` | 受限代理 QQ/网易云专辑封面，供本地播放器提取动态主题色 |
 
 ## Tools 服务器 API 端点（定时器）
 
@@ -279,12 +280,14 @@ workbench/client ──WebSocket────────────────
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
 | `PORT` | `3001` | 服务器端口 |
-| `NCM_CLI_PATH` | `C:\Users\mmhm\AppData\Roaming\npm\ncm-cli.cmd` | ncm-cli 可执行文件路径 |
+| `NCM_CLI_PATH` | `%APPDATA%\npm\ncm-cli.cmd` | ncm-cli 可执行文件路径；安装器会写入检测到的绝对路径 |
 | `THEME_IMAGES_DIR` | `../client/public/images` | 主题背景图目录 |
 | `ANTHROPIC_BASE_URL` | `https://api.deepseek.com/anthropic` | LLM API 地址 |
 | `ANTHROPIC_AUTH_TOKEN` | (空) | DeepSeek API Key |
 | `ANTHROPIC_MODEL` | `deepseek-v4-pro` | 模型名称 |
 | `CORS_ORIGIN` | `http://localhost:5173` | 允许的跨域来源 |
+| `NETEASE_COOKIE` | (空) | 网易云登录 Cookie |
+| `QQ_MUSIC_COOKIE` | (空) | QQ 音乐 Cookie；会员/版权受限歌曲播放时需要 |
 
 ## Workbench 服务器配置项
 

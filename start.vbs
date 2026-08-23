@@ -1,10 +1,13 @@
-' 阿潘阿潘潘的工具栈 — 静默启动（不显示命令行窗口）
-Set WshShell = CreateObject("Wscript.Shell")
+' Windows launcher for the local setup UI. Keep this file ASCII without a BOM
+' because Windows Script Host does not reliably parse UTF-8 VBScript files.
+Set WshShell = CreateObject("WScript.Shell")
 Set FSO = CreateObject("Scripting.FileSystemObject")
+On Error Resume Next
 
-' Get the directory where this script is
 ScriptDir = FSO.GetParentFolderName(WScript.ScriptFullName)
-
-' Run start.bat hidden (window style 0 = hidden)
 WshShell.CurrentDirectory = ScriptDir
-WshShell.Run "cmd /c start.bat", 0, False
+WshShell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File """ & ScriptDir & "\setup.ps1""", 1, False
+
+If Err.Number <> 0 Then
+    MsgBox "Unable to open the local setup window." & vbCrLf & vbCrLf & Err.Description & vbCrLf & vbCrLf & "Please try start.bat instead.", vbCritical, "Startup failed"
+End If

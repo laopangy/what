@@ -10,6 +10,8 @@ import LikedSongs from "./components/dashboard/LikedSongs";
 import QueueView from "./components/dashboard/QueueView";
 import StyleAnalyzer from "./components/dashboard/StyleAnalyzer";
 import PersonalizedPlaylists from "./components/dashboard/PersonalizedPlaylists";
+import SettingsPage from "./components/dashboard/SettingsPage";
+import QQPlaylistDetail from "./components/dashboard/QQPlaylistDetail";
 import { useTheme } from "./hooks/useTheme";
 
 export default function App() {
@@ -22,11 +24,13 @@ export default function App() {
         <Route path="/search" element={<SearchPage />} />
         <Route path="/playlists" element={<PlaylistBrowser />} />
         <Route path="/playlist/:id" element={<PlaylistDetail />} />
+        <Route path="/qq/playlist/:id" element={<QQPlaylistDetail />} />
         <Route path="/daily" element={<DailyRecommend />} />
         <Route path="/liked" element={<LikedSongs />} />
         <Route path="/queue" element={<QueueView />} />
         <Route path="/analyze" element={<StyleAnalyzer />} />
         <Route path="/personalized" element={<PersonalizedPlaylists />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </AppLayout>
   );
