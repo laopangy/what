@@ -70,6 +70,7 @@ export function readState(): FitnessState {
       ...session,
       scheduledDate: session.scheduledDate || undefined,
       generated: session.generated || false,
+      adaptationNote: session.adaptationNote || undefined,
       activityType: session.activityType || "strength",
       targetDurationMinutes: session.targetDurationMinutes ?? 60,
       wakeTime: session.wakeTime || "",
@@ -82,7 +83,7 @@ export function readState(): FitnessState {
       activities: session.activities || (session.activityType !== "daily" ? [{ id: `legacy-${session.id}`, startTime: "18:00", name: session.name, activityType: session.activityType, durationMinutes: session.targetDurationMinutes || 60, notes: session.focus }] : []),
       exercises: session.exercises || [],
     }));
-    state.profile = calculateProfileTargets(state.profile, state.plan.sessions);
+    state.profile = calculateProfileTargets(state.profile, state.plan.sessions, state.planAdaptation?.calorieAdjustment || 0);
     state.workoutLogs = state.workoutLogs.map((log) => ({ ...log, activityType: log.activityType || "strength", sets: log.sets || [] }));
     return state;
   } catch {

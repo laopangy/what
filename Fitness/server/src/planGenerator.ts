@@ -39,7 +39,7 @@ const templates = {
 
 export function generateWeeklyPlan(profile: Profile, preferences: PlanPreferences): GeneratedSession[] {
   const orderedWeekdays = [1, 2, 3, 4, 5, 6, 0];
-  const desiredTrainingDays = preferences.trainingLevel === "beginner" ? 3 : preferences.trainingLevel === "intermediate" ? 4 : 5;
+  const standardTrainingDays = preferences.trainingLevel === "beginner" ? 3 : preferences.trainingLevel === "intermediate" ? 4 : 5;
   const sourceTemplates = templates[preferences.equipment];
   const isAlternating = preferences.workSchedule === "big_small";
   const days = Array.from({ length: isAlternating ? 14 : 7 }, (_, index) => {
@@ -50,6 +50,7 @@ export function generateWeeklyPlan(profile: Profile, preferences: PlanPreference
     return { weekday, weekIndex, isBigWeek, workday, scheduledDate: isAlternating ? addDays(preferences.bigWeekStartDate, index) : undefined };
   });
   const trainingKeys = new Set(days.flatMap((day, index) => {
+    const desiredTrainingDays = preferences.returnMode === "gentle" ? day.weekIndex === 0 ? 2 : 3 : standardTrainingDays;
     const previousSameWeek = days.slice(day.weekIndex * 7, index).filter((candidate) => preferences.availableWeekdays.includes(candidate.weekday) && (preferences.preferredTrainingTime !== "rest_day" || !candidate.workday)).length;
     const eligible = preferences.availableWeekdays.includes(day.weekday) && (preferences.preferredTrainingTime !== "rest_day" || !day.workday);
     return eligible && previousSameWeek < desiredTrainingDays ? [`${day.weekIndex}-${day.weekday}`] : [];
@@ -61,15 +62,16 @@ export function generateWeeklyPlan(profile: Profile, preferences: PlanPreference
     const template = sourceTemplates[trainingIndex % sourceTemplates.length];
     if (isTrainingDay) trainingIndex += 1;
     const afterWorkBase = preferences.overtimeFrequency === "rare" ? preferences.workEnd : preferences.latestWorkEnd;
+    const workoutDuration = preferences.returnMode === "gentle" ? Math.min(40, preferences.workoutDurationMinutes) : preferences.workoutDurationMinutes;
     const useBeforeWork = preferences.preferredTrainingTime === "before_work" || preferences.preferredTrainingTime === "adaptive" && preferences.overtimeFrequency !== "rare";
     const trainingTime = workday
-      ? useBeforeWork ? addMinutes(preferences.workStart, -(preferences.commuteMinutes + preferences.workoutDurationMinutes + 20)) : addMinutes(afterWorkBase, preferences.commuteMinutes + 30)
+      ? useBeforeWork ? addMinutes(preferences.workStart, -(preferences.commuteMinutes + workoutDuration + 20)) : addMinutes(afterWorkBase, preferences.commuteMinutes + 30)
       : "10:00";
     const idSuffix = scheduledDate || String(weekday);
     const overtimeNote = preferences.overtimeFrequency === "rare" ? `通常 ${preferences.workEnd} 下班` : `通常 ${preferences.workEnd} 下班，加班最晚约 ${preferences.latestWorkEnd}`;
     const activities = [
       ...(workday ? [{ id: `work-start-${idSuffix}`, startTime: preferences.workStart, name: "上班", activityType: "daily" as const, notes: `单程通勤约 ${preferences.commuteMinutes} 分钟${weekday === 6 ? " · 大周周六" : ""}` }] : []),
-      ...(isTrainingDay ? [{ id: `training-${idSuffix}`, startTime: trainingTime, name: template.name, activityType: "strength" as const, durationMinutes: preferences.workoutDurationMinutes, notes: `${workday && preferences.preferredTrainingTime === "after_work" ? "按最晚下班时间预留；未加班可提前。" : workday && useBeforeWork && preferences.preferredTrainingTime === "adaptive" ? "考虑加班不确定，自动安排在上班前。" : ""}热身5–10分钟；每组保留约2次余力，动作不适立即停止` }] : [{ id: `recovery-${idSuffix}`, startTime: workday ? addMinutes(afterWorkBase, preferences.commuteMinutes + 30) : "10:00", name: "恢复步行与拉伸", activityType: "daily" as const, durationMinutes: profile.goal === "lose" ? 45 : 30, notes: "轻松强度，以能正常交谈为准；加班过晚可取消" }]),
+      ...(isTrainingDay ? [{ id: `training-${idSuffix}`, startTime: trainingTime, name: preferences.returnMode === "gentle" ? `恢复训练 · ${template.name}` : template.name, activityType: "strength" as const, durationMinutes: workoutDuration, notes: `${workday && preferences.preferredTrainingTime === "after_work" ? "按最晚下班时间预留；未加班可提前。" : workday && useBeforeWork && preferences.preferredTrainingTime === "adaptive" ? "考虑加班不确定，自动安排在上班前。" : ""}${preferences.returnMode === "gentle" ? "先完成动作、不追求力竭；感觉轻松也不要额外加量。" : "每组保留约2次余力。"}热身5–10分钟，动作不适立即停止` }] : [{ id: `recovery-${idSuffix}`, startTime: workday ? addMinutes(afterWorkBase, preferences.commuteMinutes + 30) : "10:00", name: "轻松步行与舒展", activityType: "daily" as const, durationMinutes: preferences.returnMode === "gentle" ? weekIndex === 0 ? 15 : 20 : profile.goal === "lose" ? 45 : 30, notes: preferences.returnMode === "gentle" ? "只建立每天活动的习惯，不追求速度；疲劳时可缩短" : "轻松强度，以能正常交谈为准；加班过晚可取消" }]),
       ...(workday ? [{ id: `work-end-${idSuffix}`, startTime: preferences.latestWorkEnd, name: "最晚下班预留", activityType: "daily" as const, notes: overtimeNote }] : []),
     ];
     const goalText = profile.goal === "gain" ? "增肌" : profile.goal === "lose" ? "减脂" : "维持体能";
@@ -78,15 +80,15 @@ export function generateWeeklyPlan(profile: Profile, preferences: PlanPreference
       weekday,
       scheduledDate,
       generated: true,
-      focus: `${goalText} · ${workday ? overtimeNote : "休息日"} · 每日约 ${profile.calorieTarget} kcal / 蛋白质 ${profile.proteinTarget}g${preferences.healthNotes === "无" ? "" : ` · 注意：${preferences.healthNotes}`}`.slice(0, 120),
+      focus: `${preferences.returnMode === "gentle" ? `恢复第${weekIndex + 1}周 · 先规律活动和正常吃饭，不要求严格控卡` : `${goalText} · 每日约 ${profile.calorieTarget} kcal / 蛋白质 ${profile.proteinTarget}g`} · ${workday ? overtimeNote : "休息日"}${preferences.healthNotes === "无" ? "" : ` · 注意：${preferences.healthNotes}`}`.slice(0, 120),
       activityType: isTrainingDay ? "strength" : "daily",
-      targetDurationMinutes: isTrainingDay ? preferences.workoutDurationMinutes : 0,
-      breakfast: preferences.breakfast || "鸡蛋2个 / 牛奶300毫升 / 燕麦50克",
-      lunch: preferences.lunches[weekday] || "米饭1碗 / 鸡胸肉200克 / 蔬菜300克",
-      dinner: preferences.dinner || "米饭1碗 / 瘦肉或鱼200克 / 蔬菜300克",
-      snack: preferences.snack || "酸奶200克 / 水果1份",
+      targetDurationMinutes: isTrainingDay ? workoutDuration : 0,
+      breakfast: preferences.breakfast || (preferences.returnMode === "gentle" ? "正常吃早餐，增加一份蛋白质（鸡蛋或牛奶）" : "鸡蛋2个 / 牛奶300毫升 / 燕麦50克"),
+      lunch: preferences.lunches[weekday] || (preferences.returnMode === "gentle" ? "按平时吃，优先保证一份蛋白质和蔬菜，吃到七八分饱" : "米饭1碗 / 鸡胸肉200克 / 蔬菜300克"),
+      dinner: preferences.dinner || (preferences.returnMode === "gentle" ? "正常吃晚餐，少一点油炸和含糖饮料，不要求称重" : "米饭1碗 / 瘦肉或鱼200克 / 蔬菜300克"),
+      snack: preferences.snack || (preferences.returnMode === "gentle" ? "饿了再加餐：水果、牛奶或酸奶任选一种" : "酸奶200克 / 水果1份"),
       activities,
-      exercises: isTrainingDay ? template.exercises.map((item) => ({ ...item, id: `${item.id}-${idSuffix}` })) : [],
+      exercises: isTrainingDay ? template.exercises.map((item) => ({ ...item, id: `${item.id}-${idSuffix}`, sets: preferences.returnMode === "gentle" ? Math.min(2, item.sets) : item.sets })) : [],
       custom: true,
     };
   });

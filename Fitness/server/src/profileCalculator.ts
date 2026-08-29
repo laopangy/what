@@ -19,11 +19,11 @@ export function analyzeActivityLevel(sessions: WorkoutSession[]): number {
   return 1.725;
 }
 
-export function calculateProfileTargets(input: Pick<Profile, "name" | "sex" | "age" | "heightCm" | "weightKg" | "goal">, sessions: WorkoutSession[]): Profile {
+export function calculateProfileTargets(input: Pick<Profile, "name" | "sex" | "age" | "heightCm" | "weightKg" | "goal">, sessions: WorkoutSession[], calorieAdjustment = 0): Profile {
   const activityLevel = analyzeActivityLevel(sessions);
   const bmr = input.sex === "male" ? 10 * input.weightKg + 6.25 * input.heightCm - 5 * input.age + 5 : 10 * input.weightKg + 6.25 * input.heightCm - 5 * input.age - 161;
   const adjustment = input.goal === "gain" ? 250 : input.goal === "lose" ? -350 : 0;
-  const calories = Math.max(1200, Math.round((bmr * activityLevel + adjustment) / 10) * 10);
+  const calories = Math.max(1200, Math.round((bmr * activityLevel + adjustment + calorieAdjustment) / 10) * 10);
   const protein = Math.round(input.weightKg * (input.goal === "gain" ? 2 : 1.8));
   const fat = Math.round(input.weightKg * 0.9);
   const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4));

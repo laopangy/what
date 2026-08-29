@@ -5,6 +5,7 @@ import { readState, writeState } from "./storage.js";
 import { calculateFood, foodCatalog } from "./foodCalculator.js";
 import { generateWeeklyPlan } from "./planGenerator.js";
 import { calculateProfileTargets } from "./profileCalculator.js";
+import { evaluateWeightTrend } from "./weightAdapter.js";
 
 export const fitnessRouter = Router();
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -13,7 +14,7 @@ const profileSchema = z.object({
   heightCm: z.number().min(100).max(250), weightKg: z.number().min(30).max(350),
   goal: z.enum(["gain", "lose", "maintain"]),
 });
-const refreshProfileTargets = (state: ReturnType<typeof readState>) => { state.profile = calculateProfileTargets(state.profile, state.plan.sessions); };
+const refreshProfileTargets = (state: ReturnType<typeof readState>) => { state.profile = calculateProfileTargets(state.profile, state.plan.sessions, state.planAdaptation?.calorieAdjustment || 0); };
 const mealSchema = z.object({
   date, mealType: z.enum(["breakfast", "lunch", "dinner", "snack"]), name: z.string().trim().min(1).max(80),
   amount: z.string().trim().min(1).max(40), calories: z.number().min(0).max(10000), protein: z.number().min(0).max(1000),
@@ -27,7 +28,7 @@ const workoutSchema = z.object({
 });
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const planPreferencesSchema = z.object({
-  trainingLevel: z.enum(["beginner", "intermediate", "advanced"]), equipment: z.enum(["gym", "home", "none"]),
+  returnMode: z.enum(["gentle", "standard"]), trainingLevel: z.enum(["beginner", "intermediate", "advanced"]), equipment: z.enum(["gym", "home", "none"]),
   workSchedule: z.enum(["five_day", "big_small"]), bigWeekStartDate: date, workStart: time, workEnd: time, latestWorkEnd: time,
   overtimeFrequency: z.enum(["rare", "sometimes", "frequent"]), commuteMinutes: z.number().int().min(0).max(240), workoutDurationMinutes: z.number().int().min(20).max(120),
   preferredTrainingTime: z.enum(["adaptive", "before_work", "after_work", "rest_day"]), availableWeekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
@@ -89,7 +90,7 @@ fitnessRouter.post("/sessions/generate-week", (req, res) => {
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "生成条件不完整" });
   const state = readState();
   const sessions = generateWeeklyPlan(state.profile, parsed.data).map((session) => ({
-    id: uuid(), ...session, mealNutrition: estimatePlanMeals(session),
+    id: uuid(), ...session, adaptationNote: state.planAdaptation?.message, mealNutrition: estimatePlanMeals(session),
   }));
   state.planPreferences = parsed.data;
   state.plan.name = `${state.profile.name}的个性化一周计划`;
@@ -129,6 +130,20 @@ fitnessRouter.put("/sessions/:id", (req, res) => {
   return res.json(state.plan.sessions[index]);
 });
 
+fitnessRouter.post("/sessions/bulk-delete", (req, res) => {
+  const parsed = z.object({ ids: z.array(z.string().min(1)).min(1).max(100) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ success: false, error: "请选择需要删除的计划" });
+  const state = readState();
+  const selected = new Set(parsed.data.ids);
+  const next = state.plan.sessions.filter((session) => !selected.has(session.id));
+  const deleted = state.plan.sessions.length - next.length;
+  if (deleted === 0) return res.status(404).json({ success: false, error: "所选计划不存在" });
+  state.plan.sessions = next;
+  refreshProfileTargets(state);
+  writeState(state);
+  return res.json({ success: true, deleted });
+});
+
 fitnessRouter.delete("/sessions/:id", (req, res) => {
   const state = readState();
   const session = state.plan.sessions.find((item) => item.id === req.params.id);
@@ -142,7 +157,7 @@ fitnessRouter.put("/profile", (req, res) => {
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "资料格式不正确" });
   const state = readState();
   const input = parsed.data;
-  state.profile = calculateProfileTargets(input, state.plan.sessions);
+  state.profile = calculateProfileTargets(input, state.plan.sessions, state.planAdaptation?.calorieAdjustment || 0);
   writeState(state);
   return res.json(state.profile);
 });
@@ -182,7 +197,7 @@ fitnessRouter.post("/weights", (req, res) => {
   const entry = { id: uuid(), ...parsed.data };
   const existing = state.weights.findIndex((item) => item.date === entry.date);
   if (existing >= 0) state.weights[existing] = entry; else state.weights.unshift(entry);
-  state.weights.sort((a, b) => b.date.localeCompare(a.date)); writeState(state);
+  state.weights.sort((a, b) => b.date.localeCompare(a.date)); state.profile.weightKg = state.weights[0].weightKg; evaluateWeightTrend(state); writeState(state);
   return res.status(201).json(entry);
 });
 
@@ -196,6 +211,8 @@ fitnessRouter.put("/weights/:id", (req, res) => {
   const entry = { id: req.params.id, ...parsed.data };
   state.weights[index] = entry;
   state.weights.sort((a, b) => b.date.localeCompare(a.date));
+  state.profile.weightKg = state.weights[0].weightKg;
+  evaluateWeightTrend(state);
   writeState(state);
   return res.json(entry);
 });
@@ -205,6 +222,8 @@ fitnessRouter.delete("/weights/:id", (req, res) => {
   const next = state.weights.filter((item) => item.id !== req.params.id);
   if (next.length === state.weights.length) return res.status(404).json({ success: false, error: "体重记录不存在" });
   state.weights = next;
+  if (state.weights[0]) state.profile.weightKg = state.weights[0].weightKg;
+  evaluateWeightTrend(state);
   writeState(state);
   return res.json({ success: true });
 });

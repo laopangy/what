@@ -16,6 +16,7 @@ export const api = {
   addSession: (data: Pick<WorkoutSession, "name" | "activityType" | "weekday" | "scheduledDate" | "focus" | "targetDurationMinutes" | "targetDistanceKm" | "targetElevationM" | "breakfast" | "lunch" | "dinner" | "snack" | "activities">) => request<WorkoutSession>("/api/fitness/sessions", json("POST", data)),
   updateSession: (id: string, data: Pick<WorkoutSession, "name" | "activityType" | "weekday" | "scheduledDate" | "focus" | "targetDurationMinutes" | "targetDistanceKm" | "targetElevationM" | "breakfast" | "lunch" | "dinner" | "snack" | "activities">) => request<WorkoutSession>(`/api/fitness/sessions/${id}`, json("PUT", data)),
   deleteSession: (id: string) => request<{ success: boolean }>(`/api/fitness/sessions/${id}`, { method: "DELETE" }),
+  deleteSessions: (ids: string[]) => request<{ success: boolean; deleted: number }>("/api/fitness/sessions/bulk-delete", json("POST", { ids })),
   profile: (data: Pick<Profile, "name" | "sex" | "age" | "heightCm" | "weightKg" | "goal">) => request<Profile>("/api/fitness/profile", json("PUT", data)),
   addMeal: (data: Omit<MealEntry, "id" | "createdAt">) => request<MealEntry>("/api/fitness/meals", json("POST", data)),
   deleteMeal: (id: string) => request<{ success: boolean }>(`/api/fitness/meals/${id}`, { method: "DELETE" }),

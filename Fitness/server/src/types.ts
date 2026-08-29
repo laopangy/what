@@ -26,6 +26,7 @@ export interface WorkoutSession {
   weekday: number;
   scheduledDate?: string;
   generated?: boolean;
+  adaptationNote?: string;
   focus: string;
   activityType: ActivityType;
   targetDurationMinutes: number;
@@ -45,6 +46,7 @@ export interface WorkoutSession {
 export interface WorkoutPlan { id: string; name: string; sessions: WorkoutSession[]; }
 export interface DailyRoutine { wakeTime: string; sleepTime: string; }
 export interface PlanPreferences {
+  returnMode: "gentle" | "standard";
   trainingLevel: "beginner" | "intermediate" | "advanced";
   equipment: "gym" | "home" | "none";
   workSchedule: "five_day" | "big_small";
@@ -81,4 +83,5 @@ export interface MealEntry {
   calories: number; protein: number; carbs: number; fat: number; createdAt: string;
 }
 export interface WeightEntry { id: string; date: string; weightKg: number; bodyFat?: number; }
-export interface FitnessState { profile: Profile; routine: DailyRoutine; planPreferences?: PlanPreferences; plan: WorkoutPlan; workoutLogs: WorkoutLog[]; meals: MealEntry[]; weights: WeightEntry[]; }
+export interface PlanAdaptation { status: "collecting" | "stable" | "adjusted"; message: string; evaluatedAt: string; measurements: number; trendKg?: number; calorieAdjustment: number; lastAdjustedDate?: string; }
+export interface FitnessState { profile: Profile; routine: DailyRoutine; planPreferences?: PlanPreferences; planAdaptation?: PlanAdaptation; plan: WorkoutPlan; workoutLogs: WorkoutLog[]; meals: MealEntry[]; weights: WeightEntry[]; }
