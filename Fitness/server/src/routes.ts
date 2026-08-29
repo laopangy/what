@@ -3,6 +3,7 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { readState, writeState } from "./storage.js";
 import { calculateFood, foodCatalog } from "./foodCalculator.js";
+import { generateWeeklyPlan } from "./planGenerator.js";
 
 export const fitnessRouter = Router();
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -22,6 +23,13 @@ const workoutSchema = z.object({
   sets: z.array(z.object({ exerciseId: z.string(), exerciseName: z.string(), setNumber: z.number().int().positive(), weightKg: z.number().min(0).max(1000), reps: z.number().int().min(0).max(1000) })).max(100),
 });
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const planPreferencesSchema = z.object({
+  trainingLevel: z.enum(["beginner", "intermediate", "advanced"]), equipment: z.enum(["gym", "home", "none"]),
+  workStart: time, workEnd: time, commuteMinutes: z.number().int().min(0).max(240), workoutDurationMinutes: z.number().int().min(20).max(120),
+  preferredTrainingTime: z.enum(["before_work", "after_work"]), availableWeekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+  healthNotes: z.string().trim().min(1).max(200), breakfast: z.string().trim().max(120), lunches: z.array(z.string().trim().max(120)).length(7),
+  dinner: z.string().trim().max(120), snack: z.string().trim().max(120),
+});
 const optionalText = z.string().trim().max(120).optional();
 const plannedActivitySchema = z.object({
   id: z.string().min(1).max(80), startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), name: z.string().trim().min(1).max(60),
@@ -44,7 +52,7 @@ const hasScheduleConflict = (sessions: ReturnType<typeof readState>["plan"]["ses
 const scheduleConflictMessage = (session: z.infer<typeof sessionSchema>) => session.scheduledDate
   ? `${session.scheduledDate} 已有计划，请编辑原计划`
   : `该星期已有计划，请编辑原计划`;
-const estimatePlanMeals = (session: z.infer<typeof sessionSchema>) => Object.fromEntries(planMealKeys.flatMap((key) => {
+const estimatePlanMeals = (session: Partial<Record<(typeof planMealKeys)[number], string>>) => Object.fromEntries(planMealKeys.flatMap((key) => {
   const query = session[key]?.trim();
   if (!query) return [];
   const result = calculateFood(query);
@@ -68,6 +76,20 @@ fitnessRouter.post("/foods/calculate", (req, res) => {
   const result = calculateFood(parsed.data.query);
   if (!result) return res.status(404).json({ success: false, error: "暂时没有找到这种食物，可手动填写营养数据" });
   return res.json(result);
+});
+
+fitnessRouter.post("/sessions/generate-week", (req, res) => {
+  const parsed = planPreferencesSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "生成条件不完整" });
+  const state = readState();
+  const sessions = generateWeeklyPlan(state.profile, parsed.data).map((session) => ({
+    id: uuid(), ...session, mealNutrition: estimatePlanMeals(session),
+  }));
+  state.planPreferences = parsed.data;
+  state.plan.name = `${state.profile.name}的个性化一周计划`;
+  state.plan.sessions = [...state.plan.sessions.filter((session) => Boolean(session.scheduledDate)), ...sessions];
+  writeState(state);
+  return res.status(201).json({ sessions, preferences: parsed.data });
 });
 
 fitnessRouter.post("/sessions", (req, res) => {

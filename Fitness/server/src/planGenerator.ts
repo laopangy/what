@@ -1,0 +1,72 @@
+import type { Exercise, PlanPreferences, Profile, WorkoutSession } from "./types.js";
+
+type GeneratedSession = Omit<WorkoutSession, "id">;
+
+const weekdayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+
+const addMinutes = (value: string, minutes: number) => {
+  const [hour, minute] = value.split(":").map(Number);
+  const total = (hour * 60 + minute + minutes + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+};
+
+const exercise = (id: string, name: string, muscle: string, sets: number, reps: string, restSeconds = 90): Exercise => ({ id, name, muscle, sets, reps, restSeconds });
+
+const templates = {
+  gym: [
+    { name: "上肢综合", focus: "胸、背、肩和手臂", exercises: [exercise("bench", "杠铃卧推", "胸 / 肱三头", 3, "8–12"), exercise("row", "坐姿划船", "背 / 肱二头", 3, "8–12"), exercise("shoulder", "坐姿肩推", "肩", 3, "8–12"), exercise("pulldown", "高位下拉", "背阔肌", 3, "10–12"), exercise("lateral", "哑铃侧平举", "肩", 2, "12–15", 60)] },
+    { name: "下肢与核心", focus: "股四头、臀腿和核心", exercises: [exercise("squat", "杠铃深蹲", "腿 / 臀", 3, "8–12", 120), exercise("rdl", "罗马尼亚硬拉", "臀腿", 3, "8–12", 120), exercise("lunge", "哑铃箭步蹲", "腿 / 臀", 3, "每侧10次"), exercise("calf", "站姿提踵", "小腿", 3, "12–15", 60), exercise("plank", "平板支撑", "核心", 3, "30–60秒", 60)] },
+    { name: "全身训练", focus: "全身主要肌群", exercises: [exercise("goblet", "高脚杯深蹲", "腿 / 臀", 3, "10–12"), exercise("db-bench", "哑铃卧推", "胸", 3, "8–12"), exercise("cable-row", "绳索划船", "背", 3, "10–12"), exercise("hip-thrust", "臀推", "臀", 3, "10–12"), exercise("dead-bug", "死虫式", "核心", 3, "每侧10次", 60)] },
+    { name: "上肢强化", focus: "上肢力量与肌肉", exercises: [exercise("incline", "上斜哑铃卧推", "上胸", 3, "8–12"), exercise("pullup", "辅助引体向上", "背", 3, "6–10"), exercise("arnold", "阿诺德推举", "肩", 3, "8–12"), exercise("curl", "哑铃弯举", "肱二头", 2, "10–15", 60), exercise("pushdown", "绳索下压", "肱三头", 2, "10–15", 60)] },
+    { name: "下肢强化", focus: "下肢力量与稳定", exercises: [exercise("leg-press", "腿举", "腿", 3, "10–15"), exercise("split-squat", "保加利亚分腿蹲", "腿 / 臀", 3, "每侧8–12次"), exercise("leg-curl", "腿弯举", "腘绳肌", 3, "10–15"), exercise("back-extension", "罗马椅挺身", "后链", 3, "10–15"), exercise("side-plank", "侧平板支撑", "核心", 3, "每侧30秒", 60)] },
+  ],
+  home: [
+    { name: "居家上肢", focus: "胸、背、肩和手臂", exercises: [exercise("pushup", "俯卧撑", "胸 / 肱三头", 3, "保留2次余力"), exercise("band-row", "弹力带划船", "背", 3, "10–15"), exercise("pike", "折刀俯卧撑", "肩", 3, "8–12"), exercise("band-pull", "弹力带拉开", "上背", 3, "12–20", 60)] },
+    { name: "居家下肢", focus: "腿、臀和核心", exercises: [exercise("body-squat", "自重深蹲", "腿 / 臀", 4, "12–20"), exercise("reverse-lunge", "反向箭步蹲", "腿 / 臀", 3, "每侧10次"), exercise("glute-bridge", "臀桥", "臀", 4, "12–20"), exercise("plank-home", "平板支撑", "核心", 3, "30–60秒", 60)] },
+    { name: "居家全身", focus: "全身循环与体能", exercises: [exercise("split", "分腿蹲", "腿 / 臀", 3, "每侧10次"), exercise("pushup-2", "俯卧撑", "胸", 3, "保留2次余力"), exercise("band-row-2", "弹力带划船", "背", 3, "12–15"), exercise("bird-dog", "鸟狗式", "核心", 3, "每侧10次", 60)] },
+  ],
+  none: [
+    { name: "徒手全身 A", focus: "动作基础与全身激活", exercises: [exercise("air-squat", "徒手深蹲", "腿 / 臀", 3, "12–20"), exercise("incline-pushup", "斜板俯卧撑", "胸", 3, "8–15"), exercise("glute", "臀桥", "臀", 3, "15–20"), exercise("deadbug", "死虫式", "核心", 3, "每侧10次", 60)] },
+    { name: "徒手全身 B", focus: "单腿稳定与核心", exercises: [exercise("lunge-none", "反向箭步蹲", "腿 / 臀", 3, "每侧8–12次"), exercise("knee-pushup", "跪姿俯卧撑", "胸 / 手臂", 3, "8–15"), exercise("good-morning", "徒手早安式", "后链", 3, "15–20"), exercise("side-plank-none", "侧平板支撑", "核心", 3, "每侧20–40秒", 60)] },
+    { name: "徒手全身 C", focus: "全身耐力与协调", exercises: [exercise("stepup", "台阶踏步", "腿 / 臀", 3, "每侧12次"), exercise("wall-pushup", "墙壁俯卧撑", "胸", 3, "12–20"), exercise("superman", "俯卧两头起", "背", 3, "10–15"), exercise("bird-dog-none", "鸟狗式", "核心", 3, "每侧10次", 60)] },
+  ],
+} as const;
+
+export function generateWeeklyPlan(profile: Profile, preferences: PlanPreferences): GeneratedSession[] {
+  const orderedWeekdays = [1, 2, 3, 4, 5, 6, 0];
+  const desiredTrainingDays = preferences.trainingLevel === "beginner" ? 3 : preferences.trainingLevel === "intermediate" ? 4 : 5;
+  const selectedTrainingDays = orderedWeekdays.filter((day) => preferences.availableWeekdays.includes(day)).slice(0, desiredTrainingDays);
+  const selected = new Set(selectedTrainingDays);
+  const sourceTemplates = templates[preferences.equipment];
+  const trainingTime = preferences.preferredTrainingTime === "before_work"
+    ? addMinutes(preferences.workStart, -(preferences.commuteMinutes + preferences.workoutDurationMinutes + 20))
+    : addMinutes(preferences.workEnd, preferences.commuteMinutes + 30);
+  let trainingIndex = 0;
+
+  return orderedWeekdays.map((weekday) => {
+    const isTrainingDay = selected.has(weekday);
+    const template = sourceTemplates[trainingIndex % sourceTemplates.length];
+    if (isTrainingDay) trainingIndex += 1;
+    const workday = weekday >= 1 && weekday <= 5;
+    const activities = [
+      ...(workday ? [{ id: `work-start-${weekday}`, startTime: preferences.workStart, name: "上班", activityType: "daily" as const, notes: `通勤约 ${preferences.commuteMinutes} 分钟` }] : []),
+      ...(isTrainingDay ? [{ id: `training-${weekday}`, startTime: trainingTime, name: template.name, activityType: "strength" as const, durationMinutes: preferences.workoutDurationMinutes, notes: "热身5–10分钟；每组保留约2次余力，动作不适立即停止" }] : [{ id: `recovery-${weekday}`, startTime: workday ? addMinutes(preferences.workEnd, preferences.commuteMinutes + 30) : "10:00", name: "恢复步行与拉伸", activityType: "daily" as const, durationMinutes: profile.goal === "lose" ? 45 : 30, notes: "轻松强度，以能正常交谈为准" }]),
+      ...(workday ? [{ id: `work-end-${weekday}`, startTime: preferences.workEnd, name: "下班", activityType: "daily" as const }] : []),
+    ];
+    const goalText = profile.goal === "gain" ? "增肌" : profile.goal === "lose" ? "减脂" : "维持体能";
+    return {
+      name: `${weekdayNames[weekday]} · ${isTrainingDay ? template.name : "主动恢复"}`,
+      weekday,
+      focus: `${goalText} · 每日目标约 ${profile.calorieTarget} kcal / 蛋白质 ${profile.proteinTarget}g${preferences.healthNotes === "无" ? "" : ` · 注意：${preferences.healthNotes}`}`.slice(0, 120),
+      activityType: isTrainingDay ? "strength" : "daily",
+      targetDurationMinutes: isTrainingDay ? preferences.workoutDurationMinutes : 0,
+      breakfast: preferences.breakfast || "鸡蛋2个 / 牛奶300毫升 / 燕麦50克",
+      lunch: preferences.lunches[weekday] || "米饭1碗 / 鸡胸肉200克 / 蔬菜300克",
+      dinner: preferences.dinner || "米饭1碗 / 瘦肉或鱼200克 / 蔬菜300克",
+      snack: preferences.snack || "酸奶200克 / 水果1份",
+      activities,
+      exercises: isTrainingDay ? template.exercises.map((item) => ({ ...item, id: `${item.id}-${weekday}` })) : [],
+      custom: true,
+    };
+  });
+}

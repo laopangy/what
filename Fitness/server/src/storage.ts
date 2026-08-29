@@ -60,6 +60,7 @@ export function readState(): FitnessState {
     const state = JSON.parse(readFileSync(config.dataFile, "utf8")) as FitnessState;
     const legacyRoutine = state.plan.sessions.find((session) => session.wakeTime || session.sleepTime);
     state.routine = state.routine || { wakeTime: legacyRoutine?.wakeTime || "07:00", sleepTime: legacyRoutine?.sleepTime || "23:00" };
+    state.planPreferences = state.planPreferences || undefined;
     state.plan.sessions = state.plan.sessions.map((session) => ({
       ...session,
       scheduledDate: session.scheduledDate || undefined,

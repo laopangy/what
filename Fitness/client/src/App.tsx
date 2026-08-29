@@ -5,7 +5,7 @@ import {
   ChevronDown, Flame, Footprints, HeartPulse, History, LayoutDashboard, ListTodo, LoaderCircle, Moon, Mountain, Pencil, Plus, Scale, Sparkles, Sunrise, Target, Timer, Trash2, TrendingUp, Utensils, X,
 } from "lucide-react";
 import { api } from "./api";
-import type { ActivityType, CompletedSet, FitnessState, FoodCalculation, MealEntry, NutritionEstimate, PlannedActivity, PlannedMealType, Profile, Tab, WorkoutSession } from "./types";
+import type { ActivityType, CompletedSet, FitnessState, FoodCalculation, MealEntry, NutritionEstimate, PlannedActivity, PlannedMealType, PlanPreferences, Profile, Tab, WorkoutSession } from "./types";
 
 const today = () => {
   const now = new Date();
@@ -156,6 +156,54 @@ function Dashboard({ data, go }: { data: FitnessState; go: (tab: Tab) => void })
 }
 
 interface SetValue { weight: string; reps: string; done: boolean; }
+
+const defaultPlanPreferences: PlanPreferences = {
+  trainingLevel: "beginner", equipment: "gym", workStart: "09:00", workEnd: "18:00", commuteMinutes: 30,
+  workoutDurationMinutes: 60, preferredTrainingTime: "after_work", availableWeekdays: [1, 3, 5], healthNotes: "无",
+  breakfast: "", lunches: Array.from({ length: 7 }, () => ""), dinner: "", snack: "",
+};
+
+function WeekPlanGenerator({ data, refresh, notify, close }: { data: FitnessState; refresh: () => Promise<void>; notify: (message: string) => void; close: () => void }) {
+  const [form, setForm] = useState<PlanPreferences>(() => ({ ...defaultPlanPreferences, ...data.planPreferences, lunches: data.planPreferences?.lunches || [...defaultPlanPreferences.lunches] }));
+  const [generating, setGenerating] = useState(false);
+  const toggleDay = (weekday: number) => setForm((current) => ({ ...current, availableWeekdays: current.availableWeekdays.includes(weekday) ? current.availableWeekdays.filter((day) => day !== weekday) : [...current.availableWeekdays, weekday] }));
+  const updateLunch = (weekday: number, value: string) => setForm((current) => ({ ...current, lunches: current.lunches.map((lunch, index) => index === weekday ? value : lunch) }));
+  const generate = async () => {
+    if (!form.healthNotes.trim()) return notify("请填写伤病或身体限制，没有请填“无”");
+    if (form.availableWeekdays.length === 0) return notify("请至少选择一个可训练日");
+    const caution = form.healthNotes.trim() === "无" ? "" : `\n你填写了身体限制：“${form.healthNotes}”。生成内容不能替代医生或康复师建议。`;
+    if (!window.confirm(`生成后会替换现有的周一至周日重复计划，已绑定具体日期的计划会保留。${caution}\n\n确定继续吗？`)) return;
+    try {
+      setGenerating(true);
+      await api.generateWeek({ ...form, healthNotes: form.healthNotes.trim() });
+      await refresh();
+      notify("已根据身体资料和生活安排生成一周计划");
+      close();
+    } catch (error) { notify(error instanceof Error ? error.message : "生成失败"); }
+    finally { setGenerating(false); }
+  };
+
+  return <section className="panel rounded-xl p-5 border-accent/30"><div className="flex flex-wrap items-start justify-between gap-3 mb-5"><div><div className="flex items-center gap-2"><Sparkles size={17} className="text-accent-light"/><h2 className="font-semibold">生成个性化一周计划</h2></div><p className="text-muted text-[10px] mt-1">身体数据自动读取，只需补充生活、训练和饮食条件。</p></div><button className="btn-quiet !p-2" onClick={close}><X size={15}/></button></div>
+    <div className="rounded-xl border border-accent/25 bg-accent/10 p-4 mb-4"><p className="text-[10px] text-accent-light mb-2">已读取身体资料</p><div className="flex flex-wrap gap-x-5 gap-y-1 text-[11px]"><strong>{data.profile.sex === "male" ? "男" : "女"} · {data.profile.age} 岁</strong><span>{data.profile.heightCm} cm / {data.profile.weightKg} kg</span><span>目标：{goalNames[data.profile.goal]}</span><span>每日约 {data.profile.calorieTarget} kcal / 蛋白质 {data.profile.proteinTarget}g</span></div><p className="text-muted text-[9px] mt-2">资料不准确时，请先到“身体数据”保存后再生成。</p></div>
+    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <label><span className="label">训练经验</span><select className="field" value={form.trainingLevel} onChange={(event) => setForm({ ...form, trainingLevel: event.target.value as PlanPreferences["trainingLevel"] })}><option value="beginner">新手（每周3练）</option><option value="intermediate">有基础（每周4练）</option><option value="advanced">进阶（每周5练）</option></select></label>
+      <label><span className="label">训练条件</span><select className="field" value={form.equipment} onChange={(event) => setForm({ ...form, equipment: event.target.value as PlanPreferences["equipment"] })}><option value="gym">健身房</option><option value="home">居家，有简单器械</option><option value="none">无器械</option></select></label>
+      <label><span className="label">每次训练分钟</span><input className="field" type="number" min="20" max="120" value={form.workoutDurationMinutes} onChange={(event) => setForm({ ...form, workoutDurationMinutes: Number(event.target.value) })}/></label>
+      <label><span className="label">训练时段</span><select className="field" value={form.preferredTrainingTime} onChange={(event) => setForm({ ...form, preferredTrainingTime: event.target.value as PlanPreferences["preferredTrainingTime"] })}><option value="after_work">下班后</option><option value="before_work">上班前</option></select></label>
+      <label><span className="label">上班时间</span><input className="field" type="time" value={form.workStart} onChange={(event) => setForm({ ...form, workStart: event.target.value })}/></label>
+      <label><span className="label">下班时间</span><input className="field" type="time" value={form.workEnd} onChange={(event) => setForm({ ...form, workEnd: event.target.value })}/></label>
+      <label><span className="label">单程通勤分钟</span><input className="field" type="number" min="0" max="240" value={form.commuteMinutes} onChange={(event) => setForm({ ...form, commuteMinutes: Number(event.target.value) })}/></label>
+      <label><span className="label">伤病或身体限制</span><input className="field" placeholder="没有请填：无" value={form.healthNotes} onChange={(event) => setForm({ ...form, healthNotes: event.target.value })}/></label>
+      <div className="sm:col-span-2 lg:col-span-4"><span className="label">可以训练的日期</span><div className="grid grid-cols-4 sm:grid-cols-7 gap-2">{[1, 2, 3, 4, 5, 6, 0].map((day) => <button key={day} type="button" className={`rounded-lg border px-2 py-2.5 text-[11px] transition ${form.availableWeekdays.includes(day) ? "border-accent/50 bg-accent/15 text-accent-light" : "border-border text-muted hover:border-accent/30"}`} onClick={() => toggleDay(day)}>{weekdayNames[day]}</button>)}</div></div>
+      <label className="sm:col-span-2"><span className="label">早餐（留空使用推荐搭配）</span><input className="field" placeholder="例如：鸡蛋2个 / 牛奶300毫升" value={form.breakfast} onChange={(event) => setForm({ ...form, breakfast: event.target.value })}/></label>
+      <label><span className="label">晚餐</span><input className="field" placeholder="留空使用推荐搭配" value={form.dinner} onChange={(event) => setForm({ ...form, dinner: event.target.value })}/></label>
+      <label><span className="label">加餐</span><input className="field" placeholder="留空使用推荐搭配" value={form.snack} onChange={(event) => setForm({ ...form, snack: event.target.value })}/></label>
+      <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-border/80 bg-black/10 p-4"><h3 className="font-semibold text-[11px] mb-3">每天中午吃什么（可以提前填写，留空使用推荐搭配）</h3><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">{[1, 2, 3, 4, 5, 6, 0].map((day) => <label key={day}><span className="label">{weekdayNames[day]}午餐</span><input className="field" placeholder="食物和分量" value={form.lunches[day]} onChange={(event) => updateLunch(day, event.target.value)}/></label>)}</div></div>
+    </div>
+    <div className="flex flex-wrap items-center gap-3 mt-4"><button className="btn-primary flex items-center gap-2" disabled={generating} onClick={generate}>{generating ? <LoaderCircle size={15} className="animate-spin"/> : <Sparkles size={15}/>} {generating ? "正在生成…" : "生成并应用一周计划"}</button><p className="text-muted text-[9px]">训练日之间自动穿插恢复日；疼痛、眩晕或异常不适时应立即停止。</p></div>
+  </section>;
+}
+
 function Training({ data, refresh, notify }: { data: FitnessState; refresh: () => Promise<void>; notify: (message: string) => void }) {
   const weekday = new Date().getDay();
   const todayPlan = planForDate(data.plan.sessions, today());
@@ -172,6 +220,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const [deletingId, setDeletingId] = useState("");
   const [editingId, setEditingId] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [showGenerator, setShowGenerator] = useState(false);
   const [planMealEstimates, setPlanMealEstimates] = useState<Partial<Record<PlannedMealType, NutritionEstimate>>>({});
   const [calculatingPlanMeals, setCalculatingPlanMeals] = useState<Partial<Record<PlannedMealType, boolean>>>({});
   const [routineForm, setRoutineForm] = useState(data.routine);
@@ -286,7 +335,8 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-accent-light text-[10px] tracking-[.2em] uppercase mb-2">Daily plan</p><h1 className="text-2xl font-semibold">我的每日计划</h1><p className="text-muted mt-1">按星期重复或绑定具体日期；每个星期和日期都只有一份计划，活动统一放在计划内。</p></div><button className="btn-primary flex items-center gap-2" onClick={() => showAdd ? closePlanForm() : setShowAdd(true)}>{showAdd ? <X size={15}/> : <Plus size={15}/>} {showAdd ? "取消" : "添加计划"}</button></header>
+      <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-accent-light text-[10px] tracking-[.2em] uppercase mb-2">Daily plan</p><h1 className="text-2xl font-semibold">我的每日计划</h1><p className="text-muted mt-1">按星期重复或绑定具体日期；每个星期和日期都只有一份计划，活动统一放在计划内。</p></div><div className="flex flex-wrap gap-2"><button className="btn-quiet flex items-center gap-2" onClick={() => { setShowGenerator(!showGenerator); if (showAdd) closePlanForm(); }}><Sparkles size={15}/>{showGenerator ? "收起生成器" : "生成一周计划"}</button><button className="btn-primary flex items-center gap-2" onClick={() => { setShowGenerator(false); showAdd ? closePlanForm() : setShowAdd(true); }}>{showAdd ? <X size={15}/> : <Plus size={15}/>} {showAdd ? "取消" : "添加计划"}</button></div></header>
+      {showGenerator && <WeekPlanGenerator data={data} refresh={refresh} notify={notify} close={() => setShowGenerator(false)}/>}
       <section className="panel rounded-xl p-5"><div className="flex flex-wrap items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><Clock3 size={16} className="text-accent-light"/><div><h2 className="font-semibold">固定作息</h2><p className="text-muted text-[10px] mt-0.5">选择后自动保存，并应用到所有计划。</p></div></div><div className={`text-[10px] flex items-center gap-1.5 transition ${routineStatus === "saving" ? "text-muted" : "text-accent-light"}`}><span className={`w-1.5 h-1.5 rounded-full ${routineStatus === "saving" ? "bg-muted animate-pulse" : "bg-accent"}`}/>{routineStatus === "saving" ? "保存中…" : routineStatus === "saved" ? "已自动保存" : "自动保存"}</div></div><div className="grid sm:grid-cols-2 gap-3 max-w-2xl"><TimePicker label="每天几点起床" value={routineForm.wakeTime} icon={Sunrise} onChange={(wakeTime) => setRoutineForm({ ...routineForm, wakeTime })}/><TimePicker label="每天几点睡觉" value={routineForm.sleepTime} icon={Moon} onChange={(sleepTime) => setRoutineForm({ ...routineForm, sleepTime })}/></div><div className="mt-3 max-w-2xl rounded-xl border border-accent/25 bg-accent/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Moon size={16} className="text-accent-light"/><div><p className="text-muted text-[10px]">预计睡眠时长</p><strong className="text-base text-accent-light">{plannedSleep.label}</strong></div></div><p className="text-muted text-[10px]">{routineForm.sleepTime} 入睡 → 次日 {routineForm.wakeTime} 起床 · {plannedSleep.minutes} 分钟</p></div></section>
       {showAdd && <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-4"><CalendarDays size={16} className="text-accent-light"/><h2 className="font-semibold">{editingId ? "编辑计划" : "新增计划"}</h2></div><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <label className="sm:col-span-2"><span className="label">计划名称</span><input className="field" placeholder="例如：周一计划 / 生日当天安排" value={planForm.name} onChange={(event) => setPlanForm({ ...planForm, name: event.target.value })}/></label>

@@ -1,4 +1,4 @@
-import type { DailyRoutine, FitnessState, FoodCalculation, MealEntry, Profile, WeightEntry, WorkoutLog, WorkoutSession } from "./types";
+import type { DailyRoutine, FitnessState, FoodCalculation, MealEntry, PlanPreferences, Profile, WeightEntry, WorkoutLog, WorkoutSession } from "./types";
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, options);
@@ -12,6 +12,7 @@ export const api = {
   state: () => request<FitnessState>("/api/fitness/state"),
   calculateFood: (query: string) => request<FoodCalculation>("/api/fitness/foods/calculate", json("POST", { query })),
   routine: (data: DailyRoutine) => request<DailyRoutine>("/api/fitness/routine", json("PUT", data)),
+  generateWeek: (data: PlanPreferences) => request<{ sessions: WorkoutSession[]; preferences: PlanPreferences }>("/api/fitness/sessions/generate-week", json("POST", data)),
   addSession: (data: Pick<WorkoutSession, "name" | "activityType" | "weekday" | "scheduledDate" | "focus" | "targetDurationMinutes" | "targetDistanceKm" | "targetElevationM" | "breakfast" | "lunch" | "dinner" | "snack" | "activities">) => request<WorkoutSession>("/api/fitness/sessions", json("POST", data)),
   updateSession: (id: string, data: Pick<WorkoutSession, "name" | "activityType" | "weekday" | "scheduledDate" | "focus" | "targetDurationMinutes" | "targetDistanceKm" | "targetElevationM" | "breakfast" | "lunch" | "dinner" | "snack" | "activities">) => request<WorkoutSession>(`/api/fitness/sessions/${id}`, json("PUT", data)),
   deleteSession: (id: string) => request<{ success: boolean }>(`/api/fitness/sessions/${id}`, { method: "DELETE" }),
