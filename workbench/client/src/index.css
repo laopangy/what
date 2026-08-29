@@ -85,6 +85,51 @@ body::after {
   z-index: 1;
 }
 
+/* ── encrypted vault entry ── */
+.vault-shell {
+  position: relative;
+  background:
+    radial-gradient(ellipse 58% 72% at 15% 22%, rgb(128 157 174 / 0.27), transparent 68%),
+    radial-gradient(ellipse 44% 62% at 88% 82%, rgb(19 44 48 / 0.24), transparent 72%),
+    linear-gradient(138deg, #50616c 0%, #3e4c56 56%, #39464f 100%);
+}
+
+.vault-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.32;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: linear-gradient(to bottom right, black, transparent 74%);
+}
+
+.vault-halo {
+  position: absolute;
+  width: 22rem;
+  height: 22rem;
+  right: -10rem;
+  top: -8rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(0 232 137 / 0.12), transparent 68%);
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+@keyframes vaultEnter {
+  from { opacity: 0; transform: translateY(14px) scale(0.988); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.vault-enter { animation: vaultEnter 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vault-enter { animation: none; }
+}
+
 /* ── glass ── */
 .glass {
   background: rgb(69 83 93 / 0.72);
