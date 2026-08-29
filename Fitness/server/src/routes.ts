@@ -54,7 +54,7 @@ const plannedActivitySchema = z.object({
 const exerciseSchema = z.object({
   id: z.string().min(1).max(80), name: z.string().trim().min(1).max(60), muscle: z.string().trim().min(1).max(40),
   sets: z.number().int().min(1).max(20), reps: z.string().trim().min(1).max(40), restSeconds: z.number().int().min(0).max(1800),
-  trackingType: z.enum(["weight_reps", "reps", "duration"]).optional(),
+  trackingType: z.enum(["weight_reps", "reps", "duration"]).optional(), estimatedDurationMinutes: z.number().int().min(1).max(600).optional(),
 });
 const sessionSchema = z.object({
   name: z.string().trim().min(1).max(60), activityType: z.enum(["daily", "strength", "cycling", "running", "hiking", "other"]),
