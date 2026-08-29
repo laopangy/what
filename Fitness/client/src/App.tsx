@@ -5,7 +5,7 @@ import {
   ChevronDown, Flame, Footprints, HeartPulse, History, LayoutDashboard, ListTodo, LoaderCircle, Moon, Mountain, Pencil, Plus, Scale, Sparkles, Sunrise, Target, Timer, Trash2, TrendingUp, Utensils, X,
 } from "lucide-react";
 import { api } from "./api";
-import type { ActivityType, CompletedSet, FitnessState, FoodCalculation, MealEntry, Profile, Tab, WorkoutSession } from "./types";
+import type { ActivityType, CompletedSet, FitnessState, FoodCalculation, MealEntry, NutritionEstimate, PlannedMealType, Profile, Tab, WorkoutSession } from "./types";
 
 const today = () => {
   const now = new Date();
@@ -55,19 +55,29 @@ function TimePicker({ label, value, onChange, icon: Icon }: { label: string; val
   </div>;
 }
 
+function MealEstimate({ estimate, calculating }: { estimate?: NutritionEstimate; calculating?: boolean }) {
+  if (calculating) return <div className="mt-1.5 text-[9px] text-muted animate-pulse">正在估算营养…</div>;
+  if (!estimate) return <div className="mt-1.5 text-[9px] text-muted">填写食物和分量后自动估算</div>;
+  return <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1 text-[9px]"><strong className="text-accent-light">约 {estimate.calories} kcal</strong><span className="text-muted">蛋白 {estimate.protein}g</span><span className="text-muted">碳水 {estimate.carbs}g</span><span className="text-muted">脂肪 {estimate.fat}g</span></div>;
+}
+
+function PlanMealField({ label, placeholder, value, estimate, calculating, onChange }: { label: string; placeholder: string; value: string; estimate?: NutritionEstimate; calculating?: boolean; onChange: (value: string) => void }) {
+  return <label><span className="label">{label}</span><input className="field" placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)}/><MealEstimate estimate={estimate} calculating={calculating}/></label>;
+}
+
 function RoutineSummary({ session, routine, compact = false }: { session: WorkoutSession; routine: FitnessState["routine"]; compact?: boolean }) {
   const meals = [
-    { label: "早餐", value: session.breakfast, icon: Coffee },
-    { label: "午餐", value: session.lunch, icon: Utensils },
-    { label: "晚餐", value: session.dinner, icon: Utensils },
-    { label: "加餐", value: session.snack, icon: Apple },
+    { key: "breakfast" as const, label: "早餐", value: session.breakfast, icon: Coffee },
+    { key: "lunch" as const, label: "午餐", value: session.lunch, icon: Utensils },
+    { key: "dinner" as const, label: "晚餐", value: session.dinner, icon: Utensils },
+    { key: "snack" as const, label: "加餐", value: session.snack, icon: Apple },
   ];
   return <div className={compact ? "space-y-3" : "space-y-4"}>
     <div className="grid grid-cols-2 gap-2">
       <div className="rounded-lg border border-border/70 bg-black/10 p-3 flex items-center gap-3"><Clock3 size={16} className="text-accent-light"/><div><p className="text-muted text-[10px]">固定起床</p><strong>{routine.wakeTime}</strong></div></div>
       <div className="rounded-lg border border-border/70 bg-black/10 p-3 flex items-center gap-3"><Moon size={16} className="text-sky"/><div><p className="text-muted text-[10px]">固定睡觉</p><strong>{routine.sleepTime}</strong></div></div>
     </div>
-    <div className={`grid ${compact ? "grid-cols-2" : "sm:grid-cols-2"} gap-2`}>{meals.map(({ label, value, icon: Icon }) => <div key={label} className="rounded-lg border border-border/70 bg-black/10 p-3"><div className="flex items-center gap-2 text-muted text-[10px] mb-1"><Icon size={13}/>{label}</div><p>{value || "未安排"}</p></div>)}</div>
+    <div className={`grid ${compact ? "grid-cols-2" : "sm:grid-cols-2"} gap-2`}>{meals.map(({ key, label, value, icon: Icon }) => <div key={label} className="rounded-lg border border-border/70 bg-black/10 p-3"><div className="flex items-center gap-2 text-muted text-[10px] mb-1"><Icon size={13}/>{label}</div><p>{value || "未安排"}</p>{value && <MealEstimate estimate={session.mealNutrition?.[key]}/>}</div>)}</div>
     <div className="rounded-lg border border-accent/25 bg-accent/10 p-3"><div className="flex items-center gap-2 text-accent-light text-[10px] mb-1"><ListTodo size={13}/>今天要做什么</div><p>{session.focus}</p></div>
   </div>;
 }
@@ -136,6 +146,8 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const [deletingId, setDeletingId] = useState("");
   const [editingId, setEditingId] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [planMealEstimates, setPlanMealEstimates] = useState<Partial<Record<PlannedMealType, NutritionEstimate>>>({});
+  const [calculatingPlanMeals, setCalculatingPlanMeals] = useState<Partial<Record<PlannedMealType, boolean>>>({});
   const [routineForm, setRoutineForm] = useState(data.routine);
   const emptyPlanForm = { name: "", activityType: "daily" as ActivityType, weekday, focus: "", breakfast: "", lunch: "", dinner: "", snack: "", targetDurationMinutes: "60", targetDistanceKm: "", targetElevationM: "" };
   const [planForm, setPlanForm] = useState(emptyPlanForm);
@@ -152,6 +164,25 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
     }, 450);
     return () => window.clearTimeout(id);
   }, [routineForm.wakeTime, routineForm.sleepTime]);
+  useEffect(() => {
+    if (!showAdd) return;
+    const queries = { breakfast: planForm.breakfast.trim(), lunch: planForm.lunch.trim(), dinner: planForm.dinner.trim(), snack: planForm.snack.trim() };
+    const active = (Object.entries(queries) as [PlannedMealType, string][]).filter(([, query]) => query);
+    setPlanMealEstimates((current) => Object.fromEntries(Object.entries(current).filter(([key]) => queries[key as PlannedMealType])));
+    if (active.length === 0) { setCalculatingPlanMeals({}); return; }
+    setCalculatingPlanMeals(Object.fromEntries(active.map(([key]) => [key, true])));
+    let cancelled = false;
+    const id = window.setTimeout(async () => {
+      const results = await Promise.all(active.map(async ([key, query]) => {
+        try { const result = await api.calculateFood(query); return [key, { calories: result.calories, protein: result.protein, carbs: result.carbs, fat: result.fat }] as const; }
+        catch { return [key, undefined] as const; }
+      }));
+      if (cancelled) return;
+      setPlanMealEstimates(Object.fromEntries(results.filter((entry): entry is readonly [PlannedMealType, NutritionEstimate] => Boolean(entry[1]))));
+      setCalculatingPlanMeals({});
+    }, 500);
+    return () => { cancelled = true; window.clearTimeout(id); };
+  }, [showAdd, planForm.breakfast, planForm.lunch, planForm.dinner, planForm.snack]);
   useEffect(() => {
     if (!session) return;
     const lastLog = data.workoutLogs.find((log) => log.sessionId === session.id);
@@ -170,9 +201,10 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const totalSets = session?.exercises.reduce((sum, exercise) => sum + exercise.sets, 0) ?? 0;
   const updateSet = (key: string, patch: Partial<SetValue>) => setSets((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
   const completeSet = (key: string, seconds: number) => { const next = !sets[key]?.done; updateSet(key, { done: next }); if (next) setRest(seconds); };
-  const closePlanForm = () => { setShowAdd(false); setEditingId(""); setPlanForm({ ...emptyPlanForm }); };
+  const closePlanForm = () => { setShowAdd(false); setEditingId(""); setPlanForm({ ...emptyPlanForm }); setPlanMealEstimates({}); setCalculatingPlanMeals({}); };
   const editPlan = (item: WorkoutSession) => {
     setEditingId(item.id); setShowAdd(true); setSelectedId(item.id);
+    setPlanMealEstimates(item.mealNutrition || {});
     setPlanForm({ name: item.name, activityType: item.activityType, weekday: item.weekday, focus: item.focus, breakfast: item.breakfast || "", lunch: item.lunch || "", dinner: item.dinner || "", snack: item.snack || "", targetDurationMinutes: String(item.targetDurationMinutes || 60), targetDistanceKm: item.targetDistanceKm ? String(item.targetDistanceKm) : "", targetElevationM: item.targetElevationM ? String(item.targetElevationM) : "" });
   };
   const addPlan = async () => {
@@ -227,10 +259,10 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
         <label><span className="label">计划名称</span><input className="field" placeholder="例如：周一日常 / 周末骑行" value={planForm.name} onChange={(event) => setPlanForm({ ...planForm, name: event.target.value })}/></label>
         <label><span className="label">安排在</span><select className="field" value={planForm.weekday} onChange={(event) => setPlanForm({ ...planForm, weekday: Number(event.target.value) })}>{weekdayNames.map((label, index) => <option key={label} value={index}>{label}</option>)}</select></label>
         <div className="hidden lg:block"/>
-        <label><span className="label">早餐吃什么</span><input className="field" placeholder="例如：鸡蛋、燕麦、牛奶" value={planForm.breakfast} onChange={(event) => setPlanForm({ ...planForm, breakfast: event.target.value })}/></label>
-        <label><span className="label">中午吃什么</span><input className="field" placeholder="例如：米饭、鸡胸肉、蔬菜" value={planForm.lunch} onChange={(event) => setPlanForm({ ...planForm, lunch: event.target.value })}/></label>
-        <label><span className="label">晚上吃什么</span><input className="field" placeholder="例如：面条、牛肉、青菜" value={planForm.dinner} onChange={(event) => setPlanForm({ ...planForm, dinner: event.target.value })}/></label>
-        <label><span className="label">加餐是什么</span><input className="field" placeholder="例如：水果、酸奶、坚果" value={planForm.snack} onChange={(event) => setPlanForm({ ...planForm, snack: event.target.value })}/></label>
+        <PlanMealField label="早餐吃什么" placeholder="例如：鸡蛋2个 / 牛奶300毫升" value={planForm.breakfast} estimate={planMealEstimates.breakfast} calculating={calculatingPlanMeals.breakfast} onChange={(breakfast) => setPlanForm({ ...planForm, breakfast })}/>
+        <PlanMealField label="中午吃什么" placeholder="例如：米饭1碗 / 鸡胸肉200克" value={planForm.lunch} estimate={planMealEstimates.lunch} calculating={calculatingPlanMeals.lunch} onChange={(lunch) => setPlanForm({ ...planForm, lunch })}/>
+        <PlanMealField label="晚上吃什么" placeholder="例如：面条1碗 / 牛肉150克" value={planForm.dinner} estimate={planMealEstimates.dinner} calculating={calculatingPlanMeals.dinner} onChange={(dinner) => setPlanForm({ ...planForm, dinner })}/>
+        <PlanMealField label="加餐是什么" placeholder="例如：酸奶200克 / 坚果30克" value={planForm.snack} estimate={planMealEstimates.snack} calculating={calculatingPlanMeals.snack} onChange={(snack) => setPlanForm({ ...planForm, snack })}/>
         <label className="sm:col-span-2"><span className="label">这项计划做什么</span><textarea className="field min-h-20 resize-y" placeholder="工作、学习、买菜、训练、散步……同一天可继续添加其他计划" value={planForm.focus} onChange={(event) => setPlanForm({ ...planForm, focus: event.target.value })}/></label>
         {planForm.activityType !== "daily" && <><label><span className="label">活动时长（分钟）</span><input className="field" type="number" min="1" value={planForm.targetDurationMinutes} onChange={(event) => setPlanForm({ ...planForm, targetDurationMinutes: event.target.value })}/></label><label><span className="label">目标距离 km（可选）</span><input className="field" type="number" min="0" step=".1" value={planForm.targetDistanceKm} onChange={(event) => setPlanForm({ ...planForm, targetDistanceKm: event.target.value })}/></label><label><span className="label">目标爬升 m（可选）</span><input className="field" type="number" min="0" value={planForm.targetElevationM} onChange={(event) => setPlanForm({ ...planForm, targetElevationM: event.target.value })}/></label></>}
       </div><div className="flex items-center gap-3 mt-4"><button className="btn-primary" disabled={saving} onClick={addPlan}>{saving ? "保存中…" : editingId ? "保存修改" : "添加此计划"}</button><span className="text-muted text-[10px]">保存后可在同一星期继续添加另一项活动。</span></div></section>}

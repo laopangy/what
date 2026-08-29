@@ -1,6 +1,13 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { config } from "./config.js";
+import { calculateFood } from "./foodCalculator.js";
 import type { FitnessState } from "./types.js";
+
+const mealKeys = ["breakfast", "lunch", "dinner", "snack"] as const;
+const estimateStoredMeals = (session: FitnessState["plan"]["sessions"][number]) => Object.fromEntries(mealKeys.flatMap((key) => {
+  const query = session[key]?.trim(); const result = query ? calculateFood(query) : null;
+  return result ? [[key, { calories: result.calories, protein: result.protein, carbs: result.carbs, fat: result.fat }]] : [];
+}));
 
 const initialState: FitnessState = {
   profile: {
@@ -63,6 +70,7 @@ export function readState(): FitnessState {
       lunch: session.lunch || "",
       dinner: session.dinner || "",
       snack: session.snack || "",
+      mealNutrition: session.mealNutrition || estimateStoredMeals(session),
       exercises: session.exercises || [],
     }));
     state.workoutLogs = state.workoutLogs.map((log) => ({ ...log, activityType: log.activityType || "strength", sets: log.sets || [] }));
