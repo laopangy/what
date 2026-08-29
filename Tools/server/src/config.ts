@@ -1,5 +1,5 @@
 import path from "path";
-import { readFileSync, mkdirSync, existsSync } from "fs";
+import { readFileSync } from "fs";
 
 function loadEnvFrom(filePath: string) {
   try {
@@ -26,22 +26,12 @@ function loadEnv() {
 }
 loadEnv();
 
-const dataDir = process.env.DATA_DIR
-  || path.resolve(import.meta.dirname, "..", "data");
-
-// Ensure data directory exists
-if (!existsSync(dataDir)) {
-  mkdirSync(dataDir, { recursive: true });
-}
-
 export const config = {
   port: parseInt(process.env.PORT || "3002"),
   cors: {
     origin: process.env.CORS_ORIGIN || "http://localhost:5175",
   },
-  dataDir,
-  timersFile: path.join(dataDir, "timers.json"),
-  historyFile: path.join(dataDir, "history.json"),
+  vaultFile: process.env.VAULT_FILE || path.resolve(import.meta.dirname, "..", "..", "..", "data", "what.vault"),
   maxHistory: 100,
   moduleName: "tools",
 };

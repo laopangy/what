@@ -49,15 +49,15 @@ const SUPPLY_WATCH_TIMERS: Array<Pick<Timer, "id" | "name" | "description" | "cr
   },
 ];
 
-function seedSupplyWatchTimers(): void {
-  const timers = getAllTimers();
+async function seedSupplyWatchTimers(): Promise<void> {
+  const timers = await getAllTimers();
   const existingById = new Map(timers.map((timer) => [timer.id, timer]));
   const now = new Date().toISOString();
 
   for (const timer of SUPPLY_WATCH_TIMERS) {
     const existing = existingById.get(timer.id);
     if (existing) {
-      saveTimer({
+      await saveTimer({
         ...existing,
         description: timer.description,
         cronExpression: timer.cronExpression,
@@ -67,7 +67,7 @@ function seedSupplyWatchTimers(): void {
       });
       continue;
     }
-    saveTimer({
+    await saveTimer({
       ...timer,
       createdAt: now,
       updatedAt: now,
@@ -84,7 +84,7 @@ async function executeTask(timer: Timer): Promise<void> {
     startedAt: new Date().toISOString(),
     status: "running",
   };
-  saveExecution(record);
+  await saveExecution(record);
 
   const startTime = Date.now();
   try {
@@ -114,7 +114,7 @@ async function executeTask(timer: Timer): Promise<void> {
       }
     }
 
-    updateExecution(record.id, {
+    await updateExecution(record.id, {
       status: "success",
       finishedAt: new Date().toISOString(),
       result: result.slice(0, 2000), // Truncate
@@ -122,7 +122,7 @@ async function executeTask(timer: Timer): Promise<void> {
     console.log(`[Timer] "${timer.name}" executed successfully (${Date.now() - startTime}ms)`);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    updateExecution(record.id, {
+    await updateExecution(record.id, {
       status: "failed",
       finishedAt: new Date().toISOString(),
       error: message,
@@ -131,10 +131,10 @@ async function executeTask(timer: Timer): Promise<void> {
   }
 
   // Update lastRunAt
-  const fresh = getAllTimers().find((t) => t.id === timer.id);
+  const fresh = (await getAllTimers()).find((t) => t.id === timer.id);
   if (fresh) {
     fresh.lastRunAt = new Date().toISOString();
-    saveTimer(fresh);
+    await saveTimer(fresh);
   }
 }
 
@@ -172,9 +172,9 @@ export function isScheduled(id: string): boolean {
 }
 
 // --- Initialize from storage ---
-export function restoreSchedules(): void {
-  seedSupplyWatchTimers();
-  const timers = getAllTimers();
+export async function restoreSchedules(): Promise<void> {
+  await seedSupplyWatchTimers();
+  const timers = await getAllTimers();
   for (const timer of timers) {
     if (timer.enabled) {
       scheduleTimer(timer);

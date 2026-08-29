@@ -6,6 +6,7 @@ import { calculateFood, foodCatalog } from "./foodCalculator.js";
 import { generateWeeklyPlan } from "./planGenerator.js";
 import { calculateProfileTargets } from "./profileCalculator.js";
 import { evaluateWeightTrend } from "./weightAdapter.js";
+import type { FitnessState } from "./types.js";
 
 export const fitnessRouter = Router();
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -14,7 +15,7 @@ const profileSchema = z.object({
   heightCm: z.number().min(100).max(250), weightKg: z.number().min(30).max(350),
   goal: z.enum(["gain", "lose", "maintain"]),
 });
-const refreshProfileTargets = (state: ReturnType<typeof readState>) => { state.profile = calculateProfileTargets(state.profile, state.plan.sessions, state.planAdaptation?.calorieAdjustment || 0); };
+const refreshProfileTargets = (state: FitnessState) => { state.profile = calculateProfileTargets(state.profile, state.plan.sessions, state.planAdaptation?.calorieAdjustment || 0); };
 const mealSchema = z.object({
   date, mealType: z.enum(["breakfast", "lunch", "dinner", "snack"]), name: z.string().trim().min(1).max(80),
   amount: z.string().trim().min(1).max(40), calories: z.number().min(0).max(10000), protein: z.number().min(0).max(1000),
@@ -50,7 +51,7 @@ const sessionSchema = z.object({
   activities: z.array(plannedActivitySchema).max(30).default([]),
 });
 const planMealKeys = ["breakfast", "lunch", "dinner", "snack"] as const;
-const hasScheduleConflict = (sessions: ReturnType<typeof readState>["plan"]["sessions"], candidate: z.infer<typeof sessionSchema>, excludedId?: string) => sessions.some((session) => {
+const hasScheduleConflict = (sessions: FitnessState["plan"]["sessions"], candidate: z.infer<typeof sessionSchema>, excludedId?: string) => sessions.some((session) => {
   if (session.id === excludedId) return false;
   return candidate.scheduledDate
     ? session.scheduledDate === candidate.scheduledDate
@@ -66,14 +67,14 @@ const estimatePlanMeals = (session: Partial<Record<(typeof planMealKeys)[number]
   return result ? [[key, { calories: result.calories, protein: result.protein, carbs: result.carbs, fat: result.fat }]] : [];
 }));
 
-fitnessRouter.get("/state", (_req, res) => res.json(readState()));
+fitnessRouter.get("/state", async (_req, res) => res.json(await readState()));
 
 fitnessRouter.get("/foods", (_req, res) => res.json(foodCatalog.map((food) => food.name)));
 
-fitnessRouter.put("/routine", (req, res) => {
+fitnessRouter.put("/routine", async (req, res) => {
   const parsed = z.object({ wakeTime: time, sleepTime: time }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: "作息时间格式不正确" });
-  const state = readState(); state.routine = parsed.data; writeState(state);
+  const state = await readState(); state.routine = parsed.data; await writeState(state);
   return res.json(state.routine);
 });
 
@@ -85,10 +86,10 @@ fitnessRouter.post("/foods/calculate", (req, res) => {
   return res.json(result);
 });
 
-fitnessRouter.post("/sessions/generate-week", (req, res) => {
+fitnessRouter.post("/sessions/generate-week", async (req, res) => {
   const parsed = planPreferencesSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "生成条件不完整" });
-  const state = readState();
+  const state = await readState();
   const sessions = generateWeeklyPlan(state.profile, parsed.data).map((session) => ({
     id: uuid(), ...session, adaptationNote: state.planAdaptation?.message, mealNutrition: estimatePlanMeals(session),
   }));
@@ -96,24 +97,24 @@ fitnessRouter.post("/sessions/generate-week", (req, res) => {
   state.plan.name = `${state.profile.name}的个性化一周计划`;
   state.plan.sessions = [...state.plan.sessions.filter((session) => Boolean(session.scheduledDate) && !session.generated), ...sessions];
   refreshProfileTargets(state);
-  writeState(state);
+  await writeState(state);
   return res.status(201).json({ sessions, preferences: parsed.data });
 });
 
-fitnessRouter.post("/sessions", (req, res) => {
+fitnessRouter.post("/sessions", async (req, res) => {
   const parsed = sessionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "计划格式不正确" });
-  const state = readState();
+  const state = await readState();
   if (hasScheduleConflict(state.plan.sessions, parsed.data)) return res.status(409).json({ success: false, error: scheduleConflictMessage(parsed.data) });
   const session = { id: uuid(), ...parsed.data, mealNutrition: estimatePlanMeals(parsed.data), exercises: [], custom: true };
-  state.plan.sessions.push(session); refreshProfileTargets(state); writeState(state);
+  state.plan.sessions.push(session); refreshProfileTargets(state); await writeState(state);
   return res.status(201).json(session);
 });
 
-fitnessRouter.put("/sessions/:id", (req, res) => {
+fitnessRouter.put("/sessions/:id", async (req, res) => {
   const parsed = sessionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "计划格式不正确" });
-  const state = readState();
+  const state = await readState();
   const index = state.plan.sessions.findIndex((item) => item.id === req.params.id);
   if (index < 0) return res.status(404).json({ success: false, error: "计划不存在" });
   if (hasScheduleConflict(state.plan.sessions, parsed.data, req.params.id)) return res.status(409).json({ success: false, error: scheduleConflictMessage(parsed.data) });
@@ -126,85 +127,85 @@ fitnessRouter.put("/sessions/:id", (req, res) => {
     wakeTime: undefined, sleepTime: undefined,
   };
   refreshProfileTargets(state);
-  writeState(state);
+  await writeState(state);
   return res.json(state.plan.sessions[index]);
 });
 
-fitnessRouter.post("/sessions/bulk-delete", (req, res) => {
+fitnessRouter.post("/sessions/bulk-delete", async (req, res) => {
   const parsed = z.object({ ids: z.array(z.string().min(1)).min(1).max(100) }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: "请选择需要删除的计划" });
-  const state = readState();
+  const state = await readState();
   const selected = new Set(parsed.data.ids);
   const next = state.plan.sessions.filter((session) => !selected.has(session.id));
   const deleted = state.plan.sessions.length - next.length;
   if (deleted === 0) return res.status(404).json({ success: false, error: "所选计划不存在" });
   state.plan.sessions = next;
   refreshProfileTargets(state);
-  writeState(state);
+  await writeState(state);
   return res.json({ success: true, deleted });
 });
 
-fitnessRouter.delete("/sessions/:id", (req, res) => {
-  const state = readState();
+fitnessRouter.delete("/sessions/:id", async (req, res) => {
+  const state = await readState();
   const session = state.plan.sessions.find((item) => item.id === req.params.id);
   if (!session) return res.status(404).json({ success: false, error: "计划不存在" });
-  state.plan.sessions = state.plan.sessions.filter((item) => item.id !== req.params.id); refreshProfileTargets(state); writeState(state);
+  state.plan.sessions = state.plan.sessions.filter((item) => item.id !== req.params.id); refreshProfileTargets(state); await writeState(state);
   return res.json({ success: true });
 });
 
-fitnessRouter.put("/profile", (req, res) => {
+fitnessRouter.put("/profile", async (req, res) => {
   const parsed = profileSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "资料格式不正确" });
-  const state = readState();
+  const state = await readState();
   const input = parsed.data;
   state.profile = calculateProfileTargets(input, state.plan.sessions, state.planAdaptation?.calorieAdjustment || 0);
-  writeState(state);
+  await writeState(state);
   return res.json(state.profile);
 });
 
-fitnessRouter.post("/meals", (req, res) => {
+fitnessRouter.post("/meals", async (req, res) => {
   const parsed = mealSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "饮食记录格式不正确" });
-  const state = readState();
+  const state = await readState();
   const meal = { id: uuid(), ...parsed.data, createdAt: new Date().toISOString() };
-  state.meals.unshift(meal); writeState(state);
+  state.meals.unshift(meal); await writeState(state);
   return res.status(201).json(meal);
 });
 
-fitnessRouter.delete("/meals/:id", (req, res) => {
-  const state = readState();
+fitnessRouter.delete("/meals/:id", async (req, res) => {
+  const state = await readState();
   const next = state.meals.filter((meal) => meal.id !== req.params.id);
   if (next.length === state.meals.length) return res.status(404).json({ success: false, error: "记录不存在" });
-  state.meals = next; writeState(state);
+  state.meals = next; await writeState(state);
   return res.json({ success: true });
 });
 
-fitnessRouter.post("/workouts", (req, res) => {
+fitnessRouter.post("/workouts", async (req, res) => {
   const parsed = workoutSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "训练记录格式不正确" });
-  const state = readState();
+  const state = await readState();
   const session = state.plan.sessions.find((item) => item.id === parsed.data.sessionId);
   if (!session) return res.status(404).json({ success: false, error: "训练日不存在" });
   const log = { id: uuid(), sessionName: session.name, activityType: session.activityType, ...parsed.data };
-  state.workoutLogs.unshift(log); writeState(state);
+  state.workoutLogs.unshift(log); await writeState(state);
   return res.status(201).json(log);
 });
 
-fitnessRouter.post("/weights", (req, res) => {
+fitnessRouter.post("/weights", async (req, res) => {
   const parsed = weightSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "身体数据格式不正确" });
-  const state = readState();
+  const state = await readState();
   const entry = { id: uuid(), ...parsed.data };
   const existing = state.weights.findIndex((item) => item.date === entry.date);
   if (existing >= 0) state.weights[existing] = entry; else state.weights.unshift(entry);
-  state.weights.sort((a, b) => b.date.localeCompare(a.date)); state.profile.weightKg = state.weights[0].weightKg; evaluateWeightTrend(state); writeState(state);
+  state.weights.sort((a, b) => b.date.localeCompare(a.date)); state.profile.weightKg = state.weights[0].weightKg; evaluateWeightTrend(state); await writeState(state);
   return res.status(201).json(entry);
 });
 
-fitnessRouter.put("/weights/:id", (req, res) => {
+fitnessRouter.put("/weights/:id", async (req, res) => {
   const parsed = weightSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "身体数据格式不正确" });
-  const state = readState();
+  const state = await readState();
   const index = state.weights.findIndex((item) => item.id === req.params.id);
   if (index < 0) return res.status(404).json({ success: false, error: "体重记录不存在" });
   if (state.weights.some((item) => item.id !== req.params.id && item.date === parsed.data.date)) return res.status(409).json({ success: false, error: "该日期已有体重记录" });
@@ -213,17 +214,17 @@ fitnessRouter.put("/weights/:id", (req, res) => {
   state.weights.sort((a, b) => b.date.localeCompare(a.date));
   state.profile.weightKg = state.weights[0].weightKg;
   evaluateWeightTrend(state);
-  writeState(state);
+  await writeState(state);
   return res.json(entry);
 });
 
-fitnessRouter.delete("/weights/:id", (req, res) => {
-  const state = readState();
+fitnessRouter.delete("/weights/:id", async (req, res) => {
+  const state = await readState();
   const next = state.weights.filter((item) => item.id !== req.params.id);
   if (next.length === state.weights.length) return res.status(404).json({ success: false, error: "体重记录不存在" });
   state.weights = next;
   if (state.weights[0]) state.profile.weightKg = state.weights[0].weightKg;
   evaluateWeightTrend(state);
-  writeState(state);
+  await writeState(state);
   return res.json({ success: true });
 });

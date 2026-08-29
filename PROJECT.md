@@ -1090,7 +1090,7 @@ npm run build
 
 **后端**：Express 5 + TypeScript + Zod，端口 `3003`
 
-**数据文件**：`Fitness/server/data/fitness.json`
+**数据存储**：与 Tools 共用根目录 `data/what.vault`。仓库通过 PBKDF2-SHA256 派生密钥并使用 AES-256-GCM 加密，启动后输入密码才能解锁；磁盘上不再保留明文 JSON。
 
 核心闭环：
 
@@ -1277,6 +1277,7 @@ Fitness API：
 | 2026-08-29 | Codex | Fitness/大小周与加班 | 一周计划生成器新增大小周、已知大周周一、正常/最晚下班、加班频率和训练时段策略；大小周按具体日期生成连续14天，大周周六纳入工作日，并提供自动避开加班模式将不确定加班日的训练前移至上班前 | `Fitness/client/src/App.tsx`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `profileCalculator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/计划管理与恢复 | 将占宽的左侧计划栏改为顶部紧凑选择器，新增批量勾选、全选及一键删除；生成器增加久未运动恢复模式，按每天轻活动、首周2练、次周3练、单次最多40分钟与每动作最多2组递进，饮食先建立规律而非严格控卡 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `routes.ts`, `types.ts`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/体重自适应 | 每次晨重保存后自动评估最近一周均重趋势；不足7天只收集基线，达到门槛后按目标温和调整每日热量，每次100 kcal、累计最多±400 kcal，并设置7天冷却避免重复调整；最新体重同步基础资料，评估结果写入自动生成计划 | `Fitness/client/src/App.tsx`, `types.ts`, `Fitness/server/src/weightAdapter.ts`, `profileCalculator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
+| 2026-08-29 | Codex | 全局数据存储 | 将定时器、执行历史、日记和健身状态迁入单一 `data/what.vault`；使用随机盐、PBKDF2-SHA256 与 AES-256-GCM 加密，工作台启动后统一密码解锁，并移除旧明文 JSON | `Tools/server/src/vault.ts`, `Fitness/server/src/vault.ts`, `workbench/client/src/components/chat/PasswordGate.tsx`, `data/what.vault`, `.gitignore`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 

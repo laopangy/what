@@ -21,13 +21,13 @@ what/
 │   ├── package.json        # npm workspaces: ["client", "server"]
 │   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
 │   ├── server/             # Express 5 + TypeScript（node-cron 调度等）
-│   └── server/data/        # JSON 文件持久化（自动创建）
+│   └── server/             # 定时器、执行历史和日记写入根目录加密仓库
 │   └── 子工具: 定时器 ⏰
 ├── Cycling/                # 🚴 骑行模块（开发中，仅占位 package.json）
 ├── Fitness/                # 💪 肌肉大（训练、饮食与身体数据管理，已上线）
 │   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
 │   ├── server/             # Express 5 + TypeScript + Zod
-│   └── server/data/        # 本地 JSON 持久化（自动创建）
+│   └── server/             # 健身状态写入同一个加密仓库
 └── Travel/                 # ✈️ 旅游模块（开发中，仅占位 package.json）
 ```
 
@@ -41,12 +41,13 @@ what/
 - Zustand 5（状态管理）
 - lucide-react（图标库）
 
-### 后端（Music/server & workbench/server）
+### 后端（各模块 server）
 - Express 5 + TypeScript 5.7
 - tsx（开发热重载）
 - ws（WebSocket）
 - Zod（请求验证）
 - cors + uuid
+- AES-256-GCM 加密数据仓库（Tools 与 Fitness 共用）
 
 ### 运行端口
 | 模块 | 前端端口 | 后端端口 |
@@ -119,6 +120,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\setup.ps1 -ForceS
 - Electron 无边框窗口始终显示自绘的最小化、最大化和关闭按钮；所有嵌入 webview 从顶栏下方开始布局，避免其覆盖 56px 窗口控制点击区。关闭按钮、Alt+F4 和托盘“退出”会真正退出应用：依次通过 Music API、专用 named pipe 和临时 PID 记录关闭本应用创建的 mpv，再清理 Tools、Fitness、Music、Workbench 的前后端监听进程；PID 兜底只结束关联播放器及其子进程，不按进程名误杀其他 mpv；最小化按钮仍只最小化，不停止音乐
 - DeepSeek API Key 可在安装器或 Music“账号与服务设置”中配置，密钥只写入本机且不会回显
 - `.env` 格式可参考 `Music/server/.env.example` 和 `workbench/server/.env.example`
+- 首次进入工作台需输入数据密码。密码只用于运行时验证和密钥派生，不写入仓库文件或项目文档
+- 定时器、执行历史、日记和 Fitness 数据统一保存在根目录 `data/what.vault`。文件使用随机盐、PBKDF2-SHA256 和 AES-256-GCM 加密，Git 会忽略该文件
 
 ### 手动安装备用流程
 
@@ -297,7 +300,16 @@ workbench/client ──WebSocket────────────────
 |----------|--------|------|
 | `PORT` | `3002` | 服务器端口 |
 | `CORS_ORIGIN` | `http://localhost:5175` | 允许的跨域来源 |
-| `DATA_DIR` | `../data` | JSON 数据存储目录 |
+| `vaultFile` | `data/what.vault` | 根目录加密数据仓库；由代码固定定位，无需环境变量 |
+
+## Fitness 服务器配置项
+
+Fitness 与 Tools 共用根目录的加密数据仓库，服务重启后需再次输入密码解锁。
+
+| 环境变量 | 默认值 | 说明 |
+|----------|--------|------|
+| `PORT` | `3003` | 服务器端口 |
+| `vaultFile` | `data/what.vault` | 与 Tools 共用的 AES-256-GCM 加密文件 |
 
 ## Music 服务器配置项
 

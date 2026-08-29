@@ -1,50 +1,33 @@
-import { readFileSync, writeFileSync, existsSync } from "fs";
-import { resolve } from "path";
-import { config } from "../config.js";
+import { readVault, updateVault } from "../vault.js";
 import type { JournalEntry } from "../types/journal.js";
 
-const JOURNAL_FILE = resolve(config.dataDir, "journal.json");
-
-function read(): JournalEntry[] {
-  try {
-    if (!existsSync(JOURNAL_FILE)) return [];
-    return JSON.parse(readFileSync(JOURNAL_FILE, "utf-8"));
-  } catch {
-    return [];
-  }
+export async function getAllEntries(): Promise<JournalEntry[]> {
+  const data = await readVault();
+  return ((data.journals || []) as JournalEntry[]).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-function write(entries: JournalEntry[]): void {
-  writeFileSync(JOURNAL_FILE, JSON.stringify(entries, null, 2), "utf-8");
+export async function getEntryById(id: string): Promise<JournalEntry | undefined> {
+  return (await getAllEntries()).find((entry) => entry.id === id);
 }
 
-export function getAllEntries(): JournalEntry[] {
-  return read().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+export async function getEntryByDate(date: string): Promise<JournalEntry | undefined> {
+  return (await getAllEntries()).find((entry) => entry.date === date);
 }
 
-export function getEntryById(id: string): JournalEntry | undefined {
-  return read().find((e) => e.id === id);
+export async function saveEntry(entry: JournalEntry): Promise<void> {
+  await updateVault((data) => {
+    const entries = (data.journals || []) as JournalEntry[];
+    const index = entries.findIndex((item) => item.id === entry.id);
+    if (index >= 0) entries[index] = entry; else entries.push(entry);
+    data.journals = entries;
+  });
 }
 
-export function getEntryByDate(date: string): JournalEntry | undefined {
-  return read().find((e) => e.date === date);
-}
-
-export function saveEntry(entry: JournalEntry): void {
-  const entries = read();
-  const idx = entries.findIndex((e) => e.id === entry.id);
-  if (idx >= 0) {
-    entries[idx] = entry;
-  } else {
-    entries.push(entry);
-  }
-  write(entries);
-}
-
-export function deleteEntry(id: string): boolean {
-  const entries = read();
-  const filtered = entries.filter((e) => e.id !== id);
-  if (filtered.length === entries.length) return false;
-  write(filtered);
-  return true;
+export async function deleteEntry(id: string): Promise<boolean> {
+  return updateVault((data) => {
+    const entries = (data.journals || []) as JournalEntry[];
+    const next = entries.filter((entry) => entry.id !== id);
+    data.journals = next;
+    return next.length !== entries.length;
+  });
 }

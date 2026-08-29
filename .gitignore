@@ -5,3 +5,9 @@ out/
 *.log
 .DS_Store
 Thumbs.db
+
+# 业务数据只保存在本机加密仓库，不提交 Git。
+data/*.vault
+data/*.lock
+Tools/server/data/
+Fitness/server/data/

@@ -1,0 +1,4 @@
+# Historical plaintext data files are treated as binary so removal diffs do not expose their contents.
+Tools/server/data/*.json binary
+Fitness/server/data/*.json binary
+data/*.vault binary

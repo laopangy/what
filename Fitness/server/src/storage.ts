@@ -1,5 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "fs";
-import { config } from "./config.js";
+import { readVault, updateVault } from "./vault.js";
 import { calculateFood } from "./foodCalculator.js";
 import { calculateProfileTargets } from "./profileCalculator.js";
 import type { FitnessState } from "./types.js";
@@ -55,14 +54,7 @@ const initialState: FitnessState = {
   workoutLogs: [], meals: [], weights: [],
 };
 
-export function readState(): FitnessState {
-  try {
-    if (!existsSync(config.dataFile)) {
-      const state = structuredClone(initialState);
-      state.profile = calculateProfileTargets(state.profile, state.plan.sessions);
-      return state;
-    }
-    const state = JSON.parse(readFileSync(config.dataFile, "utf8")) as FitnessState;
+function normalizeState(state: FitnessState): FitnessState {
     const legacyRoutine = state.plan.sessions.find((session) => session.wakeTime || session.sleepTime);
     state.routine = state.routine || { wakeTime: legacyRoutine?.wakeTime || "07:00", sleepTime: legacyRoutine?.sleepTime || "23:00" };
     state.planPreferences = state.planPreferences || undefined;
@@ -86,11 +78,17 @@ export function readState(): FitnessState {
     state.profile = calculateProfileTargets(state.profile, state.plan.sessions, state.planAdaptation?.calorieAdjustment || 0);
     state.workoutLogs = state.workoutLogs.map((log) => ({ ...log, activityType: log.activityType || "strength", sets: log.sets || [] }));
     return state;
-  } catch {
-    return structuredClone(initialState);
-  }
 }
 
-export function writeState(state: FitnessState): void {
-  writeFileSync(config.dataFile, JSON.stringify(state, null, 2), "utf8");
+export async function readState(): Promise<FitnessState> {
+  const data = await readVault();
+  if (data.fitness) return normalizeState(data.fitness as FitnessState);
+
+  const state = normalizeState(structuredClone(initialState));
+  await writeState(state);
+  return state;
+}
+
+export async function writeState(state: FitnessState): Promise<void> {
+  await updateVault((data) => { data.fitness = state; });
 }

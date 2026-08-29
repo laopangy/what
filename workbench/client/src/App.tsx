@@ -10,16 +10,18 @@ import FitnessEmbed from "./components/chat/FitnessEmbed";
 
 export default function App() {
   return (
-    <WorkbenchLayout>
-      <Routes>
-        <Route path="/" element={<ChatPanel />} />
-        <Route path="/music" element={<MusicEmbed />} />
-        <Route path="/journal" element={<JournalEmbed />} />
-        <Route path="/tools" element={<ToolsEmbed />} />
-        <Route path="/cycling" element={<PlaceholderPage title="骑行" icon="🚴" />} />
-        <Route path="/fitness" element={<FitnessEmbed />} />
-        <Route path="/travel" element={<PasswordGate><PlaceholderPage title="放肆一百次" icon="✈️" /></PasswordGate>} />
-      </Routes>
-    </WorkbenchLayout>
+    <PasswordGate>
+      <WorkbenchLayout>
+        <Routes>
+          <Route path="/" element={<ChatPanel />} />
+          <Route path="/music" element={<MusicEmbed />} />
+          <Route path="/journal" element={<JournalEmbed />} />
+          <Route path="/tools" element={<ToolsEmbed />} />
+          <Route path="/cycling" element={<PlaceholderPage title="骑行" icon="🚴" />} />
+          <Route path="/fitness" element={<FitnessEmbed />} />
+          <Route path="/travel" element={<PlaceholderPage title="放肆一百次" icon="✈️" />} />
+        </Routes>
+      </WorkbenchLayout>
+    </PasswordGate>
   );
 }

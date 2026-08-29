@@ -31,7 +31,7 @@ journalRouter.post("/", async (req, res) => {
   const entryDate = date || today;
 
   // Check if entry already exists for this date
-  const existing = getEntryByDate(entryDate);
+  const existing = await getEntryByDate(entryDate);
   if (existing) {
     res.status(409).json({
       error: "该日期已有日记",
@@ -78,19 +78,19 @@ journalRouter.post("/", async (req, res) => {
     updatedAt: now,
   };
 
-  saveEntry(entry);
+  await saveEntry(entry);
   res.status(201).json({ ...entry, aiError });
 });
 
 // GET /api/journal — list all entries
-journalRouter.get("/", (_req, res) => {
-  const entries = getAllEntries();
+journalRouter.get("/", async (_req, res) => {
+  const entries = await getAllEntries();
   res.json(entries);
 });
 
 // GET /api/journal/date/:date — get entry by date
-journalRouter.get("/date/:date", (req, res) => {
-  const entry = getEntryByDate(req.params.date);
+journalRouter.get("/date/:date", async (req, res) => {
+  const entry = await getEntryByDate(req.params.date);
   if (!entry) {
     res.status(404).json({ error: "该日期没有日记" });
     return;
@@ -99,8 +99,8 @@ journalRouter.get("/date/:date", (req, res) => {
 });
 
 // GET /api/journal/:id — get single entry
-journalRouter.get("/:id", (req, res) => {
-  const entry = getEntryById(req.params.id);
+journalRouter.get("/:id", async (req, res) => {
+  const entry = await getEntryById(req.params.id);
   if (!entry) {
     res.status(404).json({ error: "日记不存在" });
     return;
@@ -120,7 +120,7 @@ journalRouter.put("/:id", async (req, res) => {
     return;
   }
 
-  const existing = getEntryById(req.params.id);
+  const existing = await getEntryById(req.params.id);
   if (!existing) {
     res.status(404).json({ error: "日记不存在" });
     return;
@@ -152,13 +152,13 @@ journalRouter.put("/:id", async (req, res) => {
     updatedAt: now,
   };
 
-  saveEntry(updated);
+  await saveEntry(updated);
   res.json({ ...updated, aiError });
 });
 
 // POST /api/journal/:id/reprocess — re-run AI on existing entry
 journalRouter.post("/:id/reprocess", async (req, res) => {
-  const entry = getEntryById(req.params.id);
+  const entry = await getEntryById(req.params.id);
   if (!entry) {
     res.status(404).json({ error: "日记不存在" });
     return;
@@ -187,17 +187,17 @@ journalRouter.post("/:id/reprocess", async (req, res) => {
     updatedAt: now,
   };
 
-  saveEntry(updated);
+  await saveEntry(updated);
   res.json({ ...updated, aiError });
 });
 
 // DELETE /api/journal/:id — delete entry
-journalRouter.delete("/:id", (req, res) => {
-  const entry = getEntryById(req.params.id);
+journalRouter.delete("/:id", async (req, res) => {
+  const entry = await getEntryById(req.params.id);
   if (!entry) {
     res.status(404).json({ error: "日记不存在" });
     return;
   }
-  deleteEntry(entry.id);
+  await deleteEntry(entry.id);
   res.json({ success: true });
 });

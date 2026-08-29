@@ -38,8 +38,8 @@ const timerSchema = z.object({
 const updateTimerSchema = timerSchema.partial();
 
 // GET /api/timer — list all timers
-timerRouter.get("/", (_req, res) => {
-  const timers = getAllTimers();
+timerRouter.get("/", async (_req, res) => {
+  const timers = await getAllTimers();
   // Attach scheduling status
   const enriched = timers.map((t) => ({
     ...t,
@@ -49,13 +49,13 @@ timerRouter.get("/", (_req, res) => {
 });
 
 // GET /api/timer/history/all — all execution history
-timerRouter.get("/history/all", (_req, res) => {
-  const history = getAllHistory();
+timerRouter.get("/history/all", async (_req, res) => {
+  const history = await getAllHistory();
   res.json(history);
 });
 
 // POST /api/timer — create timer
-timerRouter.post("/", (req, res) => {
+timerRouter.post("/", async (req, res) => {
   const parsed = timerSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "参数错误", details: parsed.error.issues });
@@ -70,7 +70,7 @@ timerRouter.post("/", (req, res) => {
     updatedAt: now,
   };
 
-  saveTimer(timer);
+  await saveTimer(timer);
   if (timer.enabled) {
     scheduleTimer(timer);
   }
@@ -79,8 +79,8 @@ timerRouter.post("/", (req, res) => {
 });
 
 // GET /api/timer/:id — get single timer
-timerRouter.get("/:id", (req, res) => {
-  const timer = getTimerById(req.params.id);
+timerRouter.get("/:id", async (req, res) => {
+  const timer = await getTimerById(req.params.id);
   if (!timer) {
     res.status(404).json({ error: "定时器不存在" });
     return;
@@ -89,8 +89,8 @@ timerRouter.get("/:id", (req, res) => {
 });
 
 // PUT /api/timer/:id — update timer
-timerRouter.put("/:id", (req, res) => {
-  const timer = getTimerById(req.params.id);
+timerRouter.put("/:id", async (req, res) => {
+  const timer = await getTimerById(req.params.id);
   if (!timer) {
     res.status(404).json({ error: "定时器不存在" });
     return;
@@ -110,7 +110,7 @@ timerRouter.put("/:id", (req, res) => {
     updatedAt: new Date().toISOString(),
   };
 
-  saveTimer(updated);
+  await saveTimer(updated);
 
   // Re-schedule
   unscheduleTimer(updated.id);
@@ -122,21 +122,21 @@ timerRouter.put("/:id", (req, res) => {
 });
 
 // DELETE /api/timer/:id — delete timer
-timerRouter.delete("/:id", (req, res) => {
-  const timer = getTimerById(req.params.id);
+timerRouter.delete("/:id", async (req, res) => {
+  const timer = await getTimerById(req.params.id);
   if (!timer) {
     res.status(404).json({ error: "定时器不存在" });
     return;
   }
 
   unscheduleTimer(timer.id);
-  deleteTimer(timer.id);
+  await deleteTimer(timer.id);
   res.json({ success: true });
 });
 
 // POST /api/timer/:id/toggle — enable/disable timer
-timerRouter.post("/:id/toggle", (req, res) => {
-  const timer = getTimerById(req.params.id);
+timerRouter.post("/:id/toggle", async (req, res) => {
+  const timer = await getTimerById(req.params.id);
   if (!timer) {
     res.status(404).json({ error: "定时器不存在" });
     return;
@@ -144,7 +144,7 @@ timerRouter.post("/:id/toggle", (req, res) => {
 
   timer.enabled = !timer.enabled;
   timer.updatedAt = new Date().toISOString();
-  saveTimer(timer);
+  await saveTimer(timer);
 
   if (timer.enabled) {
     scheduleTimer(timer);
@@ -157,7 +157,7 @@ timerRouter.post("/:id/toggle", (req, res) => {
 
 // POST /api/timer/:id/trigger — manual trigger
 timerRouter.post("/:id/trigger", async (req, res) => {
-  const timer = getTimerById(req.params.id);
+  const timer = await getTimerById(req.params.id);
   if (!timer) {
     res.status(404).json({ error: "定时器不存在" });
     return;
@@ -172,13 +172,13 @@ timerRouter.post("/:id/trigger", async (req, res) => {
 });
 
 // GET /api/timer/:id/history — execution history for a timer
-timerRouter.get("/:id/history", (req, res) => {
-  const timer = getTimerById(req.params.id);
+timerRouter.get("/:id/history", async (req, res) => {
+  const timer = await getTimerById(req.params.id);
   if (!timer) {
     res.status(404).json({ error: "定时器不存在" });
     return;
   }
 
-  const history = getHistoryByTimerId(timer.id);
+  const history = await getHistoryByTimerId(timer.id);
   res.json(history);
 });

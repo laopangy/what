@@ -1,75 +1,57 @@
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readVault, updateVault } from "../vault.js";
 import { config } from "../config.js";
 import type { Timer, ExecutionRecord } from "../types/timer.js";
 
-function readJsonFile<T>(filePath: string, fallback: T): T {
-  try {
-    if (!existsSync(filePath)) return fallback;
-    const raw = readFileSync(filePath, "utf-8");
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
+export async function getAllTimers(): Promise<Timer[]> {
+  const data = await readVault();
+  return (data.timers || []) as Timer[];
 }
 
-function writeJsonFile(filePath: string, data: unknown): void {
-  writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+export async function getTimerById(id: string): Promise<Timer | undefined> {
+  return (await getAllTimers()).find((timer) => timer.id === id);
 }
 
-// Timer CRUD
-export function getAllTimers(): Timer[] {
-  return readJsonFile<Timer[]>(config.timersFile, []);
+export async function saveTimer(timer: Timer): Promise<void> {
+  await updateVault((data) => {
+    const timers = (data.timers || []) as Timer[];
+    const index = timers.findIndex((item) => item.id === timer.id);
+    if (index >= 0) timers[index] = timer; else timers.push(timer);
+    data.timers = timers;
+  });
 }
 
-export function getTimerById(id: string): Timer | undefined {
-  const timers = getAllTimers();
-  return timers.find((t) => t.id === id);
+export async function deleteTimer(id: string): Promise<boolean> {
+  return updateVault((data) => {
+    const timers = (data.timers || []) as Timer[];
+    const next = timers.filter((timer) => timer.id !== id);
+    data.timers = next;
+    return next.length !== timers.length;
+  });
 }
 
-export function saveTimer(timer: Timer): void {
-  const timers = getAllTimers();
-  const idx = timers.findIndex((t) => t.id === timer.id);
-  if (idx >= 0) {
-    timers[idx] = timer;
-  } else {
-    timers.push(timer);
-  }
-  writeJsonFile(config.timersFile, timers);
+export async function getAllHistory(): Promise<ExecutionRecord[]> {
+  const data = await readVault();
+  return ((data.history || []) as ExecutionRecord[]).slice(0, config.maxHistory);
 }
 
-export function deleteTimer(id: string): boolean {
-  const timers = getAllTimers();
-  const filtered = timers.filter((t) => t.id !== id);
-  if (filtered.length === timers.length) return false;
-  writeJsonFile(config.timersFile, filtered);
-  return true;
+export async function getHistoryByTimerId(timerId: string): Promise<ExecutionRecord[]> {
+  return (await getAllHistory()).filter((record) => record.timerId === timerId);
 }
 
-// Execution History
-export function getAllHistory(): ExecutionRecord[] {
-  return readJsonFile<ExecutionRecord[]>(config.historyFile, []);
+export async function saveExecution(record: ExecutionRecord): Promise<void> {
+  await updateVault((data) => {
+    const history = (data.history || []) as ExecutionRecord[];
+    const existing = history.findIndex((item) => item.id === record.id);
+    if (existing >= 0) history[existing] = record; else history.unshift(record);
+    data.history = history.slice(0, config.maxHistory);
+  });
 }
 
-export function getHistoryByTimerId(timerId: string): ExecutionRecord[] {
-  const all = getAllHistory();
-  return all.filter((h) => h.timerId === timerId);
-}
-
-export function saveExecution(record: ExecutionRecord): void {
-  const history = getAllHistory();
-  history.unshift(record);
-  // Keep only the latest maxHistory records
-  if (history.length > config.maxHistory) {
-    history.length = config.maxHistory;
-  }
-  writeJsonFile(config.historyFile, history);
-}
-
-export function updateExecution(id: string, updates: Partial<ExecutionRecord>): void {
-  const history = getAllHistory();
-  const idx = history.findIndex((h) => h.id === id);
-  if (idx >= 0) {
-    history[idx] = { ...history[idx], ...updates };
-    writeJsonFile(config.historyFile, history);
-  }
+export async function updateExecution(id: string, updates: Partial<ExecutionRecord>): Promise<void> {
+  await updateVault((data) => {
+    const history = (data.history || []) as ExecutionRecord[];
+    const index = history.findIndex((record) => record.id === id);
+    if (index >= 0) history[index] = { ...history[index], ...updates };
+    data.history = history;
+  });
 }

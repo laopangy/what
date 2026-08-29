@@ -1,26 +1,43 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Lock, Eye, EyeOff } from "lucide-react";
 
-const PASSWORD = "438711";
+const STORAGE_SERVICES = ["http://localhost:3002", "http://localhost:3003"];
 
 export default function PasswordGate({ children }: { children: ReactNode }) {
-  const [authed, setAuthed] = useState(
-    () => sessionStorage.getItem("gate_authed") === "true"
-  );
+  const [authed, setAuthed] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [pwd, setPwd] = useState("");
   const [error, setError] = useState("");
   const [show, setShow] = useState(false);
 
-  const handleUnlock = () => {
-    if (pwd === PASSWORD) {
-      sessionStorage.setItem("gate_authed", "true");
+  useEffect(() => {
+    Promise.all(STORAGE_SERVICES.map((base) => fetch(`${base}/api/health`).then((response) => response.json())))
+      .then((states) => setAuthed(states.every((state) => state.unlocked === true)))
+      .catch(() => setError("数据服务尚未启动"))
+      .finally(() => setChecking(false));
+  }, []);
+
+  const handleUnlock = async () => {
+    try {
+      const responses = await Promise.all(STORAGE_SERVICES.map((base) => fetch(`${base}/api/storage/unlock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pwd }),
+      })));
+      const failed = responses.find((response) => !response.ok);
+      if (failed) {
+        const body = await failed.json().catch(() => ({}));
+        throw new Error(body.error || "密码错误");
+      }
       setAuthed(true);
-    } else {
-      setError("密码错误");
+      setPwd("");
+    } catch (unlockError: unknown) {
+      setError(unlockError instanceof Error ? unlockError.message : "解锁失败");
       setPwd("");
     }
   };
 
+  if (checking) return <div className="flex-1 grid place-items-center bg-bg text-text-dim text-xs">正在检查加密数据仓库…</div>;
   if (authed) return <>{children}</>;
 
   return (
@@ -40,7 +57,7 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
               type={show ? "text" : "password"}
               value={pwd}
               onChange={(e) => { setPwd(e.target.value); setError(""); }}
-              onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+              onKeyDown={(e) => e.key === "Enter" && void handleUnlock()}
               placeholder="请输入密码"
               autoFocus
               className="w-full px-3.5 py-2.5 pr-10 rounded-lg bg-bg/70 border border-border text-text text-[12px] placeholder:text-text-dim/40 focus:outline-none focus:border-accent transition-colors"
@@ -56,7 +73,7 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
           {error && <p className="text-center text-xs text-red-400">{error}</p>}
 
           <button
-            onClick={handleUnlock}
+            onClick={() => void handleUnlock()}
             disabled={!pwd}
             className="w-full py-2.5 rounded-lg bg-accent hover:bg-accent-dim text-[#17130a] text-[12px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >

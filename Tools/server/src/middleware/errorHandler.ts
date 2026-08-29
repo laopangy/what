@@ -7,7 +7,8 @@ export function errorHandler(
   _next: NextFunction
 ): void {
   console.error(`[ERROR] ${err.message}`, err.stack);
-  res.status(500).json({ error: err.message || "Internal server error" });
+  const locked = err.message === "数据仓库尚未解锁";
+  res.status(locked ? 423 : 500).json({ error: err.message || "Internal server error" });
 }
 
 export function logger(req: Request, _res: Response, next: NextFunction): void {
