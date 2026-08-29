@@ -132,7 +132,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const [elevation, setElevation] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [savingRoutine, setSavingRoutine] = useState(false);
+  const [routineStatus, setRoutineStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [deletingId, setDeletingId] = useState("");
   const [editingId, setEditingId] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -142,6 +142,16 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const session = data.plan.sessions.find((item) => item.id === selectedId) ?? defaultSession;
 
   useEffect(() => { if (rest <= 0) return; const id = window.setInterval(() => setRest((value) => Math.max(0, value - 1)), 1000); return () => window.clearInterval(id); }, [rest]);
+  useEffect(() => {
+    if (routineForm.wakeTime === data.routine.wakeTime && routineForm.sleepTime === data.routine.sleepTime) return;
+    setRoutineStatus("saving");
+    const id = window.setTimeout(() => {
+      api.routine(routineForm).then(() => setRoutineStatus("saved")).catch((error) => {
+        setRoutineStatus("idle"); notify(error instanceof Error ? error.message : "作息自动保存失败");
+      });
+    }, 450);
+    return () => window.clearTimeout(id);
+  }, [routineForm.wakeTime, routineForm.sleepTime]);
   useEffect(() => {
     if (!session) return;
     const lastLog = data.workoutLogs.find((log) => log.sessionId === session.id);
@@ -164,11 +174,6 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const editPlan = (item: WorkoutSession) => {
     setEditingId(item.id); setShowAdd(true); setSelectedId(item.id);
     setPlanForm({ name: item.name, activityType: item.activityType, weekday: item.weekday, focus: item.focus, breakfast: item.breakfast || "", lunch: item.lunch || "", dinner: item.dinner || "", snack: item.snack || "", targetDurationMinutes: String(item.targetDurationMinutes || 60), targetDistanceKm: item.targetDistanceKm ? String(item.targetDistanceKm) : "", targetElevationM: item.targetElevationM ? String(item.targetElevationM) : "" });
-  };
-  const saveRoutine = async () => {
-    try { setSavingRoutine(true); await api.routine(routineForm); await refresh(); notify("固定作息已保存"); }
-    catch (error) { notify(error instanceof Error ? error.message : "作息保存失败"); }
-    finally { setSavingRoutine(false); }
   };
   const addPlan = async () => {
     if (!planForm.name.trim() || !planForm.focus.trim()) return notify("请填写计划名称和计划内容");
@@ -216,7 +221,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-accent-light text-[10px] tracking-[.2em] uppercase mb-2">Daily plan</p><h1 className="text-2xl font-semibold">我的每日计划</h1><p className="text-muted mt-1">固定作息只设置一次；同一天可以添加多条活动计划。</p></div><button className="btn-primary flex items-center gap-2" onClick={() => showAdd ? closePlanForm() : setShowAdd(true)}>{showAdd ? <X size={15}/> : <Plus size={15}/>} {showAdd ? "取消" : "添加计划"}</button></header>
-      <section className="panel rounded-xl p-5"><div className="flex flex-wrap items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><Clock3 size={16} className="text-accent-light"/><div><h2 className="font-semibold">固定作息</h2><p className="text-muted text-[10px] mt-0.5">点击小时或分钟即可选择，设置一次后应用到所有计划。</p></div></div><button className="btn-quiet" disabled={savingRoutine} onClick={saveRoutine}>{savingRoutine ? "保存中…" : "保存作息"}</button></div><div className="grid sm:grid-cols-2 gap-3 max-w-2xl"><TimePicker label="每天几点起床" value={routineForm.wakeTime} icon={Sunrise} onChange={(wakeTime) => setRoutineForm({ ...routineForm, wakeTime })}/><TimePicker label="每天几点睡觉" value={routineForm.sleepTime} icon={Moon} onChange={(sleepTime) => setRoutineForm({ ...routineForm, sleepTime })}/></div></section>
+      <section className="panel rounded-xl p-5"><div className="flex flex-wrap items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><Clock3 size={16} className="text-accent-light"/><div><h2 className="font-semibold">固定作息</h2><p className="text-muted text-[10px] mt-0.5">选择后自动保存，并应用到所有计划。</p></div></div><div className={`text-[10px] flex items-center gap-1.5 transition ${routineStatus === "saving" ? "text-muted" : "text-accent-light"}`}><span className={`w-1.5 h-1.5 rounded-full ${routineStatus === "saving" ? "bg-muted animate-pulse" : "bg-accent"}`}/>{routineStatus === "saving" ? "保存中…" : routineStatus === "saved" ? "已自动保存" : "自动保存"}</div></div><div className="grid sm:grid-cols-2 gap-3 max-w-2xl"><TimePicker label="每天几点起床" value={routineForm.wakeTime} icon={Sunrise} onChange={(wakeTime) => setRoutineForm({ ...routineForm, wakeTime })}/><TimePicker label="每天几点睡觉" value={routineForm.sleepTime} icon={Moon} onChange={(sleepTime) => setRoutineForm({ ...routineForm, sleepTime })}/></div></section>
       {showAdd && <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-4"><CalendarDays size={16} className="text-accent-light"/><h2 className="font-semibold">{editingId ? "编辑计划" : "新增计划"}</h2></div><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <label><span className="label">安排类型</span><select className="field" value={planForm.activityType} onChange={(event) => setPlanForm({ ...planForm, activityType: event.target.value as ActivityType })}>{Object.entries(activityNames).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
         <label><span className="label">计划名称</span><input className="field" placeholder="例如：周一日常 / 周末骑行" value={planForm.name} onChange={(event) => setPlanForm({ ...planForm, name: event.target.value })}/></label>
