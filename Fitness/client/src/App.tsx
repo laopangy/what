@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity, Apple, Beef, Bike, CalendarDays, Check, CircleGauge, Clock3, Coffee, Droplets, Dumbbell,
-  Flame, Footprints, HeartPulse, History, LayoutDashboard, ListTodo, LoaderCircle, Moon, Mountain, Pencil, Plus, Scale, Sparkles, Target, Timer, Trash2, TrendingUp, Utensils, X,
+  ChevronDown, Flame, Footprints, HeartPulse, History, LayoutDashboard, ListTodo, LoaderCircle, Moon, Mountain, Pencil, Plus, Scale, Sparkles, Sunrise, Target, Timer, Trash2, TrendingUp, Utensils, X,
 } from "lucide-react";
 import { api } from "./api";
 import type { ActivityType, CompletedSet, FitnessState, FoodCalculation, MealEntry, Profile, Tab, WorkoutSession } from "./types";
@@ -37,6 +37,22 @@ function Metric({ icon: Icon, label, value, note, color }: { icon: LucideIcon; l
       <div className="text-muted text-[11px] mt-1">{note}</div>
     </div>
   );
+}
+
+const hourOptions = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
+const minuteOptions = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+
+function TimePicker({ label, value, onChange, icon: Icon }: { label: string; value: string; onChange: (value: string) => void; icon: LucideIcon }) {
+  const [hour = "00", minute = "00"] = value.split(":");
+  const segmentClass = "appearance-none w-full rounded-lg border border-border bg-bg/55 px-3 py-3 pr-8 text-center text-base font-semibold text-text transition hover:border-accent/50 focus:border-accent";
+  return <div className="rounded-xl border border-border/80 bg-black/10 p-3.5">
+    <div className="flex items-center gap-2 text-muted text-[11px] mb-2.5"><Icon size={14} className="text-accent-light"/><span>{label}</span></div>
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+      <label className="relative"><span className="sr-only">小时</span><select className={segmentClass} value={hour} onChange={(event) => onChange(`${event.target.value}:${minute}`)}>{hourOptions.map((option) => <option key={option} value={option}>{option} 时</option>)}</select><ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted"/></label>
+      <span className="text-accent-light text-lg font-bold">:</span>
+      <label className="relative"><span className="sr-only">分钟</span><select className={segmentClass} value={minute} onChange={(event) => onChange(`${hour}:${event.target.value}`)}>{minuteOptions.map((option) => <option key={option} value={option}>{option} 分</option>)}</select><ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted"/></label>
+    </div>
+  </div>;
 }
 
 function RoutineSummary({ session, routine, compact = false }: { session: WorkoutSession; routine: FitnessState["routine"]; compact?: boolean }) {
@@ -200,7 +216,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-accent-light text-[10px] tracking-[.2em] uppercase mb-2">Daily plan</p><h1 className="text-2xl font-semibold">我的每日计划</h1><p className="text-muted mt-1">固定作息只设置一次；同一天可以添加多条活动计划。</p></div><button className="btn-primary flex items-center gap-2" onClick={() => showAdd ? closePlanForm() : setShowAdd(true)}>{showAdd ? <X size={15}/> : <Plus size={15}/>} {showAdd ? "取消" : "添加计划"}</button></header>
-      <section className="panel rounded-xl p-5"><div className="flex flex-wrap items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><Clock3 size={16} className="text-accent-light"/><div><h2 className="font-semibold">固定作息</h2><p className="text-muted text-[10px] mt-0.5">这里设置一次，应用到所有星期和活动计划。</p></div></div><button className="btn-quiet" disabled={savingRoutine} onClick={saveRoutine}>{savingRoutine ? "保存中…" : "保存作息"}</button></div><div className="grid grid-cols-2 gap-3 max-w-lg"><label><span className="label">每天几点起床</span><input className="field" type="time" value={routineForm.wakeTime} onChange={(event) => setRoutineForm({ ...routineForm, wakeTime: event.target.value })}/></label><label><span className="label">每天几点睡觉</span><input className="field" type="time" value={routineForm.sleepTime} onChange={(event) => setRoutineForm({ ...routineForm, sleepTime: event.target.value })}/></label></div></section>
+      <section className="panel rounded-xl p-5"><div className="flex flex-wrap items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><Clock3 size={16} className="text-accent-light"/><div><h2 className="font-semibold">固定作息</h2><p className="text-muted text-[10px] mt-0.5">点击小时或分钟即可选择，设置一次后应用到所有计划。</p></div></div><button className="btn-quiet" disabled={savingRoutine} onClick={saveRoutine}>{savingRoutine ? "保存中…" : "保存作息"}</button></div><div className="grid sm:grid-cols-2 gap-3 max-w-2xl"><TimePicker label="每天几点起床" value={routineForm.wakeTime} icon={Sunrise} onChange={(wakeTime) => setRoutineForm({ ...routineForm, wakeTime })}/><TimePicker label="每天几点睡觉" value={routineForm.sleepTime} icon={Moon} onChange={(sleepTime) => setRoutineForm({ ...routineForm, sleepTime })}/></div></section>
       {showAdd && <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-4"><CalendarDays size={16} className="text-accent-light"/><h2 className="font-semibold">{editingId ? "编辑计划" : "新增计划"}</h2></div><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <label><span className="label">安排类型</span><select className="field" value={planForm.activityType} onChange={(event) => setPlanForm({ ...planForm, activityType: event.target.value as ActivityType })}>{Object.entries(activityNames).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
         <label><span className="label">计划名称</span><input className="field" placeholder="例如：周一日常 / 周末骑行" value={planForm.name} onChange={(event) => setPlanForm({ ...planForm, name: event.target.value })}/></label>
