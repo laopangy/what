@@ -17,6 +17,7 @@ const mealSchema = z.object({
   amount: z.string().trim().min(1).max(40), calories: z.number().min(0).max(10000), protein: z.number().min(0).max(1000),
   carbs: z.number().min(0).max(2000), fat: z.number().min(0).max(1000),
 });
+const weightSchema = z.object({ date, weightKg: z.number().min(30).max(350), bodyFat: z.number().min(1).max(70).optional() });
 const workoutSchema = z.object({
   sessionId: z.string(), date, durationMinutes: z.number().int().min(1).max(600), notes: z.string().max(300).default(""),
   distanceKm: z.number().min(0).max(10000).optional(), elevationM: z.number().min(0).max(100000).optional(),
@@ -174,7 +175,7 @@ fitnessRouter.post("/workouts", (req, res) => {
 });
 
 fitnessRouter.post("/weights", (req, res) => {
-  const parsed = z.object({ date, weightKg: z.number().min(30).max(350), bodyFat: z.number().min(1).max(70).optional() }).safeParse(req.body);
+  const parsed = weightSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "身体数据格式不正确" });
   const state = readState();
   const entry = { id: uuid(), ...parsed.data };
@@ -182,4 +183,27 @@ fitnessRouter.post("/weights", (req, res) => {
   if (existing >= 0) state.weights[existing] = entry; else state.weights.unshift(entry);
   state.weights.sort((a, b) => b.date.localeCompare(a.date)); writeState(state);
   return res.status(201).json(entry);
+});
+
+fitnessRouter.put("/weights/:id", (req, res) => {
+  const parsed = weightSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "身体数据格式不正确" });
+  const state = readState();
+  const index = state.weights.findIndex((item) => item.id === req.params.id);
+  if (index < 0) return res.status(404).json({ success: false, error: "体重记录不存在" });
+  if (state.weights.some((item) => item.id !== req.params.id && item.date === parsed.data.date)) return res.status(409).json({ success: false, error: "该日期已有体重记录" });
+  const entry = { id: req.params.id, ...parsed.data };
+  state.weights[index] = entry;
+  state.weights.sort((a, b) => b.date.localeCompare(a.date));
+  writeState(state);
+  return res.json(entry);
+});
+
+fitnessRouter.delete("/weights/:id", (req, res) => {
+  const state = readState();
+  const next = state.weights.filter((item) => item.id !== req.params.id);
+  if (next.length === state.weights.length) return res.status(404).json({ success: false, error: "体重记录不存在" });
+  state.weights = next;
+  writeState(state);
+  return res.json({ success: true });
 });

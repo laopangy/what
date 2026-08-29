@@ -21,4 +21,6 @@ export const api = {
   deleteMeal: (id: string) => request<{ success: boolean }>(`/api/fitness/meals/${id}`, { method: "DELETE" }),
   addWorkout: (data: Omit<WorkoutLog, "id" | "sessionName" | "activityType">) => request<WorkoutLog>("/api/fitness/workouts", json("POST", data)),
   addWeight: (data: Omit<WeightEntry, "id">) => request<WeightEntry>("/api/fitness/weights", json("POST", data)),
+  updateWeight: (id: string, data: Omit<WeightEntry, "id">) => request<WeightEntry>(`/api/fitness/weights/${id}`, json("PUT", data)),
+  deleteWeight: (id: string) => request<{ success: boolean }>(`/api/fitness/weights/${id}`, { method: "DELETE" }),
 };

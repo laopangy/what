@@ -5,7 +5,7 @@ import {
   ChevronDown, Flame, Footprints, HeartPulse, History, LayoutDashboard, ListTodo, LoaderCircle, Moon, Mountain, Pencil, Plus, Scale, Sparkles, Sunrise, Target, Timer, Trash2, TrendingUp, Utensils, X,
 } from "lucide-react";
 import { api } from "./api";
-import type { ActivityType, CompletedSet, FitnessState, FoodCalculation, MealEntry, NutritionEstimate, PlannedActivity, PlannedMealType, PlanPreferences, Profile, Tab, WorkoutSession } from "./types";
+import type { ActivityType, CompletedSet, FitnessState, FoodCalculation, MealEntry, NutritionEstimate, PlannedActivity, PlannedMealType, PlanPreferences, Profile, Tab, WeightEntry, WorkoutSession } from "./types";
 
 const today = () => {
   const now = new Date();
@@ -426,24 +426,82 @@ function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () 
   );
 }
 
+interface WeightDraft { id: string; date: string; weightKg: string; bodyFat: string; }
+type AutoSaveStatus = "idle" | "saving" | "saved";
+
+function SaveStatus({ status }: { status: AutoSaveStatus }) {
+  return <span className={`text-[10px] flex items-center gap-1.5 ${status === "saving" ? "text-muted" : "text-accent-light"}`}><i className={`w-1.5 h-1.5 rounded-full ${status === "saving" ? "bg-muted animate-pulse" : "bg-accent"}`}/>{status === "saving" ? "保存中…" : status === "saved" ? "已自动保存" : "自动保存"}</span>;
+}
+
 function BodyData({ data, refresh, notify }: { data: FitnessState; refresh: () => Promise<void>; notify: (message: string) => void }) {
+  const todayEntry = data.weights.find((item) => item.date === today());
   const [profile, setProfile] = useState(data.profile);
-  const [weight, setWeight] = useState(String(data.weights[0]?.weightKg ?? data.profile.weightKg));
-  const [bodyFat, setBodyFat] = useState(data.weights[0]?.bodyFat ? String(data.weights[0].bodyFat) : "");
-  const [saving, setSaving] = useState(false);
+  const [weight, setWeight] = useState(String(todayEntry?.weightKg ?? data.weights[0]?.weightKg ?? data.profile.weightKg));
+  const [bodyFat, setBodyFat] = useState(todayEntry?.bodyFat ? String(todayEntry.bodyFat) : "");
+  const [profileStatus, setProfileStatus] = useState<AutoSaveStatus>("idle");
+  const [measurementStatus, setMeasurementStatus] = useState<AutoSaveStatus>("idle");
+  const [measurementTouched, setMeasurementTouched] = useState(false);
+  const [editingWeight, setEditingWeight] = useState<WeightDraft | null>(null);
+  const [editStatus, setEditStatus] = useState<AutoSaveStatus>("idle");
+  const [deletingWeightId, setDeletingWeightId] = useState("");
   useEffect(() => setProfile(data.profile), [data.profile]);
   const field = <K extends keyof Profile>(key: K, value: Profile[K]) => setProfile((current) => ({ ...current, [key]: value }));
-  const saveProfile = async () => { try { setSaving(true); await api.profile({ name: profile.name, sex: profile.sex, age: Number(profile.age), heightCm: Number(profile.heightCm), weightKg: Number(profile.weightKg), activityLevel: Number(profile.activityLevel), goal: profile.goal }); await refresh(); notify("目标已重算并保存"); } catch (error) { notify(error instanceof Error ? error.message : "保存失败"); } finally { setSaving(false); } };
-  const saveWeight = async () => { try { await api.addWeight({ date: today(), weightKg: Number(weight), ...(bodyFat ? { bodyFat: Number(bodyFat) } : {}) }); await refresh(); notify("今日身体数据已记录"); } catch (error) { notify(error instanceof Error ? error.message : "保存失败"); } };
+
+  useEffect(() => {
+    const input = { name: profile.name.trim(), sex: profile.sex, age: Number(profile.age), heightCm: Number(profile.heightCm), weightKg: Number(profile.weightKg), activityLevel: Number(profile.activityLevel), goal: profile.goal };
+    const current = { name: data.profile.name, sex: data.profile.sex, age: data.profile.age, heightCm: data.profile.heightCm, weightKg: data.profile.weightKg, activityLevel: data.profile.activityLevel, goal: data.profile.goal };
+    if (JSON.stringify(input) === JSON.stringify(current)) return;
+    if (!input.name || input.age < 14 || input.age > 100 || input.heightCm < 100 || input.heightCm > 250 || input.weightKg < 30 || input.weightKg > 350) return;
+    setProfileStatus("saving");
+    const id = window.setTimeout(async () => {
+      try { await api.profile(input); await refresh(); setProfileStatus("saved"); }
+      catch (error) { setProfileStatus("idle"); notify(error instanceof Error ? error.message : "身体资料保存失败"); }
+    }, 500);
+    return () => window.clearTimeout(id);
+  }, [profile, data.profile]);
+
+  useEffect(() => {
+    if (!measurementTouched) return;
+    const weightKg = Number(weight); const fat = bodyFat ? Number(bodyFat) : undefined;
+    if (weightKg < 30 || weightKg > 350 || (fat !== undefined && (fat < 1 || fat > 70))) return;
+    setMeasurementStatus("saving");
+    const id = window.setTimeout(async () => {
+      try { await api.addWeight({ date: today(), weightKg, ...(fat !== undefined ? { bodyFat: fat } : {}) }); setMeasurementTouched(false); await refresh(); setMeasurementStatus("saved"); }
+      catch (error) { setMeasurementStatus("idle"); notify(error instanceof Error ? error.message : "今日测量保存失败"); }
+    }, 500);
+    return () => window.clearTimeout(id);
+  }, [weight, bodyFat, measurementTouched]);
+
+  useEffect(() => {
+    if (!editingWeight) return;
+    const source = data.weights.find((item) => item.id === editingWeight.id);
+    const weightKg = Number(editingWeight.weightKg); const fat = editingWeight.bodyFat ? Number(editingWeight.bodyFat) : undefined;
+    if (!source || (source.date === editingWeight.date && source.weightKg === weightKg && source.bodyFat === fat)) return;
+    if (!editingWeight.date || weightKg < 30 || weightKg > 350 || (fat !== undefined && (fat < 1 || fat > 70))) return;
+    setEditStatus("saving");
+    const id = window.setTimeout(async () => {
+      try { await api.updateWeight(editingWeight.id, { date: editingWeight.date, weightKg, ...(fat !== undefined ? { bodyFat: fat } : {}) }); await refresh(); setEditStatus("saved"); }
+      catch (error) { setEditStatus("idle"); notify(error instanceof Error ? error.message : "体重记录保存失败"); }
+    }, 500);
+    return () => window.clearTimeout(id);
+  }, [editingWeight, data.weights]);
+
+  const removeWeight = async (item: WeightEntry) => {
+    if (!window.confirm(`确定删除 ${item.date} 的体重记录吗？`)) return;
+    try { setDeletingWeightId(item.id); await api.deleteWeight(item.id); if (editingWeight?.id === item.id) setEditingWeight(null); await refresh(); notify("体重记录已删除"); }
+    catch (error) { notify(error instanceof Error ? error.message : "删除失败"); }
+    finally { setDeletingWeightId(""); }
+  };
   const weights = data.weights.slice(0, 8).reverse();
+  const recentWeights = data.weights.slice(0, 8);
   const min = Math.min(...weights.map((item) => item.weightKg), data.profile.weightKg) - 1;
   const max = Math.max(...weights.map((item) => item.weightKg), data.profile.weightKg) + 1;
 
   return (
     <div className="space-y-5">
-      <header><p className="text-accent-light text-[10px] tracking-[.2em] uppercase mb-2">Body & target</p><h1 className="text-2xl font-semibold">身体数据与目标</h1><p className="text-muted mt-1">热量目标使用 Mifflin-St Jeor 公式估算，可随体重变化重新计算。</p></header>
+      <header><p className="text-accent-light text-[10px] tracking-[.2em] uppercase mb-2">Body & target</p><h1 className="text-2xl font-semibold">身体数据与目标</h1><p className="text-muted mt-1">所有内容修改后自动保存，热量与营养目标也会实时重算。</p></header>
       <div className="grid xl:grid-cols-[1fr_.9fr] gap-4 items-start">
-        <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-5"><Target size={17} className="text-accent-light"/><h2 className="font-semibold">基础资料</h2></div><div className="grid sm:grid-cols-2 gap-3">
+        <section className="panel rounded-xl p-5"><div className="flex items-center justify-between gap-3 mb-5"><div className="flex items-center gap-2"><Target size={17} className="text-accent-light"/><h2 className="font-semibold">基础资料</h2></div><SaveStatus status={profileStatus}/></div><div className="grid sm:grid-cols-2 gap-3">
           <label><span className="label">称呼</span><input className="field" value={profile.name} onChange={(event) => field("name", event.target.value)}/></label>
           <label><span className="label">目标</span><select className="field" value={profile.goal} onChange={(event) => field("goal", event.target.value as Profile["goal"])}><option value="gain">增肌</option><option value="lose">减脂</option><option value="maintain">保持</option></select></label>
           <label><span className="label">性别</span><select className="field" value={profile.sex} onChange={(event) => field("sex", event.target.value as Profile["sex"])}><option value="male">男</option><option value="female">女</option></select></label>
@@ -451,14 +509,14 @@ function BodyData({ data, refresh, notify }: { data: FitnessState; refresh: () =
           <label><span className="label">身高 cm</span><input className="field" type="number" value={profile.heightCm} onChange={(event) => field("heightCm", Number(event.target.value))}/></label>
           <label><span className="label">当前体重 kg</span><input className="field" type="number" step=".1" value={profile.weightKg} onChange={(event) => field("weightKg", Number(event.target.value))}/></label>
           <label className="sm:col-span-2"><span className="label">日常活动量</span><select className="field" value={profile.activityLevel} onChange={(event) => field("activityLevel", Number(event.target.value))}><option value="1.2">久坐，基本不运动</option><option value="1.375">轻量活动，每周 1–3 次</option><option value="1.55">中等活动，每周 3–5 次</option><option value="1.725">高活动，每周 6–7 次</option></select></label>
-        </div><button className="btn-primary mt-4" disabled={saving} onClick={saveProfile}>{saving ? "计算中…" : "保存并重算目标"}</button></section>
+        </div></section>
 
         <div className="space-y-4">
           <section className="panel rounded-xl p-5"><h2 className="font-semibold mb-4">当前每日目标</h2><div className="grid grid-cols-2 gap-3">{[["热量", `${data.profile.calorieTarget} kcal`], ["蛋白质", `${data.profile.proteinTarget} g`], ["碳水", `${data.profile.carbsTarget} g`], ["脂肪", `${data.profile.fatTarget} g`]].map(([label, value]) => <div key={label} className="bg-black/15 border border-border rounded-lg p-3"><p className="text-muted text-[10px]">{label}</p><p className="text-lg font-semibold mt-1">{value}</p></div>)}</div></section>
-          <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-4"><TrendingUp size={16} className="text-sky"/><h2 className="font-semibold">今日测量</h2></div><div className="grid grid-cols-2 gap-3"><label><span className="label">体重 kg</span><input className="field" type="number" step=".1" value={weight} onChange={(event) => setWeight(event.target.value)}/></label><label><span className="label">体脂 %（可选）</span><input className="field" type="number" step=".1" value={bodyFat} onChange={(event) => setBodyFat(event.target.value)}/></label></div><button className="btn-quiet w-full mt-3" onClick={saveWeight}>记录今日数据</button></section>
+          <section className="panel rounded-xl p-5"><div className="flex items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><TrendingUp size={16} className="text-sky"/><h2 className="font-semibold">今日测量</h2></div><SaveStatus status={measurementStatus}/></div><div className="grid grid-cols-2 gap-3"><label><span className="label">体重 kg</span><input className="field" type="number" step=".1" value={weight} onChange={(event) => { setWeight(event.target.value); setMeasurementTouched(true); }}/></label><label><span className="label">体脂 %（可选）</span><input className="field" type="number" step=".1" value={bodyFat} onChange={(event) => { setBodyFat(event.target.value); setMeasurementTouched(true); }}/></label></div><p className="text-muted text-[9px] mt-3">修改后自动写入今天的记录，同一天只保留一条。</p></section>
         </div>
       </div>
-      <section className="panel rounded-xl p-5"><div className="flex justify-between items-center mb-5"><h2 className="font-semibold">体重趋势</h2><span className="text-muted text-[11px]">最近 {weights.length} 次记录</span></div>{weights.length === 0 ? <p className="text-muted text-center py-8">记录体重后，这里会出现趋势</p> : <div className="h-40 flex items-end gap-3 border-b border-border px-2">{weights.map((item) => { const height = 28 + ((item.weightKg - min) / Math.max(1, max - min)) * 82; return <div key={item.id} className="flex-1 h-full flex flex-col justify-end items-center gap-2"><span className="text-[10px] text-text">{item.weightKg}</span><div className="w-full max-w-12 rounded-t bg-gradient-to-t from-sky/45 to-sky" style={{ height }}/><span className="text-[9px] text-muted pb-2">{item.date.slice(5)}</span></div>; })}</div>}</section>
+      <section className="panel rounded-xl p-5"><div className="flex justify-between items-center mb-5"><div><h2 className="font-semibold">体重趋势</h2><p className="text-muted text-[9px] mt-1">可编辑日期、体重和体脂，修改后自动保存。</p></div><span className="text-muted text-[11px]">最近 {weights.length} 次记录</span></div>{weights.length === 0 ? <p className="text-muted text-center py-8">修改今日测量后，这里会出现趋势</p> : <><div className="h-40 flex items-end gap-3 border-b border-border px-2">{weights.map((item) => { const height = 28 + ((item.weightKg - min) / Math.max(1, max - min)) * 82; return <div key={item.id} className="flex-1 h-full flex flex-col justify-end items-center gap-2"><span className="text-[10px] text-text">{item.weightKg}</span><div className="w-full max-w-12 rounded-t bg-gradient-to-t from-sky/45 to-sky" style={{ height }}/><span className="text-[9px] text-muted pb-2">{item.date.slice(5)}</span></div>; })}</div><div className="mt-4 space-y-2">{recentWeights.map((item) => <div key={item.id} className="rounded-lg border border-border/70 bg-black/10 p-3">{editingWeight?.id === item.id ? <div className="grid sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end"><label><span className="label">日期</span><input className="field" type="date" value={editingWeight.date} onChange={(event) => setEditingWeight({ ...editingWeight, date: event.target.value })}/></label><label><span className="label">体重 kg</span><input className="field" type="number" step=".1" value={editingWeight.weightKg} onChange={(event) => setEditingWeight({ ...editingWeight, weightKg: event.target.value })}/></label><label><span className="label">体脂 %</span><input className="field" type="number" step=".1" value={editingWeight.bodyFat} onChange={(event) => setEditingWeight({ ...editingWeight, bodyFat: event.target.value })}/></label><div className="flex items-center gap-2 pb-1"><SaveStatus status={editStatus}/><button className="btn-quiet !p-2" onClick={() => setEditingWeight(null)} aria-label="关闭编辑"><X size={14}/></button></div></div> : <div className="flex items-center gap-3"><div className="flex-1"><strong>{item.weightKg} kg</strong><span className="text-muted text-[10px] ml-3">{item.date}{item.bodyFat ? ` · 体脂 ${item.bodyFat}%` : ""}</span></div><button className="btn-quiet !p-2" onClick={() => { setEditStatus("idle"); setEditingWeight({ id: item.id, date: item.date, weightKg: String(item.weightKg), bodyFat: item.bodyFat ? String(item.bodyFat) : "" }); }} aria-label="编辑体重记录"><Pencil size={13}/></button><button className="text-muted hover:text-red-300 p-2 disabled:opacity-50" disabled={Boolean(deletingWeightId)} onClick={() => removeWeight(item)} aria-label="删除体重记录"><Trash2 size={13}/></button></div>}</div>)}</div></>}</section>
     </div>
   );
 }
