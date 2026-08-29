@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity, Apple, Beef, Bike, CalendarDays, Check, CircleGauge, Droplets, Dumbbell,
-  Flame, Footprints, HeartPulse, History, LayoutDashboard, LoaderCircle, Mountain, Plus, Scale, Sparkles, Target, Timer, Trash2, TrendingUp, X,
+  Activity, Apple, Beef, Bike, CalendarDays, Check, CircleGauge, Clock3, Coffee, Droplets, Dumbbell,
+  Flame, Footprints, HeartPulse, History, LayoutDashboard, ListTodo, LoaderCircle, Moon, Mountain, Plus, Scale, Sparkles, Target, Timer, Trash2, TrendingUp, Utensils, X,
 } from "lucide-react";
 import { api } from "./api";
-import type { ActivityType, CompletedSet, FitnessState, FoodCalculation, MealEntry, Profile, Tab } from "./types";
+import type { ActivityType, CompletedSet, FitnessState, FoodCalculation, MealEntry, Profile, Tab, WorkoutSession } from "./types";
 
 const today = () => {
   const now = new Date();
@@ -14,12 +14,12 @@ const today = () => {
 const weekdayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 const goalNames = { gain: "增肌", lose: "减脂", maintain: "保持" } as const;
 const mealNames = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "加餐" } as const;
-const activityNames: Record<ActivityType, string> = { strength: "力量训练", cycling: "骑行", running: "跑步", hiking: "爬山", other: "其他运动" };
-const activityIcons: Record<ActivityType, LucideIcon> = { strength: Dumbbell, cycling: Bike, running: Footprints, hiking: Mountain, other: Activity };
+const activityNames: Record<ActivityType, string> = { daily: "日常安排", strength: "力量训练", cycling: "骑行", running: "跑步", hiking: "爬山", other: "其他活动" };
+const activityIcons: Record<ActivityType, LucideIcon> = { daily: CalendarDays, strength: Dumbbell, cycling: Bike, running: Footprints, hiking: Mountain, other: Activity };
 
 const nav: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "今日总览", icon: LayoutDashboard },
-  { id: "training", label: "运动计划", icon: Dumbbell },
+  { id: "training", label: "每日计划", icon: CalendarDays },
   { id: "nutrition", label: "饮食记录", icon: Apple },
   { id: "body", label: "身体数据", icon: Scale },
 ];
@@ -39,6 +39,23 @@ function Metric({ icon: Icon, label, value, note, color }: { icon: LucideIcon; l
   );
 }
 
+function DailyRoutine({ session, compact = false }: { session: WorkoutSession; compact?: boolean }) {
+  const meals = [
+    { label: "早餐", value: session.breakfast, icon: Coffee },
+    { label: "午餐", value: session.lunch, icon: Utensils },
+    { label: "晚餐", value: session.dinner, icon: Utensils },
+    { label: "加餐", value: session.snack, icon: Apple },
+  ];
+  return <div className={compact ? "space-y-3" : "space-y-4"}>
+    <div className="grid grid-cols-2 gap-2">
+      <div className="rounded-lg border border-border/70 bg-black/10 p-3 flex items-center gap-3"><Clock3 size={16} className="text-accent-light"/><div><p className="text-muted text-[10px]">起床</p><strong>{session.wakeTime || "未设置"}</strong></div></div>
+      <div className="rounded-lg border border-border/70 bg-black/10 p-3 flex items-center gap-3"><Moon size={16} className="text-sky"/><div><p className="text-muted text-[10px]">睡觉</p><strong>{session.sleepTime || "未设置"}</strong></div></div>
+    </div>
+    <div className={`grid ${compact ? "grid-cols-2" : "sm:grid-cols-2"} gap-2`}>{meals.map(({ label, value, icon: Icon }) => <div key={label} className="rounded-lg border border-border/70 bg-black/10 p-3"><div className="flex items-center gap-2 text-muted text-[10px] mb-1"><Icon size={13}/>{label}</div><p>{value || "未安排"}</p></div>)}</div>
+    <div className="rounded-lg border border-accent/25 bg-accent/10 p-3"><div className="flex items-center gap-2 text-accent-light text-[10px] mb-1"><ListTodo size={13}/>今天要做什么</div><p>{session.focus}</p></div>
+  </div>;
+}
+
 function Dashboard({ data, go }: { data: FitnessState; go: (tab: Tab) => void }) {
   const date = today();
   const meals = data.meals.filter((meal) => meal.date === date);
@@ -48,7 +65,7 @@ function Dashboard({ data, go }: { data: FitnessState; go: (tab: Tab) => void })
   const thisWeek = data.workoutLogs.filter((log) => Date.now() - new Date(`${log.date}T12:00:00`).getTime() < 7 * 86400000);
   const lastWeight = data.weights[0]?.weightKg ?? data.profile.weightKg;
   const caloriePercent = Math.round(nutrition.calories / data.profile.calorieTarget * 100) || 0;
-  const NextIcon = nextSession ? activityIcons[nextSession.activityType] : Dumbbell;
+  const NextIcon = nextSession ? activityIcons[nextSession.activityType] : CalendarDays;
 
   return (
     <div className="space-y-5">
@@ -60,17 +77,15 @@ function Dashboard({ data, go }: { data: FitnessState; go: (tab: Tab) => void })
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         <Metric icon={Flame} label="今日热量" value={`${nutrition.calories}`} note={`${caloriePercent}% / ${data.profile.calorieTarget} kcal`} color="#d99a16" />
         <Metric icon={Beef} label="蛋白质" value={`${nutrition.protein}g`} note={`目标 ${data.profile.proteinTarget}g`} color="#a4514d" />
-        <Metric icon={Dumbbell} label="近 7 天运动" value={`${thisWeek.length} 次`} note={`当前计划 ${data.plan.sessions.length} 项`} color="#7f8750" />
+        <Metric icon={CalendarDays} label="每日计划" value={`${data.plan.sessions.length} 项`} note={`近 7 天运动 ${thisWeek.length} 次`} color="#7f8750" />
         <Metric icon={Scale} label="最近体重" value={`${lastWeight} kg`} note={`${goalNames[data.profile.goal]}阶段`} color="#74898d" />
       </div>
 
       <div className="grid lg:grid-cols-[1.2fr_.8fr] gap-4">
         <section className="panel rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between"><div><p className="text-muted text-[10px] tracking-widest">NEXT SESSION</p><h2 className="text-lg font-semibold mt-1 flex items-center gap-2"><NextIcon size={17} className="text-accent-light"/>{nextSession?.name ?? "暂无运动计划"}</h2></div><span className="text-accent-light text-sm">{nextSession && weekdayNames[nextSession.weekday]}</span></div>
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between"><div><p className="text-muted text-[10px] tracking-widest">DAILY PLAN</p><h2 className="text-lg font-semibold mt-1 flex items-center gap-2"><NextIcon size={17} className="text-accent-light"/>{nextSession?.name ?? "暂无每日计划"}</h2></div><span className="text-accent-light text-sm">{nextSession && weekdayNames[nextSession.weekday]}</span></div>
           <div className="p-5">
-            <p className="text-muted mb-4">{nextSession ? `${nextSession.focus} · 目标 ${nextSession.targetDurationMinutes} 分钟${nextSession.targetDistanceKm ? ` · ${nextSession.targetDistanceKm} km` : ""}` : "添加一项计划，开始安排下一次运动。"}</p>
-            {nextSession && nextSession.exercises.length > 0 && <div className="space-y-2 mb-5">{nextSession.exercises.slice(0, 4).map((exercise, index) => <div key={exercise.id} className="flex items-center gap-3 py-2 border-b border-border/60"><span className="w-6 h-6 rounded bg-panel text-muted grid place-items-center text-[10px]">{index + 1}</span><span className="flex-1">{exercise.name}</span><span className="text-muted">{exercise.sets} × {exercise.reps}</span></div>)}</div>}
-            <button className="btn-primary flex items-center gap-2" onClick={() => go("training")}><Dumbbell size={15} />{nextSession ? "进入训练" : "添加计划"}</button>
+            {nextSession ? <>{nextSession.activityType === "daily" || nextSession.wakeTime || nextSession.sleepTime || nextSession.breakfast || nextSession.lunch || nextSession.dinner || nextSession.snack ? <DailyRoutine session={nextSession} compact/> : <><p className="text-muted mb-4">{nextSession.focus} · 目标 {nextSession.targetDurationMinutes} 分钟{nextSession.targetDistanceKm ? ` · ${nextSession.targetDistanceKm} km` : ""}</p>{nextSession.exercises.length > 0 && <div className="space-y-2 mb-5">{nextSession.exercises.slice(0, 4).map((exercise, index) => <div key={exercise.id} className="flex items-center gap-3 py-2 border-b border-border/60"><span className="w-6 h-6 rounded bg-panel text-muted grid place-items-center text-[10px]">{index + 1}</span><span className="flex-1">{exercise.name}</span><span className="text-muted">{exercise.sets} × {exercise.reps}</span></div>)}</div>}</>}<button className="btn-primary flex items-center gap-2 mt-4" onClick={() => go("training")}><CalendarDays size={15}/>查看完整计划</button></> : <><p className="text-muted mb-4">添加一项计划，安排每天的作息、饮食和要做的事情。</p><button className="btn-primary flex items-center gap-2" onClick={() => go("training")}><Plus size={15}/>添加计划</button></>}
           </div>
         </section>
 
@@ -103,7 +118,8 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [planForm, setPlanForm] = useState({ name: "", activityType: "cycling" as ActivityType, weekday: 6, focus: "", targetDurationMinutes: "60", targetDistanceKm: "", targetElevationM: "" });
+  const emptyPlanForm = { name: "", activityType: "daily" as ActivityType, weekday, focus: "", wakeTime: "07:00", sleepTime: "23:00", breakfast: "", lunch: "", dinner: "", snack: "", targetDurationMinutes: "60", targetDistanceKm: "", targetElevationM: "" };
+  const [planForm, setPlanForm] = useState(emptyPlanForm);
   const session = data.plan.sessions.find((item) => item.id === selectedId) ?? defaultSession;
 
   useEffect(() => { if (rest <= 0) return; const id = window.setInterval(() => setRest((value) => Math.max(0, value - 1)), 1000); return () => window.clearInterval(id); }, [rest]);
@@ -131,13 +147,16 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
       setSaving(true);
       const created = await api.addSession({
         name: planForm.name, activityType: planForm.activityType, weekday: planForm.weekday, focus: planForm.focus,
-        targetDurationMinutes: Number(planForm.targetDurationMinutes) || 60,
+        targetDurationMinutes: planForm.activityType === "daily" ? 0 : Number(planForm.targetDurationMinutes) || 60,
         ...(planForm.targetDistanceKm ? { targetDistanceKm: Number(planForm.targetDistanceKm) } : {}),
         ...(planForm.targetElevationM ? { targetElevationM: Number(planForm.targetElevationM) } : {}),
+        ...(planForm.wakeTime ? { wakeTime: planForm.wakeTime } : {}), ...(planForm.sleepTime ? { sleepTime: planForm.sleepTime } : {}),
+        ...(planForm.breakfast.trim() ? { breakfast: planForm.breakfast } : {}), ...(planForm.lunch.trim() ? { lunch: planForm.lunch } : {}),
+        ...(planForm.dinner.trim() ? { dinner: planForm.dinner } : {}), ...(planForm.snack.trim() ? { snack: planForm.snack } : {}),
       });
       await refresh(); setSelectedId(created.id); setShowAdd(false);
-      setPlanForm({ name: "", activityType: "cycling", weekday: 6, focus: "", targetDurationMinutes: "60", targetDistanceKm: "", targetElevationM: "" });
-      notify("新运动计划已添加");
+      setPlanForm({ ...emptyPlanForm });
+      notify("新每日计划已添加");
     } catch (error) { notify(error instanceof Error ? error.message : "添加失败"); } finally { setSaving(false); }
   };
   const deletePlan = async (id: string, name: string) => {
@@ -168,35 +187,41 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-accent-light text-[10px] tracking-[.2em] uppercase mb-2">Activity plan</p><h1 className="text-2xl font-semibold">我的运动计划</h1><p className="text-muted mt-1">力量、骑行、跑步和爬山，都放进同一周计划。</p></div><button className="btn-primary flex items-center gap-2" onClick={() => setShowAdd((value) => !value)}>{showAdd ? <X size={15}/> : <Plus size={15}/>} {showAdd ? "取消" : "添加计划"}</button></header>
-      {showAdd && <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-4"><CalendarDays size={16} className="text-accent-light"/><h2 className="font-semibold">新增运动安排</h2></div><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <label><span className="label">运动类型</span><select className="field" value={planForm.activityType} onChange={(event) => setPlanForm({ ...planForm, activityType: event.target.value as ActivityType })}>{Object.entries(activityNames).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <label><span className="label">计划名称</span><input className="field" placeholder="例如：周末长距离骑行" value={planForm.name} onChange={(event) => setPlanForm({ ...planForm, name: event.target.value })}/></label>
+      <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-accent-light text-[10px] tracking-[.2em] uppercase mb-2">Daily plan</p><h1 className="text-2xl font-semibold">我的每日计划</h1><p className="text-muted mt-1">把作息、三餐、加餐和每天要做的事情统一安排下来。</p></div><button className="btn-primary flex items-center gap-2" onClick={() => setShowAdd((value) => !value)}>{showAdd ? <X size={15}/> : <Plus size={15}/>} {showAdd ? "取消" : "添加计划"}</button></header>
+      {showAdd && <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-4"><CalendarDays size={16} className="text-accent-light"/><h2 className="font-semibold">新增每日安排</h2></div><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <label><span className="label">安排类型</span><select className="field" value={planForm.activityType} onChange={(event) => setPlanForm({ ...planForm, activityType: event.target.value as ActivityType })}>{Object.entries(activityNames).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <label><span className="label">计划名称</span><input className="field" placeholder="例如：周一日常 / 周末骑行" value={planForm.name} onChange={(event) => setPlanForm({ ...planForm, name: event.target.value })}/></label>
         <label><span className="label">安排在</span><select className="field" value={planForm.weekday} onChange={(event) => setPlanForm({ ...planForm, weekday: Number(event.target.value) })}>{weekdayNames.map((label, index) => <option key={label} value={index}>{label}</option>)}</select></label>
-        <label><span className="label">目标时长（分钟）</span><input className="field" type="number" min="1" value={planForm.targetDurationMinutes} onChange={(event) => setPlanForm({ ...planForm, targetDurationMinutes: event.target.value })}/></label>
-        <label className="sm:col-span-2"><span className="label">计划内容</span><input className="field" placeholder="例如：保持二区心率，平路巡航" value={planForm.focus} onChange={(event) => setPlanForm({ ...planForm, focus: event.target.value })}/></label>
-        <label><span className="label">目标距离 km（可选）</span><input className="field" type="number" min="0" step=".1" value={planForm.targetDistanceKm} onChange={(event) => setPlanForm({ ...planForm, targetDistanceKm: event.target.value })}/></label>
-        <label><span className="label">目标爬升 m（可选）</span><input className="field" type="number" min="0" value={planForm.targetElevationM} onChange={(event) => setPlanForm({ ...planForm, targetElevationM: event.target.value })}/></label>
-      </div><button className="btn-primary mt-4" disabled={saving} onClick={addPlan}>{saving ? "添加中…" : "保存到周计划"}</button></section>}
+        <div className="hidden lg:block"/>
+        <label><span className="label">几点起床</span><input className="field" type="time" value={planForm.wakeTime} onChange={(event) => setPlanForm({ ...planForm, wakeTime: event.target.value })}/></label>
+        <label><span className="label">几点睡觉</span><input className="field" type="time" value={planForm.sleepTime} onChange={(event) => setPlanForm({ ...planForm, sleepTime: event.target.value })}/></label>
+        <label><span className="label">早餐吃什么</span><input className="field" placeholder="例如：鸡蛋、燕麦、牛奶" value={planForm.breakfast} onChange={(event) => setPlanForm({ ...planForm, breakfast: event.target.value })}/></label>
+        <label><span className="label">中午吃什么</span><input className="field" placeholder="例如：米饭、鸡胸肉、蔬菜" value={planForm.lunch} onChange={(event) => setPlanForm({ ...planForm, lunch: event.target.value })}/></label>
+        <label><span className="label">晚上吃什么</span><input className="field" placeholder="例如：面条、牛肉、青菜" value={planForm.dinner} onChange={(event) => setPlanForm({ ...planForm, dinner: event.target.value })}/></label>
+        <label><span className="label">加餐是什么</span><input className="field" placeholder="例如：水果、酸奶、坚果" value={planForm.snack} onChange={(event) => setPlanForm({ ...planForm, snack: event.target.value })}/></label>
+        <label className="sm:col-span-2"><span className="label">今天要做什么</span><textarea className="field min-h-20 resize-y" placeholder="工作、学习、买菜、训练、散步……都可以写" value={planForm.focus} onChange={(event) => setPlanForm({ ...planForm, focus: event.target.value })}/></label>
+        {planForm.activityType !== "daily" && <><label><span className="label">活动时长（分钟）</span><input className="field" type="number" min="1" value={planForm.targetDurationMinutes} onChange={(event) => setPlanForm({ ...planForm, targetDurationMinutes: event.target.value })}/></label><label><span className="label">目标距离 km（可选）</span><input className="field" type="number" min="0" step=".1" value={planForm.targetDistanceKm} onChange={(event) => setPlanForm({ ...planForm, targetDistanceKm: event.target.value })}/></label><label><span className="label">目标爬升 m（可选）</span><input className="field" type="number" min="0" value={planForm.targetElevationM} onChange={(event) => setPlanForm({ ...planForm, targetElevationM: event.target.value })}/></label></>}
+      </div><button className="btn-primary mt-4" disabled={saving} onClick={addPlan}>{saving ? "添加中…" : "保存每日计划"}</button></section>}
       <div className="grid lg:grid-cols-[260px_1fr] gap-4 items-start">
         <aside className="panel rounded-xl p-3 space-y-2">
-          {data.plan.sessions.map((item) => { const Icon = activityIcons[item.activityType]; return <div key={item.id} className={`rounded-lg border transition ${item.id === session?.id ? "bg-accent/10 border-accent/40" : "bg-transparent border-border hover:bg-white/[.025]"}`}><button onClick={() => setSelectedId(item.id)} className="w-full text-left p-3"><div className="flex justify-between items-center"><strong className="flex items-center gap-2"><Icon size={14} className="text-accent-light"/>{item.name}</strong><span className="text-muted text-[11px]">{weekdayNames[item.weekday]}</span></div><p className="text-muted text-[11px] mt-1.5">{item.focus}</p><div className="flex gap-2 mt-2 text-[9px] text-muted"><span>{activityNames[item.activityType]}</span><span>· {item.targetDurationMinutes} 分钟</span>{item.targetDistanceKm && <span>· {item.targetDistanceKm} km</span>}</div></button><button className="w-full border-t border-border/70 py-2 text-[10px] text-muted hover:text-red-300 hover:bg-red-400/5 disabled:cursor-wait disabled:opacity-50 flex items-center justify-center gap-1.5" disabled={Boolean(deletingId)} onClick={() => deletePlan(item.id, item.name)}><Trash2 size={12}/>{deletingId === item.id ? "删除中…" : "删除此计划"}</button></div>; })}
-          {data.plan.sessions.length === 0 && <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center"><CalendarDays size={20} className="mx-auto mb-2 text-muted"/><p className="font-medium">还没有运动计划</p><p className="text-muted text-[10px] mt-1">点击右上角添加第一项计划</p></div>}
+          {data.plan.sessions.map((item) => { const Icon = activityIcons[item.activityType]; return <div key={item.id} className={`rounded-lg border transition ${item.id === session?.id ? "bg-accent/10 border-accent/40" : "bg-transparent border-border hover:bg-white/[.025]"}`}><button onClick={() => setSelectedId(item.id)} className="w-full text-left p-3"><div className="flex justify-between items-center"><strong className="flex items-center gap-2"><Icon size={14} className="text-accent-light"/>{item.name}</strong><span className="text-muted text-[11px]">{weekdayNames[item.weekday]}</span></div><p className="text-muted text-[11px] mt-1.5 line-clamp-2">{item.focus}</p><div className="flex flex-wrap gap-2 mt-2 text-[9px] text-muted"><span>{activityNames[item.activityType]}</span>{item.wakeTime && <span>· {item.wakeTime} 起床</span>}{item.sleepTime && <span>· {item.sleepTime} 睡觉</span>}{item.activityType !== "daily" && <span>· {item.targetDurationMinutes} 分钟</span>}</div></button><button className="w-full border-t border-border/70 py-2 text-[10px] text-muted hover:text-red-300 hover:bg-red-400/5 disabled:cursor-wait disabled:opacity-50 flex items-center justify-center gap-1.5" disabled={Boolean(deletingId)} onClick={() => deletePlan(item.id, item.name)}><Trash2 size={12}/>{deletingId === item.id ? "删除中…" : "删除此计划"}</button></div>; })}
+          {data.plan.sessions.length === 0 && <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center"><CalendarDays size={20} className="mx-auto mb-2 text-muted"/><p className="font-medium">还没有每日计划</p><p className="text-muted text-[10px] mt-1">点击右上角添加第一项计划</p></div>}
           <div className="pt-3 border-t border-border text-muted text-[11px] flex items-center gap-2"><History size={13} />累计完成 {data.workoutLogs.length} 次训练</div>
         </aside>
 
         {session ? <section className="panel rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-3"><div><p className="text-muted text-[10px] tracking-widest">ACTIVE SESSION</p><h2 className="text-lg font-semibold mt-1">{session?.name}</h2></div><div className="text-right"><p className="text-accent-light font-semibold">{session && session.exercises.length > 0 ? `${completedCount} / ${totalSets} 组` : session ? activityNames[session.activityType] : ""}</p><p className="text-muted text-[10px]">{session && session.exercises.length > 0 ? "已完成" : `${session?.targetDurationMinutes || 0} 分钟目标`}</p></div></div>
+          <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-3"><div><p className="text-muted text-[10px] tracking-widest">{weekdayNames[session.weekday]} · DAILY PLAN</p><h2 className="text-lg font-semibold mt-1">{session.name}</h2></div><div className="text-right"><p className="text-accent-light font-semibold">{session.exercises.length > 0 ? `${completedCount} / ${totalSets} 组` : activityNames[session.activityType]}</p><p className="text-muted text-[10px]">{session.activityType === "daily" ? `${session.wakeTime || "--:--"} 起 · ${session.sleepTime || "--:--"} 睡` : session.exercises.length > 0 ? "已完成" : `${session.targetDurationMinutes || 0} 分钟目标`}</p></div></div>
           {rest > 0 && <div className="mx-5 mt-4 p-3 rounded-lg border border-accent/35 bg-accent/10 flex items-center justify-between"><div className="flex items-center gap-2"><Timer size={17} className="text-accent-light"/><span>组间休息</span></div><button className="text-xl font-semibold text-accent-light" onClick={() => setRest(0)}>{Math.floor(rest / 60)}:{String(rest % 60).padStart(2, "0")}</button></div>}
           <div className="p-5 space-y-5">
-            {session && session.exercises.length === 0 && (() => { const Icon = activityIcons[session.activityType]; return <div className="rounded-xl border border-accent/25 bg-gradient-to-br from-accent/10 to-transparent p-6"><Icon size={30} className="text-accent-light mb-4"/><h3 className="text-xl font-semibold">{session.focus}</h3><div className="flex flex-wrap gap-2 mt-4 text-[11px] text-muted"><span className="border border-border rounded-full px-3 py-1">目标 {session.targetDurationMinutes} 分钟</span>{session.targetDistanceKm && <span className="border border-border rounded-full px-3 py-1">距离 {session.targetDistanceKm} km</span>}{session.targetElevationM && <span className="border border-border rounded-full px-3 py-1">爬升 {session.targetElevationM} m</span>}</div></div>; })()}
+            {(session.activityType === "daily" || session.wakeTime || session.sleepTime || session.breakfast || session.lunch || session.dinner || session.snack) && <DailyRoutine session={session}/>}
+            {session.activityType !== "daily" && session.exercises.length === 0 && (() => { const Icon = activityIcons[session.activityType]; return <div className="rounded-xl border border-accent/25 bg-gradient-to-br from-accent/10 to-transparent p-6"><Icon size={30} className="text-accent-light mb-4"/><h3 className="text-xl font-semibold">{session.focus}</h3><div className="flex flex-wrap gap-2 mt-4 text-[11px] text-muted"><span className="border border-border rounded-full px-3 py-1">目标 {session.targetDurationMinutes} 分钟</span>{session.targetDistanceKm && <span className="border border-border rounded-full px-3 py-1">距离 {session.targetDistanceKm} km</span>}{session.targetElevationM && <span className="border border-border rounded-full px-3 py-1">爬升 {session.targetElevationM} m</span>}</div></div>; })()}
             {session?.exercises.map((exercise, exerciseIndex) => <div key={exercise.id}>
               <div className="flex items-center gap-3 mb-2"><span className="w-7 h-7 rounded bg-panel grid place-items-center text-muted text-[11px]">{exerciseIndex + 1}</span><div className="flex-1"><h3 className="font-semibold">{exercise.name}</h3><p className="text-muted text-[10px]">{exercise.muscle} · 目标 {exercise.reps} · 休息 {exercise.restSeconds}秒</p></div></div>
               <div className="ml-10 space-y-1.5">{Array.from({ length: exercise.sets }, (_, index) => { const key = `${exercise.id}-${index + 1}`; const value = sets[key] ?? { weight: "", reps: "", done: false }; return <div key={key} className={`grid grid-cols-[38px_1fr_1fr_72px] gap-2 items-center rounded-lg p-2 border ${value.done ? "border-mint/50 bg-mint/10" : "border-border/70 bg-black/10"}`}><span className="text-muted text-center">{index + 1}</span><label className="relative"><input className="field !py-2 pr-8" type="number" min="0" placeholder="重量" value={value.weight} onChange={(event) => updateSet(key, { weight: event.target.value })}/><span className="absolute right-2 top-2.5 text-muted text-[10px]">kg</span></label><label className="relative"><input className="field !py-2 pr-8" type="number" min="0" placeholder="次数" value={value.reps} onChange={(event) => updateSet(key, { reps: event.target.value })}/><span className="absolute right-2 top-2.5 text-muted text-[10px]">次</span></label><button className={value.done ? "btn-primary !p-2" : "btn-quiet !p-2"} onClick={() => completeSet(key, exercise.restSeconds)}>{value.done ? <Check size={15} className="mx-auto"/> : "完成"}</button></div>; })}</div>
             </div>)}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-[120px_120px_120px_1fr_auto] gap-3 pt-4 border-t border-border items-end"><label><span className="label">时长（分钟）</span><input className="field" type="number" min="1" value={duration} onChange={(event) => setDuration(event.target.value)} /></label><label><span className="label">距离 km</span><input className="field" type="number" min="0" step=".1" placeholder="可选" value={distance} onChange={(event) => setDistance(event.target.value)} /></label><label><span className="label">爬升 m</span><input className="field" type="number" min="0" placeholder="可选" value={elevation} onChange={(event) => setElevation(event.target.value)} /></label><label><span className="label">运动感受</span><input className="field" placeholder="路线、强度、身体状态……" value={notes} onChange={(event) => setNotes(event.target.value)} /></label><button className="btn-primary h-[38px]" disabled={saving} onClick={finish}>{saving ? "保存中…" : "结束并保存"}</button></div>
+            {session.activityType !== "daily" && <div className="grid sm:grid-cols-2 lg:grid-cols-[120px_120px_120px_1fr_auto] gap-3 pt-4 border-t border-border items-end"><label><span className="label">时长（分钟）</span><input className="field" type="number" min="1" value={duration} onChange={(event) => setDuration(event.target.value)} /></label><label><span className="label">距离 km</span><input className="field" type="number" min="0" step=".1" placeholder="可选" value={distance} onChange={(event) => setDistance(event.target.value)} /></label><label><span className="label">爬升 m</span><input className="field" type="number" min="0" placeholder="可选" value={elevation} onChange={(event) => setElevation(event.target.value)} /></label><label><span className="label">运动感受</span><input className="field" placeholder="路线、强度、身体状态……" value={notes} onChange={(event) => setNotes(event.target.value)} /></label><button className="btn-primary h-[38px]" disabled={saving} onClick={finish}>{saving ? "保存中…" : "结束并保存"}</button></div>}
           </div>
-        </section> : <section className="panel rounded-xl min-h-72 grid place-items-center p-8 text-center"><div><Dumbbell size={28} className="mx-auto text-muted mb-3"/><h2 className="text-lg font-semibold">先添加一项运动计划</h2><p className="text-muted mt-1">设置运动类型、日期和目标后，就可以开始记录。</p><button className="btn-primary mt-5 inline-flex items-center gap-2" onClick={() => setShowAdd(true)}><Plus size={15}/>添加计划</button></div></section>}
+        </section> : <section className="panel rounded-xl min-h-72 grid place-items-center p-8 text-center"><div><CalendarDays size={28} className="mx-auto text-muted mb-3"/><h2 className="text-lg font-semibold">先添加一项每日计划</h2><p className="text-muted mt-1">设置作息、饮食和今天要做的事情，就能开始安排生活。</p><button className="btn-primary mt-5 inline-flex items-center gap-2" onClick={() => setShowAdd(true)}><Plus size={15}/>添加计划</button></div></section>}
       </div>
     </div>
   );

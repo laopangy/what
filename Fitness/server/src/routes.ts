@@ -35,11 +35,14 @@ fitnessRouter.post("/foods/calculate", (req, res) => {
 });
 
 fitnessRouter.post("/sessions", (req, res) => {
+  const optionalText = z.string().trim().max(120).optional();
   const parsed = z.object({
-    name: z.string().trim().min(1).max(60), activityType: z.enum(["strength", "cycling", "running", "hiking", "other"]),
+    name: z.string().trim().min(1).max(60), activityType: z.enum(["daily", "strength", "cycling", "running", "hiking", "other"]),
     weekday: z.number().int().min(0).max(6), focus: z.string().trim().min(1).max(120),
-    targetDurationMinutes: z.number().int().min(1).max(1440), targetDistanceKm: z.number().min(0).max(10000).optional(),
+    targetDurationMinutes: z.number().int().min(0).max(1440), targetDistanceKm: z.number().min(0).max(10000).optional(),
     targetElevationM: z.number().min(0).max(100000).optional(),
+    wakeTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(), sleepTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+    breakfast: optionalText, lunch: optionalText, dinner: optionalText, snack: optionalText,
   }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "计划格式不正确" });
   const state = readState();
