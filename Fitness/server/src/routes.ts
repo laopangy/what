@@ -4,14 +4,16 @@ import { z } from "zod";
 import { readState, writeState } from "./storage.js";
 import { calculateFood, foodCatalog } from "./foodCalculator.js";
 import { generateWeeklyPlan } from "./planGenerator.js";
+import { calculateProfileTargets } from "./profileCalculator.js";
 
 export const fitnessRouter = Router();
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const profileSchema = z.object({
   name: z.string().trim().min(1).max(30), sex: z.enum(["male", "female"]), age: z.number().int().min(14).max(100),
-  heightCm: z.number().min(100).max(250), weightKg: z.number().min(30).max(350), activityLevel: z.number().min(1.2).max(2),
+  heightCm: z.number().min(100).max(250), weightKg: z.number().min(30).max(350),
   goal: z.enum(["gain", "lose", "maintain"]),
 });
+const refreshProfileTargets = (state: ReturnType<typeof readState>) => { state.profile = calculateProfileTargets(state.profile, state.plan.sessions); };
 const mealSchema = z.object({
   date, mealType: z.enum(["breakfast", "lunch", "dinner", "snack"]), name: z.string().trim().min(1).max(80),
   amount: z.string().trim().min(1).max(40), calories: z.number().min(0).max(10000), protein: z.number().min(0).max(1000),
@@ -89,6 +91,7 @@ fitnessRouter.post("/sessions/generate-week", (req, res) => {
   state.planPreferences = parsed.data;
   state.plan.name = `${state.profile.name}的个性化一周计划`;
   state.plan.sessions = [...state.plan.sessions.filter((session) => Boolean(session.scheduledDate)), ...sessions];
+  refreshProfileTargets(state);
   writeState(state);
   return res.status(201).json({ sessions, preferences: parsed.data });
 });
@@ -99,7 +102,7 @@ fitnessRouter.post("/sessions", (req, res) => {
   const state = readState();
   if (hasScheduleConflict(state.plan.sessions, parsed.data)) return res.status(409).json({ success: false, error: scheduleConflictMessage(parsed.data) });
   const session = { id: uuid(), ...parsed.data, mealNutrition: estimatePlanMeals(parsed.data), exercises: [], custom: true };
-  state.plan.sessions.push(session); writeState(state);
+  state.plan.sessions.push(session); refreshProfileTargets(state); writeState(state);
   return res.status(201).json(session);
 });
 
@@ -118,6 +121,7 @@ fitnessRouter.put("/sessions/:id", (req, res) => {
     mealNutrition: estimatePlanMeals(parsed.data),
     wakeTime: undefined, sleepTime: undefined,
   };
+  refreshProfileTargets(state);
   writeState(state);
   return res.json(state.plan.sessions[index]);
 });
@@ -126,7 +130,7 @@ fitnessRouter.delete("/sessions/:id", (req, res) => {
   const state = readState();
   const session = state.plan.sessions.find((item) => item.id === req.params.id);
   if (!session) return res.status(404).json({ success: false, error: "计划不存在" });
-  state.plan.sessions = state.plan.sessions.filter((item) => item.id !== req.params.id); writeState(state);
+  state.plan.sessions = state.plan.sessions.filter((item) => item.id !== req.params.id); refreshProfileTargets(state); writeState(state);
   return res.json({ success: true });
 });
 
@@ -135,13 +139,7 @@ fitnessRouter.put("/profile", (req, res) => {
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "资料格式不正确" });
   const state = readState();
   const input = parsed.data;
-  const bmr = input.sex === "male" ? 10 * input.weightKg + 6.25 * input.heightCm - 5 * input.age + 5 : 10 * input.weightKg + 6.25 * input.heightCm - 5 * input.age - 161;
-  const adjustment = input.goal === "gain" ? 250 : input.goal === "lose" ? -350 : 0;
-  const calories = Math.max(1200, Math.round((bmr * input.activityLevel + adjustment) / 10) * 10);
-  const protein = Math.round(input.weightKg * (input.goal === "gain" ? 2 : 1.8));
-  const fat = Math.round(input.weightKg * 0.9);
-  const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4));
-  state.profile = { ...input, calorieTarget: calories, proteinTarget: protein, carbsTarget: carbs, fatTarget: fat, waterTarget: Math.round(input.weightKg * 35 / 50) * 50 };
+  state.profile = calculateProfileTargets(input, state.plan.sessions);
   writeState(state);
   return res.json(state.profile);
 });

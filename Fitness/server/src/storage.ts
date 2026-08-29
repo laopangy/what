@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { config } from "./config.js";
 import { calculateFood } from "./foodCalculator.js";
+import { calculateProfileTargets } from "./profileCalculator.js";
 import type { FitnessState } from "./types.js";
 
 const mealKeys = ["breakfast", "lunch", "dinner", "snack"] as const;
@@ -56,7 +57,11 @@ const initialState: FitnessState = {
 
 export function readState(): FitnessState {
   try {
-    if (!existsSync(config.dataFile)) return structuredClone(initialState);
+    if (!existsSync(config.dataFile)) {
+      const state = structuredClone(initialState);
+      state.profile = calculateProfileTargets(state.profile, state.plan.sessions);
+      return state;
+    }
     const state = JSON.parse(readFileSync(config.dataFile, "utf8")) as FitnessState;
     const legacyRoutine = state.plan.sessions.find((session) => session.wakeTime || session.sleepTime);
     state.routine = state.routine || { wakeTime: legacyRoutine?.wakeTime || "07:00", sleepTime: legacyRoutine?.sleepTime || "23:00" };
@@ -76,6 +81,7 @@ export function readState(): FitnessState {
       activities: session.activities || (session.activityType !== "daily" ? [{ id: `legacy-${session.id}`, startTime: "18:00", name: session.name, activityType: session.activityType, durationMinutes: session.targetDurationMinutes || 60, notes: session.focus }] : []),
       exercises: session.exercises || [],
     }));
+    state.profile = calculateProfileTargets(state.profile, state.plan.sessions);
     state.workoutLogs = state.workoutLogs.map((log) => ({ ...log, activityType: log.activityType || "strength", sets: log.sets || [] }));
     return state;
   } catch {

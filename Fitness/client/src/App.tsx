@@ -448,8 +448,8 @@ function BodyData({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const field = <K extends keyof Profile>(key: K, value: Profile[K]) => setProfile((current) => ({ ...current, [key]: value }));
 
   useEffect(() => {
-    const input = { name: profile.name.trim(), sex: profile.sex, age: Number(profile.age), heightCm: Number(profile.heightCm), weightKg: Number(profile.weightKg), activityLevel: Number(profile.activityLevel), goal: profile.goal };
-    const current = { name: data.profile.name, sex: data.profile.sex, age: data.profile.age, heightCm: data.profile.heightCm, weightKg: data.profile.weightKg, activityLevel: data.profile.activityLevel, goal: data.profile.goal };
+    const input = { name: profile.name.trim(), sex: profile.sex, age: Number(profile.age), heightCm: Number(profile.heightCm), weightKg: Number(profile.weightKg), goal: profile.goal };
+    const current = { name: data.profile.name, sex: data.profile.sex, age: data.profile.age, heightCm: data.profile.heightCm, weightKg: data.profile.weightKg, goal: data.profile.goal };
     if (JSON.stringify(input) === JSON.stringify(current)) return;
     if (!input.name || input.age < 14 || input.age > 100 || input.heightCm < 100 || input.heightCm > 250 || input.weightKg < 30 || input.weightKg > 350) return;
     setProfileStatus("saving");
@@ -508,7 +508,7 @@ function BodyData({ data, refresh, notify }: { data: FitnessState; refresh: () =
           <label><span className="label">年龄</span><input className="field" type="number" value={profile.age} onChange={(event) => field("age", Number(event.target.value))}/></label>
           <label><span className="label">身高 cm</span><input className="field" type="number" value={profile.heightCm} onChange={(event) => field("heightCm", Number(event.target.value))}/></label>
           <label><span className="label">当前体重 kg</span><input className="field" type="number" step=".1" value={profile.weightKg} onChange={(event) => field("weightKg", Number(event.target.value))}/></label>
-          <label className="sm:col-span-2"><span className="label">日常活动量</span><select className="field" value={profile.activityLevel} onChange={(event) => field("activityLevel", Number(event.target.value))}><option value="1.2">久坐，基本不运动</option><option value="1.375">轻量活动，每周 1–3 次</option><option value="1.55">中等活动，每周 3–5 次</option><option value="1.725">高活动，每周 6–7 次</option></select></label>
+          <label className="sm:col-span-2"><span className="label">日常活动量 · 根据每日计划自动分析</span><select className="field disabled:cursor-not-allowed disabled:opacity-70" value={profile.activityLevel} disabled><option value="1.2">久坐 / 暂无规律活动</option><option value="1.375">轻量活动</option><option value="1.55">中等活动</option><option value="1.725">高活动</option></select><span className="block text-muted text-[9px] mt-1.5">新增、编辑、删除或重新生成每周计划后自动更新，无法手动选择。</span></label>
         </div></section>
 
         <div className="space-y-4">
