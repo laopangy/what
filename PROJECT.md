@@ -1090,7 +1090,7 @@ npm run build
 
 **后端**：Express 5 + TypeScript + Zod，端口 `3003`
 
-**数据存储**：与 Tools 共用根目录 `data/what.vault`。仓库通过 PBKDF2-SHA256 派生密钥并使用 AES-256-GCM 加密，启动后输入密码才能解锁；磁盘上不再保留明文 JSON。
+**数据存储**：与 Tools 共用根目录 `data/what.vault`。仓库通过 PBKDF2-SHA256 派生密钥并使用 AES-256-GCM 加密，启动后输入密码才能解锁；磁盘上不再保留明文 JSON。工作台会持续检查 Tools 与 Fitness 的解锁状态，开发热更新或服务重启导致任一后端重新上锁时，会自动返回统一密码页重新解锁。
 
 核心闭环：
 
@@ -1281,6 +1281,7 @@ Fitness API：
 | 2026-08-29 | Codex | Tools/启动配置 | 修复 Tools 读取 Workbench `.env` 时错误继承 `PORT=3000`，导致 3002 未监听、加密仓库解锁页显示 `Failed to fetch`；共享配置现仅加载 AI 相关变量 | `Tools/server/src/config.ts`, `PROJECT.md` |
 | 2026-08-29 | Codex | Workbench/解锁页 | 将居中小卡片重构为非对称双栏加密仓库入口，统一灰蓝玻璃与 QQ 绿视觉，补充数据保护说明、连接/解锁状态、内联错误、键盘焦点和锁屏窗口控制，并通过本地浏览器完成视觉验证 | `workbench/client/src/components/chat/PasswordGate.tsx`, `workbench/client/src/index.css`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-30 | Codex | Fitness/计划生成与动作 | 修复自动计划从已知大周周一而非当天开始的问题，大小周参考日期仅用于判断轮换；计划动作支持新增、编辑、删除及重量次数、仅次数、按时长三种记录方式，可直接添加跳绳等自定义动作 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-30 | Codex | Workbench/加密解锁 | 修复 Fitness 后端热更新重启后仓库重新上锁、工作台仍停留在模块内导致“重新连接”无反应的问题；工作台进入后定期并在窗口聚焦时检查两项数据服务，确认重新上锁后自动返回密码页 | `workbench/client/src/components/chat/PasswordGate.tsx`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 

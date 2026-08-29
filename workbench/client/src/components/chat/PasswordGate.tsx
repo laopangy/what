@@ -3,6 +3,11 @@ import { ArrowRight, Database, Eye, EyeOff, Fingerprint, FolderLock, KeyRound, L
 import WindowTitleBar from "../layout/WindowTitleBar";
 
 const STORAGE_SERVICES = ["http://localhost:3002", "http://localhost:3003"];
+const readStorageStates = () => Promise.all(STORAGE_SERVICES.map(async (base) => {
+  const response = await fetch(`${base}/api/health`);
+  if (!response.ok) throw new Error("数据服务健康检查失败");
+  return response.json() as Promise<{ unlocked?: boolean }>;
+}));
 
 export default function PasswordGate({ children }: { children: ReactNode }) {
   const [authed, setAuthed] = useState(false);
@@ -13,11 +18,34 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    Promise.all(STORAGE_SERVICES.map((base) => fetch(`${base}/api/health`).then((response) => response.json())))
+    readStorageStates()
       .then((states) => setAuthed(states.every((state) => state.unlocked === true)))
       .catch(() => setError("数据服务尚未就绪，请稍后重试"))
       .finally(() => setChecking(false));
   }, []);
+
+  useEffect(() => {
+    if (!authed) return;
+    let checkingServices = false;
+    const verifyUnlockState = async () => {
+      if (checkingServices) return;
+      checkingServices = true;
+      try {
+        const states = await readStorageStates();
+        if (states.some((state) => state.unlocked !== true)) {
+          setError("数据服务刚刚重启，请重新输入密码解锁");
+          setAuthed(false);
+        }
+      } catch {
+        // A short service restart is handled by the embedded module. Only a confirmed locked state closes the workspace.
+      } finally {
+        checkingServices = false;
+      }
+    };
+    const id = window.setInterval(() => void verifyUnlockState(), 3000);
+    window.addEventListener("focus", verifyUnlockState);
+    return () => { window.clearInterval(id); window.removeEventListener("focus", verifyUnlockState); };
+  }, [authed]);
 
   const handleUnlock = async () => {
     if (!pwd || unlocking) return;
