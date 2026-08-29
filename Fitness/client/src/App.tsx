@@ -16,6 +16,16 @@ const goalNames = { gain: "增肌", lose: "减脂", maintain: "保持" } as cons
 const mealNames = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "加餐" } as const;
 const activityNames: Record<ActivityType, string> = { daily: "日常安排", strength: "力量训练", cycling: "骑行", running: "跑步", hiking: "爬山", other: "其他活动" };
 const activityIcons: Record<ActivityType, LucideIcon> = { daily: CalendarDays, strength: Dumbbell, cycling: Bike, running: Footprints, hiking: Mountain, other: Activity };
+const sleepDuration = (wakeTime: string, sleepTime: string) => {
+  const [wakeHour, wakeMinute] = wakeTime.split(":").map(Number);
+  const [sleepHour, sleepMinute] = sleepTime.split(":").map(Number);
+  const wake = wakeHour * 60 + wakeMinute;
+  const sleep = sleepHour * 60 + sleepMinute;
+  const minutes = (wake - sleep + 1440) % 1440 || 1440;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return { minutes, label: `${hours} 小时${remainder ? ` ${remainder} 分钟` : ""}` };
+};
 
 const nav: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "今日总览", icon: LayoutDashboard },
@@ -159,6 +169,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const emptyPlanForm = { name: "", activityType: "daily" as ActivityType, weekday, focus: "", breakfast: "", lunch: "", dinner: "", snack: "", activities: [] as PlannedActivity[], targetDurationMinutes: "60", targetDistanceKm: "", targetElevationM: "" };
   const [planForm, setPlanForm] = useState(emptyPlanForm);
   const session = data.plan.sessions.find((item) => item.id === selectedId) ?? defaultSession;
+  const plannedSleep = sleepDuration(routineForm.wakeTime, routineForm.sleepTime);
 
   useEffect(() => { if (rest <= 0) return; const id = window.setInterval(() => setRest((value) => Math.max(0, value - 1)), 1000); return () => window.clearInterval(id); }, [rest]);
   useEffect(() => {
@@ -265,7 +276,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-accent-light text-[10px] tracking-[.2em] uppercase mb-2">Daily plan</p><h1 className="text-2xl font-semibold">我的每日计划</h1><p className="text-muted mt-1">固定作息只设置一次；同一天可以添加多条活动计划。</p></div><button className="btn-primary flex items-center gap-2" onClick={() => showAdd ? closePlanForm() : setShowAdd(true)}>{showAdd ? <X size={15}/> : <Plus size={15}/>} {showAdd ? "取消" : "添加计划"}</button></header>
-      <section className="panel rounded-xl p-5"><div className="flex flex-wrap items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><Clock3 size={16} className="text-accent-light"/><div><h2 className="font-semibold">固定作息</h2><p className="text-muted text-[10px] mt-0.5">选择后自动保存，并应用到所有计划。</p></div></div><div className={`text-[10px] flex items-center gap-1.5 transition ${routineStatus === "saving" ? "text-muted" : "text-accent-light"}`}><span className={`w-1.5 h-1.5 rounded-full ${routineStatus === "saving" ? "bg-muted animate-pulse" : "bg-accent"}`}/>{routineStatus === "saving" ? "保存中…" : routineStatus === "saved" ? "已自动保存" : "自动保存"}</div></div><div className="grid sm:grid-cols-2 gap-3 max-w-2xl"><TimePicker label="每天几点起床" value={routineForm.wakeTime} icon={Sunrise} onChange={(wakeTime) => setRoutineForm({ ...routineForm, wakeTime })}/><TimePicker label="每天几点睡觉" value={routineForm.sleepTime} icon={Moon} onChange={(sleepTime) => setRoutineForm({ ...routineForm, sleepTime })}/></div></section>
+      <section className="panel rounded-xl p-5"><div className="flex flex-wrap items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><Clock3 size={16} className="text-accent-light"/><div><h2 className="font-semibold">固定作息</h2><p className="text-muted text-[10px] mt-0.5">选择后自动保存，并应用到所有计划。</p></div></div><div className={`text-[10px] flex items-center gap-1.5 transition ${routineStatus === "saving" ? "text-muted" : "text-accent-light"}`}><span className={`w-1.5 h-1.5 rounded-full ${routineStatus === "saving" ? "bg-muted animate-pulse" : "bg-accent"}`}/>{routineStatus === "saving" ? "保存中…" : routineStatus === "saved" ? "已自动保存" : "自动保存"}</div></div><div className="grid sm:grid-cols-2 gap-3 max-w-2xl"><TimePicker label="每天几点起床" value={routineForm.wakeTime} icon={Sunrise} onChange={(wakeTime) => setRoutineForm({ ...routineForm, wakeTime })}/><TimePicker label="每天几点睡觉" value={routineForm.sleepTime} icon={Moon} onChange={(sleepTime) => setRoutineForm({ ...routineForm, sleepTime })}/></div><div className="mt-3 max-w-2xl rounded-xl border border-accent/25 bg-accent/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Moon size={16} className="text-accent-light"/><div><p className="text-muted text-[10px]">预计睡眠时长</p><strong className="text-base text-accent-light">{plannedSleep.label}</strong></div></div><p className="text-muted text-[10px]">{routineForm.sleepTime} 入睡 → 次日 {routineForm.wakeTime} 起床 · {plannedSleep.minutes} 分钟</p></div></section>
       {showAdd && <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-4"><CalendarDays size={16} className="text-accent-light"/><h2 className="font-semibold">{editingId ? "编辑计划" : "新增计划"}</h2></div><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <label className="sm:col-span-2"><span className="label">计划名称</span><input className="field" placeholder="例如：周一计划 / 周末安排" value={planForm.name} onChange={(event) => setPlanForm({ ...planForm, name: event.target.value })}/></label>
         <label><span className="label">安排在</span><select className="field" value={planForm.weekday} onChange={(event) => setPlanForm({ ...planForm, weekday: Number(event.target.value) })}>{weekdayNames.map((label, index) => <option key={label} value={index}>{label}</option>)}</select></label>
