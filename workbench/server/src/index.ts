@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { config } from "./config.js";
+import { config, getActiveAiConfig } from "./config.js";
 import { registerPlugin } from "./tools/toolRegistry.js";
 import { musicPlugin } from "./tools/musicPlugin.js";
 import { chatRouter } from "./routes/chat.js";
@@ -42,5 +42,6 @@ app.use(errorHandler);
 
 app.listen(config.port, () => {
   console.log(`Workbench server running on http://localhost:${config.port}`);
-  console.log(`DeepSeek model: ${config.deepseek.model}`);
+  const ai = getActiveAiConfig();
+  console.log(`AI provider: ${ai.provider}, model: ${ai.model}`);
 });

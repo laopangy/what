@@ -1,10 +1,10 @@
 /**
- * Kill any processes occupying project ports (3000, 3001, 5173, 5174).
+ * Kill any processes occupying project service ports.
  * Called by `npm run dev` before starting services.
  */
 const { execSync } = require("child_process");
 
-const PORTS = [3000, 3001, 3002, 5173, 5174, 5175];
+const PORTS = [3000, 3001, 3002, 3003, 5173, 5174, 5175, 5176];
 
 for (const port of PORTS) {
   try {

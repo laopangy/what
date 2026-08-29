@@ -93,6 +93,99 @@ function Get-EnvFileValue {
     return ($line -replace "^$escapedKey=", "").Trim()
 }
 
+function Test-ProjectDependencies {
+    $projectDirectories = @("", "Music", "workbench", "Tools", "Fitness")
+    $staleProjects = New-Object 'System.Collections.Generic.List[string]'
+    $missingPackages = New-Object 'System.Collections.Generic.List[string]'
+
+    foreach ($relativeDirectory in $projectDirectories) {
+        $directory = if ([string]::IsNullOrWhiteSpace($relativeDirectory)) {
+            $ProjectRoot
+        } else {
+            Join-Path $ProjectRoot $relativeDirectory
+        }
+        $lockPath = Join-Path $directory "package-lock.json"
+        $installedLockPath = Join-Path $directory "node_modules\.package-lock.json"
+        $displayName = if ($relativeDirectory) { $relativeDirectory } else { "根目录" }
+
+        if (-not (Test-Path -LiteralPath $lockPath) -or -not (Test-Path -LiteralPath $installedLockPath)) {
+            $staleProjects.Add($displayName)
+            continue
+        }
+        $lockTime = (Get-Item -LiteralPath $lockPath).LastWriteTimeUtc
+        $installedTime = (Get-Item -LiteralPath $installedLockPath).LastWriteTimeUtc
+        if ($lockTime -gt $installedTime) {
+            $staleProjects.Add($displayName)
+        }
+    }
+
+    # A current hidden lock file normally proves npm completed, while checking
+    # every direct dependency also catches manually removed or partially copied
+    # node_modules directories. Resolve packages upward just like Node/npm does.
+    $manifestPaths = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($relativeDirectory in $projectDirectories) {
+        $directory = if ([string]::IsNullOrWhiteSpace($relativeDirectory)) {
+            $ProjectRoot
+        } else {
+            Join-Path $ProjectRoot $relativeDirectory
+        }
+        $rootManifest = Join-Path $directory "package.json"
+        if (Test-Path -LiteralPath $rootManifest) { $manifestPaths.Add($rootManifest) }
+        Get-ChildItem -LiteralPath $directory -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne "node_modules" } |
+            ForEach-Object {
+                $childManifest = Join-Path $_.FullName "package.json"
+                if (Test-Path -LiteralPath $childManifest) { $manifestPaths.Add($childManifest) }
+            }
+    }
+
+    foreach ($manifestPath in $manifestPaths) {
+        try {
+            $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        } catch {
+            $missingPackages.Add("无法读取 $manifestPath")
+            continue
+        }
+        $dependencyNames = @()
+        foreach ($sectionName in @("dependencies", "devDependencies")) {
+            $section = $manifest.$sectionName
+            if ($section) { $dependencyNames += @($section.PSObject.Properties.Name) }
+        }
+        foreach ($packageName in ($dependencyNames | Sort-Object -Unique)) {
+            $searchDirectory = Split-Path -Parent $manifestPath
+            $resolved = $false
+            while ($searchDirectory -and $searchDirectory.StartsWith($ProjectRoot, [StringComparison]::OrdinalIgnoreCase)) {
+                $candidate = Join-Path (Join-Path $searchDirectory "node_modules") $packageName
+                if (Test-Path -LiteralPath $candidate) {
+                    $resolved = $true
+                    break
+                }
+                if ([string]::Equals($searchDirectory, $ProjectRoot, [StringComparison]::OrdinalIgnoreCase)) { break }
+                $searchDirectory = Split-Path -Parent $searchDirectory
+            }
+            if (-not $resolved) {
+                $relativeManifest = $manifestPath.Substring($ProjectRoot.Length).TrimStart('\')
+                $missingPackages.Add("$relativeManifest -> $packageName")
+            }
+        }
+    }
+
+    $ready = $staleProjects.Count -eq 0 -and $missingPackages.Count -eq 0
+    $details = New-Object 'System.Collections.Generic.List[string]'
+    if ($staleProjects.Count -gt 0) { $details.Add("需更新：$($staleProjects -join '、')") }
+    if ($missingPackages.Count -gt 0) {
+        $preview = @($missingPackages | Select-Object -First 3) -join "；"
+        if ($missingPackages.Count -gt 3) { $preview += " 等 $($missingPackages.Count) 项" }
+        $details.Add("缺少：$preview")
+    }
+    if ($ready) { $details.Add("锁文件与直接依赖均已校验") }
+
+    return [ordered]@{
+        Ready = $ready
+        Detail = $details -join "；"
+    }
+}
+
 function Get-EnvironmentState {
     Refresh-ProcessPath
 
@@ -126,13 +219,8 @@ function Get-EnvironmentState {
     )
     $ncmVersion = Get-CommandVersion -Path $ncmPath
 
-    $dependencyMarkers = @(
-        (Join-Path $ProjectRoot "node_modules\electron"),
-        (Join-Path $ProjectRoot "Music\node_modules\.package-lock.json"),
-        (Join-Path $ProjectRoot "workbench\node_modules\.package-lock.json"),
-        (Join-Path $ProjectRoot "Tools\node_modules\.package-lock.json")
-    )
-    $dependenciesReady = @($dependencyMarkers | Where-Object { Test-Path -LiteralPath $_ }).Count -eq $dependencyMarkers.Count
+    $dependencyState = Test-ProjectDependencies
+    $dependenciesReady = $dependencyState.Ready
 
     $musicEnv = Join-Path $ProjectRoot "Music\server\.env"
     $workbenchEnv = Join-Path $ProjectRoot "workbench\server\.env"
@@ -165,8 +253,8 @@ function Get-EnvironmentState {
         }
         Dependencies = [ordered]@{
             Installed = $dependenciesReady
-            Version = if ($dependenciesReady) { "已安装" } else { "未安装" }
-            Detail = "Electron、Music、Workbench、Tools"
+            Version = if ($dependenciesReady) { "已安装且已校验" } else { "需要更新" }
+            Detail = $dependencyState.Detail
         }
         Environment = [ordered]@{
             Installed = $envReady
@@ -662,7 +750,7 @@ $definitions = [ordered]@{
     Git = @{ Name = "Git for Windows（可选）"; Description = "版本管理、提交代码并上传 GitHub"; Icon = "G"; Optional = $true }
     Mpv = @{ Name = "mpv 播放器"; Description = "Music 模块的本地音频播放引擎"; Icon = "▶"; Optional = $false }
     Ncm = @{ Name = "ncm-cli"; Description = "网易云音乐命令行与登录能力"; Icon = "♫"; Optional = $false }
-    Dependencies = @{ Name = "项目依赖"; Description = "Electron、Music、Workbench 与 Tools"; Icon = "▣"; Optional = $false }
+    Dependencies = @{ Name = "项目依赖"; Description = "Electron、Music、Workbench、Tools 与 Fitness"; Icon = "▣"; Optional = $false }
     Environment = @{ Name = "环境配置"; Description = "创建 .env，并配置本机 ncm-cli 路径"; Icon = "⚙"; Optional = $false }
 }
 $rows = @{}
@@ -1033,6 +1121,14 @@ function Start-Project {
         return
     }
     $state = Get-EnvironmentState
+    if (-not $state.Dependencies.Installed) {
+        [Windows.Forms.MessageBox]::Show(
+            "检测到项目依赖不完整或代码更新后尚未同步。请先安装[项目依赖]。`r`n`r`n$($state.Dependencies.Detail)",
+            "项目依赖需要更新", "OK", "Warning"
+        ) | Out-Null
+        Update-UiState
+        return
+    }
     if (-not $state.ApiKey.Installed) {
         $answer = [Windows.Forms.MessageBox]::Show(
             "DeepSeek API Key 尚未配置。项目仍可启动，但 Workbench、Music AI 分析和 Tools 日记 AI 将不可用。是否继续启动？",

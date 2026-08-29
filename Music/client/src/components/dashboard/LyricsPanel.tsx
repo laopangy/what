@@ -12,10 +12,12 @@ export default function LyricsPanel({
   const currentIndex = findCurrentIndex(lyrics, position);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    const el = containerRef.current.children[currentIndex + 1] as HTMLElement | undefined;
+    const container = containerRef.current;
+    if (!container) return;
+    const el = container.children[currentIndex + 1] as HTMLElement | undefined;
     if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      const top = el.offsetTop - container.clientHeight / 2 + el.offsetHeight / 2;
+      container.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     }
   }, [currentIndex, lyrics.length]);
 
@@ -32,19 +34,19 @@ export default function LyricsPanel({
   return (
     <div ref={containerRef} className="h-full overflow-y-auto scroll-smooth px-2 text-center player-lyrics-scroll">
       {/* Extra space at top so first line can scroll to center */}
-      <div className="h-[40vh]" />
+      <div className="h-[45%] shrink-0" />
       {lyrics.map((line, i) => {
         const isCurrent = i === currentIndex;
         const isPast = i < currentIndex;
         return (
           <p
             key={i}
-            className={`text-base lg:text-lg transition-all duration-500 px-3 py-2 ${
+            className={`text-[15px] lg:text-base leading-relaxed transition-all duration-500 px-3 py-1 ${
               isCurrent
-                ? "text-accent-dim font-semibold text-xl lg:text-2xl scale-105"
+                ? "text-accent-dim font-semibold text-lg lg:text-xl"
                 : isPast
-                  ? "text-white/28"
-                  : "text-white/58"
+                  ? "text-white/24"
+                  : "text-white/66"
             }`}
           >
             {line.text}
@@ -52,7 +54,7 @@ export default function LyricsPanel({
         );
       })}
       {/* Extra space at bottom so last line can scroll to center */}
-      <div className="h-[40vh]" />
+      <div className="h-[45%] shrink-0" />
     </div>
   );
 }

@@ -22,12 +22,26 @@ function loadEnv() {
 }
 loadEnv();
 
+export type AiProvider = "deepseek" | "openai";
+
+function aiProvider(value: string | undefined): AiProvider {
+  return value?.toLowerCase() === "openai" ? "openai" : "deepseek";
+}
+
 export const config = {
   port: parseInt(process.env.PORT || "3000"),
-  deepseek: {
-    baseUrl: process.env.ANTHROPIC_BASE_URL || "https://api.deepseek.com/anthropic",
-    apiKey: process.env.ANTHROPIC_AUTH_TOKEN || "",
-    model: process.env.ANTHROPIC_MODEL || "deepseek-v4-pro",
+  ai: {
+    provider: aiProvider(process.env.AI_PROVIDER),
+    deepseek: {
+      baseUrl: process.env.ANTHROPIC_BASE_URL || "https://api.deepseek.com/anthropic",
+      apiKey: process.env.ANTHROPIC_AUTH_TOKEN || "",
+      model: process.env.ANTHROPIC_MODEL || "deepseek-v4-pro",
+    },
+    openai: {
+      baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+      apiKey: process.env.OPENAI_API_KEY || "",
+      model: process.env.OPENAI_MODEL || "gpt-5.6-terra",
+    },
   },
   cors: {
     origin: process.env.CORS_ORIGIN || "http://localhost:5174",
@@ -36,3 +50,8 @@ export const config = {
     music: process.env.MUSIC_API_URL || "http://localhost:3001",
   },
 };
+
+export function getActiveAiConfig() {
+  const provider = config.ai.provider;
+  return { provider, ...config.ai[provider] };
+}

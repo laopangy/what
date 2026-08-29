@@ -1,5 +1,20 @@
 [
   {
+    "id": "supply-watch-source-plan-0630",
+    "name": "生产补货源单生成巡检 06:30-06:59",
+    "description": "每分钟检查 SchedulerX 最近 10 条源单生成计划单记录，发现失败则输出诊断报告。",
+    "cronExpression": "30-59 6 * * *",
+    "taskType": "shell-command",
+    "taskConfig": {
+      "command": "cd /d D:\\work\\Projects\\OpenCLI && set OPENCLI_BROWSER_COMMAND_TIMEOUT=180&& node dist\\src\\main.js supply-watch source-plan --once --latest 10 --dms-url https://dms.aliyun.com --pretty --format json",
+      "timeoutMs": 180000
+    },
+    "enabled": false,
+    "createdAt": "2026-07-17T18:05:53.726Z",
+    "updatedAt": "2026-08-29T09:30:42.210Z",
+    "lastRunAt": "2026-07-17T23:00:14.051Z"
+  },
+  {
     "id": "supply-watch-source-plan-0700",
     "name": "生产补货源单生成巡检 07:00-07:59",
     "description": "每分钟检查 SchedulerX 最近 10 条源单生成计划单记录，发现失败则输出诊断报告。",
@@ -9,9 +24,9 @@
       "command": "cd /d D:\\work\\Projects\\OpenCLI && set OPENCLI_BROWSER_COMMAND_TIMEOUT=180&& node dist\\src\\main.js supply-watch source-plan --once --latest 10 --dms-url https://dms.aliyun.com --pretty --format json",
       "timeoutMs": 180000
     },
-    "enabled": true,
+    "enabled": false,
     "createdAt": "2026-07-17T17:40:55.581Z",
-    "updatedAt": "2026-08-23T13:09:23.957Z",
+    "updatedAt": "2026-08-29T09:30:42.210Z",
     "lastRunAt": "2026-07-18T01:55:31.434Z"
   },
   {
@@ -24,23 +39,8 @@
       "command": "cd /d D:\\work\\Projects\\OpenCLI && set OPENCLI_BROWSER_COMMAND_TIMEOUT=180&& node dist\\src\\main.js supply-watch source-plan --once --latest 10 --dms-url https://dms.aliyun.com --pretty --format json",
       "timeoutMs": 180000
     },
-    "enabled": true,
+    "enabled": false,
     "createdAt": "2026-07-17T17:40:55.581Z",
-    "updatedAt": "2026-08-23T13:09:23.957Z"
-  },
-  {
-    "id": "supply-watch-source-plan-0630",
-    "name": "生产补货源单生成巡检 06:30-06:59",
-    "description": "每分钟检查 SchedulerX 最近 10 条源单生成计划单记录，发现失败则输出诊断报告。",
-    "cronExpression": "30-59 6 * * *",
-    "taskType": "shell-command",
-    "taskConfig": {
-      "command": "cd /d D:\\work\\Projects\\OpenCLI && set OPENCLI_BROWSER_COMMAND_TIMEOUT=180&& node dist\\src\\main.js supply-watch source-plan --once --latest 10 --dms-url https://dms.aliyun.com --pretty --format json",
-      "timeoutMs": 180000
-    },
-    "enabled": true,
-    "createdAt": "2026-07-17T18:05:53.726Z",
-    "updatedAt": "2026-08-23T13:09:23.957Z",
-    "lastRunAt": "2026-07-17T23:00:14.051Z"
+    "updatedAt": "2026-08-29T09:30:42.210Z"
   }
 ]

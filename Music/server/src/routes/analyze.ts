@@ -4,7 +4,8 @@ import { createRequire } from "module";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
-import { config } from "../config.js";
+import { getActiveAiConfig } from "../config.js";
+import { callAiText } from "../services/aiClient.js";
 import { broadcastEvent } from "../services/wsManager.js";
 
 // ── Load prompts from knowledge base document ──
@@ -346,49 +347,6 @@ function parseAIResponse<T>(responseText: string): T {
   throw new Error(`AI 返回格式异常，请重试`);
 }
 
-/** Make a request to the DeepSeek API */
-async function callAI(systemPrompt: string, userMessage: string, maxTokens = 16384): Promise<string> {
-  const url = `${config.deepseek.baseUrl}/v1/messages`;
-
-  const body = {
-    model: config.deepseek.model,
-    max_tokens: maxTokens,
-    system: systemPrompt,
-    messages: [
-      { role: "user", content: userMessage },
-    ],
-  };
-
-  // Use Buffer.from to explicitly encode UTF-8 body.
-  // Node.js v23+ validates string args for Latin-1 on Windows; passing
-  // a Buffer sidesteps that entirely and works on all versions (22+).
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "x-api-key": config.deepseek.apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: Buffer.from(JSON.stringify(body), "utf-8"),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`DeepSeek API error ${res.status}: ${errText}`);
-  }
-
-  const json = (await res.json()) as {
-    content?: Array<{ type: string; text?: string }>;
-    stop_reason?: string;
-  };
-
-  const textBlocks = json.content?.filter((b) => b.type === "text") ?? [];
-  const responseText = textBlocks.map((b) => b.text ?? "").join("").trim();
-
-  console.log(`[analyze] AI response stop_reason: ${json.stop_reason}, length: ${responseText.length}`);
-  return responseText;
-}
-
 // ── Pass 1: Taste Profile ──
 
 async function callTasteProfileAI(songs: SongMeta[]): Promise<TasteProfile> {
@@ -396,7 +354,7 @@ async function callTasteProfileAI(songs: SongMeta[]): Promise<TasteProfile> {
   const userMessage = `分析以下 ${songs.length} 首歌的音乐品味：\n\n${songListText}`;
 
   console.log(`[analyze] Pass 1 — Taste Profile: ${songs.length} songs`);
-  const responseText = await callAI(TASTE_PROFILE_PROMPT, userMessage, 16384);
+  const responseText = await callAiText(TASTE_PROFILE_PROMPT, userMessage, 16384);
 
   const parsed = parseAIResponse<TasteProfile & { recommendedSongIndices?: number[] }>(responseText);
 
@@ -453,7 +411,7 @@ async function callSongSelectionAI(
   ].join("\n");
 
   console.log(`[analyze] Pass 2 — Song Selection: ${songs.length} songs, target ${targetCount}`);
-  const responseText = await callAI(SONG_SELECTION_PROMPT, userMessage, 16384);
+  const responseText = await callAiText(SONG_SELECTION_PROMPT, userMessage, 16384);
 
   const parsed = parseAIResponse<SongSelection>(responseText);
 
@@ -496,32 +454,11 @@ async function analyzeBatch(
 ): Promise<BatchResult> {
   const songListText = formatSongList(songs);
 
-  const body = {
-    model: config.deepseek.model,
-    max_tokens: 8192,
-    system: BATCH_ANALYSIS_PROMPT,
-    messages: [
-      { role: "user" as const, content: `第 ${batchIndex + 1}/${totalBatches} 批，${songs.length} 首歌：\n\n${songListText}` },
-    ],
-  };
-
-  // Buffer encoding avoids ByteString error on Node.js v23+ Windows
-  const res = await fetch(`${config.deepseek.baseUrl}/v1/messages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "x-api-key": config.deepseek.apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: Buffer.from(JSON.stringify(body), "utf-8"),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Batch ${batchIndex + 1} API error ${res.status}`);
-  }
-
-  const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-  const text = json.content?.filter((b) => b.type === "text").map((b) => b.text ?? "").join("") ?? "";
+  const text = await callAiText(
+    BATCH_ANALYSIS_PROMPT,
+    `第 ${batchIndex + 1}/${totalBatches} 批，${songs.length} 首歌：\n\n${songListText}`,
+    8192,
+  );
 
   const parsed = parseAIResponse<{
     batchSummary?: string;
@@ -610,7 +547,7 @@ async function synthesizeResults(
 
   console.log(`[analyze] Synthesis: ${batchResults.length} batches, ${uniqueSongs.length} unique songs in pool`);
 
-  const responseText = await callAI(SYNTHESIS_PROMPT, userMessage, 16384);
+  const responseText = await callAiText(SYNTHESIS_PROMPT, userMessage, 16384);
 
   const parsed = parseAIResponse<TasteProfile & { recommendedSongIndices?: number[] }>(responseText);
 
@@ -831,10 +768,10 @@ analyzeRouter.post("/style", async (req, res, next) => {
     console.log(`[analyze] Step 3 — ${allMetas.length} songs mapped`);
 
     // 4. Check AI key
-    if (!config.deepseek.apiKey) {
+    if (!getActiveAiConfig().apiKey) {
       return res.json({
         success: false,
-        error: "未配置 AI API Key，请在 Music/server/.env 中设置 ANTHROPIC_AUTH_TOKEN",
+        error: "当前 AI 提供商未配置 API Key，请前往账号与服务设置",
       });
     }
 
@@ -940,7 +877,7 @@ analyzeRouter.post("/work-playlist", async (_req, res, next) => {
       return res.json({ success: false, error: "未登录，请先登录网易云音乐" });
     }
 
-    if (!config.deepseek.apiKey) {
+    if (!getActiveAiConfig().apiKey) {
       return res.json({ success: false, error: "未配置 AI API Key" });
     }
 

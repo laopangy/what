@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Disc3, Heart, ListMusic, Pause, Play, Repeat, Repeat1,
-  Shuffle, SkipBack, SkipForward, Volume2,
+  ChevronDown, ChevronUp, Disc3, Heart, ListMusic,
+  MoreHorizontal, Pause, Play, Repeat1, Shuffle, SkipBack,
+  SkipForward, Volume2,
 } from "lucide-react";
 import { usePlaybackStore } from "../../stores/playbackStore";
 import { playbackApi, searchApi, songApi } from "../../api/client";
@@ -19,6 +20,7 @@ const fallbackPalettes = [
 interface PlayerStyle extends CSSProperties {
   "--player-accent": string;
   "--player-rgb": string;
+  "--ambient-rgb": string;
   "--color-accent": string;
   "--color-accent-dim": string;
 }
@@ -111,12 +113,13 @@ export default function NowPlaying() {
 
   const playerStyle = useMemo<PlayerStyle>(() => {
     const [r, g, b] = palette;
-    const accent = `rgb(${r} ${g} ${b})`;
+    const accent = "rgb(0 232 139)";
     return {
       "--player-accent": accent,
-      "--player-rgb": `${r} ${g} ${b}`,
+      "--player-rgb": "0 232 139",
+      "--ambient-rgb": `${r} ${g} ${b}`,
       "--color-accent": accent,
-      "--color-accent-dim": `rgb(${Math.min(255, r + 36)} ${Math.min(255, g + 36)} ${Math.min(255, b + 36)})`,
+      "--color-accent-dim": "rgb(82 245 174)",
     };
   }, [palette]);
 
@@ -171,81 +174,85 @@ export default function NowPlaying() {
   const progress = duration > 0 ? (pos / duration) * 100 : 0;
 
   return (
-    <div className="player-theme h-full min-h-[560px] relative overflow-hidden text-white" style={playerStyle}>
-      <div className="absolute -inset-16 bg-[#081014]">
-        {coverUrl && <img src={coverUrl} alt="" className="w-full h-full object-cover scale-110 blur-[70px] opacity-80" />}
+    <div className="player-theme h-full min-h-[540px] relative overflow-hidden text-white" style={playerStyle}>
+      <div className="absolute -inset-20 bg-[#171817]">
+        {coverUrl && <img src={coverUrl} alt="" className="w-full h-full object-cover scale-110 blur-[88px] opacity-75" />}
       </div>
-      <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(4,8,11,.88)_0%,rgba(5,10,13,.52)_46%,rgba(3,7,10,.82)_100%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_33%_38%,rgb(var(--player-rgb)/.28),transparent_32%),radial-gradient(circle_at_76%_44%,rgb(var(--player-rgb)/.14),transparent_36%)]" />
-      <div className="absolute inset-0 opacity-[0.12] player-grain" />
+      <div className="absolute inset-0 bg-[linear-gradient(105deg,rgba(27,25,23,.48)_0%,rgba(27,26,24,.24)_42%,rgba(24,24,23,.46)_100%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_43%,rgb(var(--ambient-rgb)/.24),transparent_34%),radial-gradient(circle_at_78%_36%,rgb(var(--ambient-rgb)/.12),transparent_42%)]" />
+      <div className="absolute inset-0 bg-[rgba(104,117,127,.34)]" />
+      {coverUrl && (
+        <div className="player-art-dissolve absolute left-[6%] top-1/2 w-[min(36vw,52vh,420px)] aspect-square -translate-y-1/2">
+          <img
+            src={coverUrl}
+            alt=""
+            className="player-art-vertical-fade w-full h-full object-contain object-center brightness-[1.08] contrast-[1.05] saturate-[1.06]"
+          />
+        </div>
+      )}
+      <div className="absolute inset-0 opacity-[0.09] player-grain" />
 
-      <div className="relative z-10 h-full flex flex-col px-6 sm:px-10 lg:px-16 pt-20 pb-5">
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(280px,0.9fr)_minmax(360px,1.1fr)] gap-8 lg:gap-16 items-center">
-          <div className="flex items-center justify-center lg:justify-end min-h-0">
-            <div className="relative w-[min(58vh,520px)] max-w-[82vw] aspect-square">
-              <div className="absolute -inset-8 rounded-[20%] bg-[rgb(var(--player-rgb)/.20)] blur-3xl" />
-              {coverUrl ? (
-                <img src={coverUrl} alt={song.name} className="relative w-full h-full rounded-[22px] object-cover shadow-[0_30px_90px_rgba(0,0,0,.48)] ring-1 ring-white/10" />
-              ) : (
-                <div className="relative w-full h-full rounded-[22px] bg-white/[0.06] ring-1 ring-white/10 flex items-center justify-center">
-                  <Disc3 className="w-20 h-20 text-white/20" />
-                </div>
-              )}
-            </div>
+      <div className="relative z-10 h-full flex flex-col px-5 sm:px-8 lg:px-10 pt-8 pb-20">
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-10 items-center">
+          <div className="hidden md:flex items-center justify-center min-h-0" aria-hidden="true">
+            {!coverUrl && <Disc3 className="w-24 h-24 text-white/16" />}
           </div>
 
-          <div className="h-full min-h-0 flex flex-col justify-center max-w-2xl">
-            <div className="mb-5 lg:mb-7 text-center lg:text-left">
-              <h1 className="text-3xl lg:text-4xl font-semibold tracking-tight text-white truncate">{song.name}</h1>
-              <p className="mt-2 text-sm lg:text-base text-white/62 truncate">{song.artist}</p>
+          <section className="h-full min-h-0 flex flex-col justify-center max-w-[720px] mx-auto md:mx-0 w-full pt-2" aria-label="歌词">
+            <div className="mb-2 text-center">
+              <h1 className="text-lg lg:text-xl font-medium tracking-[0.02em] text-white/95 truncate">{song.name}</h1>
+              <p className="mt-1 text-sm text-white/58 truncate">{song.artist}</p>
             </div>
-            <div className="h-[38vh] min-h-56 max-h-[430px] overflow-hidden player-lyrics-mask">
+            <div className="h-[46vh] min-h-56 max-h-[400px] overflow-hidden player-lyrics-mask">
               <LyricsPanel lyrics={lyrics} position={pos} playing={playing} />
             </div>
-          </div>
+          </section>
         </div>
 
-        <div className="flex-shrink-0 pt-5">
-          <div className="flex items-center gap-3 text-[11px] text-white/45 tabular-nums">
-            <span className="w-10 text-right">{formatTime(pos)}</span>
-            <div className="group flex-1 h-5 flex items-center cursor-pointer" onClick={handleSeek}>
-              <div className="relative w-full h-[2px] bg-white/18">
+        <footer className="absolute bottom-2 left-5 right-5 sm:left-8 sm:right-8 lg:left-10 lg:right-10 pt-3">
+          <div className="flex items-center gap-2 text-[11px] text-white/42 tabular-nums">
+            <span className="sr-only">{formatTime(pos)}</span>
+            <div className="group flex-1 h-4 flex items-center cursor-pointer" onClick={handleSeek} role="slider" aria-label="播放进度" aria-valuemin={0} aria-valuemax={duration} aria-valuenow={Math.round(pos)}>
+              <div className="relative w-full h-[3px] bg-white/20">
                 <div className="absolute inset-y-0 left-0 bg-[var(--player-accent)]" style={{ width: `${Math.min(progress, 100)}%` }} />
-                <div className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[var(--player-accent)] opacity-0 group-hover:opacity-100 transition-opacity" style={{ left: `${Math.min(progress, 100)}%` }} />
+                <div className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white opacity-0 group-hover:opacity-100 transition-opacity" style={{ left: `${Math.min(progress, 100)}%` }} />
               </div>
             </div>
-            <span className="w-10">{formatTime(duration)}</span>
+            <span className="sr-only">{formatTime(duration)}</span>
           </div>
 
-          <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center">
-            <div className="flex items-center gap-1 sm:gap-3">
+          <div className="mt-1 flex items-center justify-between min-h-12">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <ControlButton label="上一首" onClick={() => playbackApi.prev()}><SkipBack className="w-[18px] h-[18px] fill-current" /></ControlButton>
+              <button onClick={togglePlay} className="p-2.5 text-white/82 hover:text-white transition-colors" title={playing ? "暂停" : "播放"}>
+                {playing ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 ml-0.5 fill-current" />}
+              </button>
+              <ControlButton label="下一首" onClick={() => playbackApi.next()}><SkipForward className="w-[18px] h-[18px] fill-current" /></ControlButton>
               {encryptedId && (
                 <ControlButton label={liked ? "取消喜欢" : "喜欢"} onClick={toggleLike} active={liked}>
-                  <Heart className={`w-5 h-5 ${liked ? "fill-current" : ""}`} />
+                  <Heart className={`w-[19px] h-[19px] ${liked ? "fill-current" : ""}`} />
                 </ControlButton>
               )}
+              <ControlButton label="播放列表" onClick={() => navigate("/queue")}><ListMusic className="w-[19px] h-[19px]" /></ControlButton>
               <ControlButton label="播放模式" onClick={cyclePlayMode} active={playMode !== 0}>
-                {playMode === 1 ? <Shuffle className="w-5 h-5" /> : playMode === 2 ? <Repeat1 className="w-5 h-5" /> : <Repeat className="w-5 h-5" />}
+                {playMode === 1 ? <Shuffle className="w-[19px] h-[19px]" /> : playMode === 2 ? <Repeat1 className="w-[19px] h-[19px]" /> : <MoreHorizontal className="w-5 h-5" />}
               </ControlButton>
             </div>
 
-            <div className="flex items-center gap-4 sm:gap-7">
-              <ControlButton label="上一首" onClick={() => playbackApi.prev()}><SkipBack className="w-6 h-6 fill-current" /></ControlButton>
-              <button onClick={togglePlay} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center bg-[rgb(var(--player-rgb)/.16)] text-white ring-1 ring-[var(--player-accent)] shadow-[0_0_32px_rgb(var(--player-rgb)/.20)] hover:bg-[rgb(var(--player-rgb)/.28)] transition-all" title={playing ? "暂停" : "播放"}>
-                {playing ? <Pause className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 ml-1 fill-current" />}
-              </button>
-              <ControlButton label="下一首" onClick={() => playbackApi.next()}><SkipForward className="w-6 h-6 fill-current" /></ControlButton>
-            </div>
-
-            <div className="justify-self-end flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-1 sm:gap-2">
               <div className="hidden sm:flex items-center gap-2 text-white/55">
                 <Volume2 className="w-4 h-4" />
-                <input type="range" min={0} max={100} value={volume} onChange={(event) => handleVolume(Number(event.target.value))} style={{ "--range-fill": `${volume}%` } as CSSProperties} className="w-20 lg:w-28" />
+                <input type="range" aria-label="音量" min={0} max={100} value={volume} onChange={(event) => handleVolume(Number(event.target.value))} style={{ "--range-fill": `${volume}%` } as CSSProperties} className="w-20 lg:w-24" />
               </div>
-              <ControlButton label="播放列表" onClick={() => navigate("/queue")}><ListMusic className="w-5 h-5" /></ControlButton>
+              <button title="收起播放页" onClick={() => navigate(-1)} className="w-10 h-10 rounded-full flex items-center justify-center bg-white/[0.08] text-white/80 hover:bg-white/[0.14] transition-colors">
+                <ChevronUp className="w-5 h-5" />
+              </button>
+              <button title="返回首页" onClick={() => navigate("/", { state: { forceHome: Date.now() } })} className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--player-accent)] text-[#052217] hover:brightness-110 transition-all">
+                <ChevronDown className="w-5 h-5" strokeWidth={2.5} />
+              </button>
             </div>
           </div>
-        </div>
+        </footer>
       </div>
     </div>
   );
@@ -258,7 +265,7 @@ function ControlButton({ children, label, onClick, active = false }: {
   active?: boolean;
 }) {
   return (
-    <button onClick={onClick} title={label} className={`p-2.5 rounded-full transition-all ${active ? "text-[var(--player-accent)] bg-white/[0.07]" : "text-white/55 hover:text-white hover:bg-white/[0.06]"}`}>
+    <button onClick={onClick} title={label} className={`p-2.5 rounded-full transition-all duration-200 ${active ? "text-[var(--player-accent)] bg-white/[0.07]" : "text-white/60 hover:text-white hover:bg-white/[0.07]"}`}>
       {children}
     </button>
   );

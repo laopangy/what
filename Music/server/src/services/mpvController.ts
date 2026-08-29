@@ -8,11 +8,30 @@
  */
 import { spawn, type ChildProcess } from "child_process";
 import { createConnection, type Socket } from "net";
+import { tmpdir } from "os";
+import { join } from "path";
 
 const IPC_PIPE = "\\\\.\\pipe\\mpv-socket";
+const MPV_PID_FILE = join(tmpdir(), "what-music-mpv.pid");
 // Try common install locations — shell:true spawn inherits parent env, so
 // mpv may not be in PATH if it was installed after the server started.
-import { existsSync } from "fs";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
+
+function rememberMpvProcess(pid: number): void {
+  try {
+    writeFileSync(MPV_PID_FILE, JSON.stringify({ pid, startedAt: Date.now() }), "utf8");
+  } catch { /* shutdown still has the IPC fallback */ }
+}
+
+function forgetMpvProcess(pid?: number): void {
+  try {
+    if (pid && existsSync(MPV_PID_FILE)) {
+      const saved = JSON.parse(readFileSync(MPV_PID_FILE, "utf8")) as { pid?: number };
+      if (saved.pid !== pid) return;
+    }
+    unlinkSync(MPV_PID_FILE);
+  } catch { /* file already absent or unreadable */ }
+}
 function findMpv(): string {
   const candidates = [
     "C:/Program Files/MPV Player/mpv.com",          // winget default
@@ -267,12 +286,17 @@ async function doStart(): Promise<boolean> {
       windowsHide: true,
     });
 
+    const spawnedPid = mpvProc.pid;
+    if (spawnedPid) rememberMpvProcess(spawnedPid);
+
     mpvProc.on("error", () => {
+      forgetMpvProcess(spawnedPid);
       mpvProc = null;
       resolve(false);
     });
 
     mpvProc.on("exit", () => {
+      forgetMpvProcess(spawnedPid);
       mpvProc = null;
       playingSince = 0;
     });
@@ -297,16 +321,22 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export function stopMpv(): void {
+export async function stopMpv(): Promise<void> {
+  // Always try the dedicated IPC pipe. This also closes an mpv instance that
+  // survived a Music server restart and is no longer referenced by mpvProc.
+  try {
+    await Promise.race([
+      sendCommand({ command: ["quit"] }),
+      sleep(800),
+    ]);
+  } catch { /* mpv is already gone */ }
+
   if (mpvProc && mpvProc.exitCode === null) {
-    try {
-      sendCommand({ command: ["quit"] }).catch(() => {});
-    } catch { /* ignore */ }
-    setTimeout(() => {
-      try { mpvProc?.kill(); } catch { /* ignore */ }
-      mpvProc = null;
-    }, 1000);
+    try { mpvProc.kill(); } catch { /* already gone */ }
   }
+  forgetMpvProcess(mpvProc?.pid);
+  mpvProc = null;
+  playingSince = 0;
 }
 
 // ── Playback commands ────────────────────────────────────────────────────────

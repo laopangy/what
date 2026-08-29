@@ -47,7 +47,7 @@
 | Workbench | ✅ 已上线 | AI 对话助手（可语音/文字操控各模块） |
 | Electron | ✅ 已上线 | 桌面客户端（主进程 + 托盘 + 打包） |
 | Cycling | 🚧 占位 | 仅 `package.json` |
-| Fitness | 🚧 占位 | 仅 `package.json` |
+| Fitness（肌肉大） | ✅ 已上线 | 训练计划、逐组打卡、饮食记录、营养目标和身体趋势 |
 | Travel | 🚧 占位 | 仅 `package.json` |
 
 **仓库地址**：`https://github.com/laopangy/what`
@@ -100,7 +100,8 @@
 - **统一账号与服务设置**：Music 客户端提供网易云/QQ 双二维码登录、退出登录和 DeepSeek API Key 配置；音乐账号 Cookie 与 AI 密钥均只保存在本机且不回显。网易云未登录不再阻塞整个播放器，QQ 搜索和公开歌曲可独立使用。
 - **双音源 Music 主页**：主页顶部可切换网易云与 QQ 音乐并记住选择；网易云保留每日推荐、收藏、歌单和最近播放；QQ 音乐读取扫码账号的“我喜欢”、创建歌单和收藏歌单，歌单可进入详情并播放单曲或全部歌曲；同时通过当前榜单接口分别展示热歌、流行指数和新歌榜，保留榜单原始顺序与内容。
 - **应用内返回导航**：非首页页面在顶栏显示返回按钮，优先返回上一次应用内操作；直接打开深层链接且没有可返回历史时安全回到 Music 首页。
-- **动态专辑色播放页**：“正在播放”由网易云与 QQ 音乐共用，采用大封面、纵向滚动歌词和底部通栏控制布局；两种音源的封面都会作为模糊环境背景，并自动提取代表色同步歌词高亮、进度、播放按钮和音量控件。直接打开页面会立即同步当前播放状态，歌词加载兼容 React 严格模式的重复副作用检查，不再等待 WebSocket 轮询或错误显示“暂无歌词”。
+- **全局 QQ 音乐视觉系统**：Electron 工作台改为 78px 半透明图标轨道、全局透明导航/搜索栏和一体化窗口控制；Workbench、Music、Tools、Fitness 统一使用灰蓝表面、低对比白色文字和 QQ 绿强调色。Music 作为 webview 嵌入时隐藏内部重复顶栏，全局搜索可直接打开 Music 搜索结果。
+- **QQ 音乐风格播放页**：“正在播放”由网易云与 QQ 音乐共用：同源封面全屏放大模糊作为环境底图，灰蓝雾幕统一不同专辑的明暗；左侧清晰图按原比例装入最大 420px 的正方形区域，不使用 `object-cover` 放大裁切，并置于雾幕上方轻微增强亮度、对比度和饱和度，右/上/下多方向遮罩让高亮主体的四周渐隐融入背景。歌词固定在右半区居中，当前歌词及关键操作使用 QQ 绿，控制栏贴合底边。直接打开页面会立即同步当前播放状态，歌词只滚动自身容器，不带动整页。
 - **列表连续播放**：网易云与 QQ 的歌单、收藏、每日推荐、搜索结果和榜单点击任意歌曲时，会从所选歌曲开始将后续歌曲一并加入播放队列；当前歌曲结束后由 mpv 自动续播下一首。
 
 ### 2.3 npm Workspaces 组织
@@ -137,7 +138,7 @@ what/                          # 仓库根目录（Electron 入口）
 - 展示 4 张导航卡片 + 1 个主推卡片
 - 主推卡片（Workbench）带有视觉强调样式，链接到 `http://localhost:5174`
 - Music 卡片链接到 `Music/client/dist/index.html`（构建产物）
-- Cycling / Fitness / Travel 卡片为禁用状态，显示"敬请期待"
+- Fitness 卡片链接到 `http://localhost:5176`；Cycling / Travel 仍为禁用状态
 - 深色主题、渐变背景、hover 动效
 
 **逻辑要点**：
@@ -683,7 +684,7 @@ authHelper.getLoginQr()
 | `/journal` | `JournalEmbed` | 嵌入随手记 |
 | `/tools` | `ToolsEmbed` | 嵌入工具模块 |
 | `/cycling` | `PlaceholderPage` | 骑行模块占位页 |
-| `/fitness` | `PlaceholderPage` | 健身模块占位页 |
+| `/fitness` | `FitnessEmbed` | 嵌入肌肉大应用（Electron webview） |
 | `/travel` | `PasswordGate` + `PlaceholderPage` | 密码保护的旅行模块占位页 |
 
 #### 组件树
@@ -995,6 +996,7 @@ what/
 - VBS 正常显示启动进程，GUI 出现后自行隐藏控制台；VBS/PowerShell 两层均提供启动失败提示
 - `start.vbs` 使用无 BOM 的纯 ASCII 源码，避免 Windows Script Host 在第 1 行第 1 个字符报 `800A0408` 编译错误
 - 默认每次启动都显示安装器；全部环境与 API Key 完成后才出现“以后直接启动”按钮
+- 项目依赖检查会比较各模块 `package-lock.json` 与 `node_modules/.package-lock.json` 的更新时间，并逐项验证工作区直接依赖；代码更新、新增依赖或依赖目录不完整时会自动恢复为“需要更新”，启动前也会再次拦截校验
 - 跳过偏好保存在 `%LOCALAPPDATA%\WhatToolStack\setup-preferences.json`；仅在所有必需检查仍通过时生效，缺失任一必需项会强制恢复安装器，可选 Git 不阻塞
 - 安装器提供“启动后自动关闭”开关并默认启用；项目进程拉起后短暂展示启动状态再自动关闭，关闭该开关可保留窗口，选择与跳过偏好保存在同一配置文件
 - `setup.ps1 -ForceShow` 可忽略跳过偏好，重新打开安装器修改密钥或维护依赖
@@ -1022,8 +1024,8 @@ what/
 - 主窗口（1280×800）：加载 Workbench（`localhost:5174` 开发 / `dist/index.html` 生产）
 - 使用无边框窗口和工作台自定义深色标题栏；支持拖动、双击最大化/还原，并提供定制的最小化、最大化和关闭按钮
 - 开发模式显示加载动画（带进度条和状态文字），自动重试连接（20次，每次1.5s）
-- 关闭主窗口 → 最小化到托盘（不退出）
-- 关闭窗口 → 隐藏（不销毁）
+- 最小化按钮只最小化窗口，应用及音乐继续运行
+- 关闭按钮、Alt+F4 和托盘“退出”均执行完整退出：先停止并关闭应用专用 mpv，再关闭所有项目服务，最后退出 Electron
 
 **系统托盘**：
 - 程序化生成 16×16 PNG 图标（紫色 #6366f1）
@@ -1032,12 +1034,12 @@ what/
 - 托盘菜单每 30s 刷新
 - 双击托盘图标 → 显示主窗口
 
-**后端进程管理（仅生产模式）**：
-- `app.isPackaged === false` → 开发模式，不启动后端（手动通过 `npm run dev` 启动）
-- `app.isPackaged === true` → 生产模式，自动 spawn 两个 Node.js 子进程：
-  - Music server：`node src/index.js`（cwd = `resources/music-server/`）
-  - Workbench server：`node src/index.js`（cwd = `resources/workbench-server/`）
-- `app.on("before-quit")` → `cleanupServers()` 杀掉所有子进程
+**关联进程清理**：
+- 退出时先调用 `/api/playback/shutdown`，Music server 通过专用 named pipe 向 mpv 发送 `quit`
+- Electron 同时直接尝试该 named pipe，覆盖 Music server 已异常退出但 mpv 仍残留的情况，不按进程名误杀用户自行启动的其他播放器
+- 随后只清理项目固定端口 `3000–3003`、`5173–5176` 的监听进程及其子进程，覆盖开发和生产启动方式
+- Music server 收到 `SIGINT` / `SIGTERM` 时也会主动关闭 mpv 并停止 HTTP 服务
+- 清理完成后才执行最终 `app.quit()`；重复退出请求复用同一清理流程
 
 **托盘控制方式**：
 - 通过 HTTP 直接调用 `127.0.0.1:3001/api/playback/*`
@@ -1080,10 +1082,52 @@ npm run build
 
 ## 7. 待开发模块
 
+### 7.1 Fitness（肌肉大）
+
+**目录**：`Fitness/`
+
+**前端**：React 19 + Vite 6 + Tailwind CSS 4，端口 `5176`
+
+**后端**：Express 5 + TypeScript + Zod，端口 `3003`
+
+**数据文件**：`Fitness/server/data/fitness.json`
+
+核心闭环：
+
+- 今日总览：当天热量与三大营养素、近七天训练、最近体重和今日计划；计划按当天具体日期优先、星期计划兜底自动匹配，日常计划直接展示作息、四餐和当天事项
+- 每日计划：起床和睡觉时间作为全局固定作息只需设置一次，并使用整块可点击的小时/分钟分段选择器，变更后防抖自动保存并显示状态；固定作息按睡觉至次日起床自动计算预计睡眠小时和分钟。计划可选择每周重复或绑定具体年月日；每个星期只能有一份重复计划，每个具体日期也只能有一份日期计划。可以安排早餐、午餐、晚餐和加餐，四餐输入会自动防抖估算 kcal、蛋白质、碳水和脂肪并随计划持久化。每个日计划下可新增多项活动，每项分别设置开始时间、类型、名称、时长和备注，例如早上骑车、下午跑步、晚上打麻将；活动在详情中按时间排序。支持从“身体数据”读取性别、年龄、身高、体重、目标热量与蛋白质，结合训练经验、器械、伤病、大小周、正常及最晚下班、加班频率、通勤、可训练日和每日餐饮生成计划；大小周模式从指定的大周周一开始生成连续 14 天，大周周六自动设为工作日。训练可选择自动避开加班、只在休息日、固定上班前或按最晚下班时间安排；旧生成条件自动迁移到避开加班模式。“很久没运动”恢复模式每天安排短时轻活动，第一周 2 次、第二周 3 次力量训练，每次最多 40 分钟且每动作最多 2 组；饮食先强调规律、蛋白质、蔬菜和七八分饱，不要求立即称重控卡。生成时保留手动指定日期计划，替换重复计划及上次自动生成的日期计划。计划导航使用顶部紧凑选择器，不再占用左侧栏；批量选择模式支持勾选、全选及一键删除，既有运动记录不受影响
+- 力量训练：内置推/拉/腿每周三练模板，逐组记录重量与次数，完成一组后自动启动休息倒计时
+- 运动历史：统一保存运动日期、类型、时长、距离、爬升、感受和力量训练完成组；下次力量训练自动带出上次重量与次数
+- 饮食记录：输入“鸡胸肉 200克”“米饭 1碗”等自然分量，从内置常见食物库自动换算热量、蛋白质、碳水和脂肪；整餐可用 `/` 分隔多项食物；也支持“每100克/每百毫升 674kJ，吃了300毫升”等营养标签输入，自动完成 kJ → kcal 和实际分量换算。标签未提供三大营养素时不进行虚构，并在界面明确提示
+- 身体数据：基础资料与目标修改后防抖自动保存并实时重算营养目标；“日常活动量”不可手动选择，系统根据每周计划中的力量/有氧训练日和有时长的恢复活动自动分析，计划增删改或重新生成后同步更新热量目标。今日体重和可选体脂同样自动写入，并以最新晨重同步当前体重。每天称重后立即评估，但至少积累连续 7 天才根据近期均重趋势以每次 100 kcal、最高 ±400 kcal 的幅度调整饮食目标，调整后冷却 7 天，避免单日水分变化造成频繁改计划；评估结果同步展示在身体页和自动生成计划中。展示最近八次体重趋势，并支持直接修改历史记录的日期、体重与体脂或确认后删除
+- 目标计算：根据性别、年龄、身高、体重、活动量和增肌/减脂/保持目标，使用 Mifflin-St Jeor 公式估算每日热量，并计算蛋白质、碳水、脂肪和饮水目标
+- Workbench 集成：`/fitness` 通过 `FitnessEmbed` webview 加载 `http://localhost:5176`
+
+Fitness API：
+
+| 方法 | 路由 | 用途 |
+|------|------|------|
+| GET | `/api/fitness/state` | 获取个人资料、训练计划及全部记录 |
+| GET | `/api/fitness/foods` | 获取内置常见食物名称 |
+| POST | `/api/fitness/foods/calculate` | 解析食物和分量并估算营养数据 |
+| PUT | `/api/fitness/routine` | 保存全局固定起床和睡觉时间 |
+| POST | `/api/fitness/sessions` | 新增包含饮食、事项及可选运动目标的每日计划 |
+| PUT | `/api/fitness/sessions/:id` | 编辑已有每日计划 |
+| DELETE | `/api/fitness/sessions/:id` | 删除每日计划（包括内置计划，历史运动记录保留） |
+| POST | `/api/fitness/sessions/bulk-delete` | 一次删除多条每日计划（历史运动记录保留） |
+| PUT | `/api/fitness/profile` | 保存身体资料并重新计算营养目标 |
+| POST | `/api/fitness/meals` | 添加饮食记录 |
+| DELETE | `/api/fitness/meals/:id` | 删除饮食记录 |
+| POST | `/api/fitness/workouts` | 保存一次逐组训练记录 |
+| POST | `/api/fitness/weights` | 新增或覆盖当天身体数据 |
+| PUT | `/api/fitness/weights/:id` | 编辑已有体重/体脂记录 |
+| DELETE | `/api/fitness/weights/:id` | 删除体重/体脂记录 |
+| GET | `/api/health` | Fitness 健康检查 |
+
 | 模块 | 目录 | 状态 | 说明 |
 |------|------|------|------|
 | Cycling | `Cycling/` | 占位 | `package.json` 仅含基本信息 |
-| Fitness | `Fitness/` | 占位 | `package.json` 仅含基本信息 |
+| Fitness | `Fitness/` | 已上线 | 训练、饮食与身体数据一体化管理 |
 | Travel | `Travel/` | 占位 | `package.json` 仅含基本信息 |
 
 ---
@@ -1207,8 +1251,34 @@ npm run build
 | 2026-08-23 | Codex | Music/歌词 | 修复 React 严格模式重复执行副作用时，首次歌词请求被清理、第二次请求又被防重复标记拦截，导致网易云与 QQ 播放页统一显示“暂无歌词”的问题；改为按歌曲身份安全重载并防止旧请求覆盖新歌曲 | `Music/client/src/hooks/useLyrics.ts`, `PROJECT.md` |
 | 2026-08-23 | Codex | Music/播放队列 | 修复独立播放队列页面仍按旧版 `label` 字符串解析新版歌曲对象，导致歌名显示为 `[object Object]` 的问题；兼容新旧队列结构并统一显示歌名、歌手、当前播放状态及从 1 开始的序号 | `Music/client/src/components/dashboard/QueueView.tsx`, `PROJECT.md` |
 | 2026-08-24 | Codex | 根目录/安装流程 | 增加 Git for Windows 可选安装项：自动检测版本、已安装跳过、支持单独或批量选择，通过 WinGet `Git.Git` 安装；Git 缺失不阻塞项目启动与跳过安装器 | `setup.ps1`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-24 | Codex | Fitness/Workbench | 上线“肌肉大”第一版：新增独立 React/Express 模块，支持营养目标计算、推拉腿训练计划、逐组打卡与休息计时、饮食记录、体重趋势和本地 JSON 持久化；接入 Workbench、门户、根启动/构建及安装器依赖检测 | `Fitness/**`, `workbench/client/src/App.tsx`, `FitnessEmbed.tsx`, `index.html`, `package.json`, `scripts/clean-ports.js`, `setup.ps1`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-24 | Codex | Fitness | 扩展为综合运动与饮食管理：新增常见食物分量解析和热量/三大营养素自动估算；运动计划支持力量、骑行、跑步、爬山及自定义活动，可设置星期、时长、距离和爬升并统一记录 | `Fitness/server/src/foodCalculator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-24 | Codex | Fitness/饮食 | 修复整餐输入被单一食物和错误数量覆盖的问题：按 `/` 拆分多项食物、优先匹配更具体名称、支持中文数量词，补充粥/灌汤包/肠粉等外卖食物，并在前端展示逐项估算与合计 | `Fitness/server/src/foodCalculator.ts`, `Fitness/client/src/App.tsx`, `types.ts`, `PROJECT.md` |
+| 2026-08-24 | Codex | Fitness/饮食 | 支持直接解析包装营养标签：识别每100克/每百毫升的 kJ 或 kcal 能量与实际食用量，自动按比例换算 kcal；缺少三大营养素时保留未知并显示提示 | `Fitness/server/src/foodCalculator.ts`, `Fitness/client/src/App.tsx`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-24 | Codex | 根目录/Music | 修复安装器仅凭旧 `.package-lock.json` 存在就误判依赖完整的问题：新增锁文件新旧与工作区直接依赖双重校验、启动前复检；Music API 增加 15 秒超时并确保首页异常时退出加载状态，避免后端缺包时持续转圈 | `setup.ps1`, `Music/client/src/api/client.ts`, `Music/client/src/components/dashboard/HomePage.tsx`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-24 | Codex | Music/正在播放 | 按 QQ 音乐桌面端重设计播放页：使用封面环境色沉浸背景、左封面右歌词布局、QQ 绿当前歌词、轻量贴底进度与控制栏，并让智能首页播放态共享播放页导航且不再重复显示底部迷你播放器；歌词改为只滚动自身容器，避免当前行定位带动整页上移 | `Music/client/src/components/dashboard/NowPlaying.tsx`, `LyricsPanel.tsx`, `components/layout/AppLayout.tsx`, `index.css`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-25 | Codex | 全局视觉/Music | 将 QQ 音乐桌面端设计语言应用到整个 Electron 工作台：宽文字侧栏改为 78px 半透明图标轨道，窗口标题与返回/前进/刷新/搜索合并为全局透明顶栏，Workbench、Music、Tools、Fitness 统一为灰蓝玻璃与 QQ 绿；Music 嵌入态复用全局导航和搜索。播放页撤掉独立方形封面，改用同源模糊底图、清晰前景、多方向 CSS mask 羽化和统一灰蓝雾幕合成 | `workbench/client/src/components/layout/WorkbenchLayout.tsx`, `WindowTitleBar.tsx`, `components/chat/MusicEmbed.tsx`, `index.css`, `Music/client/src/components/dashboard/NowPlaying.tsx`, `SearchPage.tsx`, `components/layout/AppLayout.tsx`, `index.css`, `Tools/client/src/index.css`, `Fitness/client/src/index.css`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-25 | Codex | Electron/Music | 将关闭窗口从“隐藏到托盘”改为完整退出：关闭按钮、Alt+F4 和托盘退出统一先通过 HTTP 与专用 named pipe 关闭 mpv，再终止项目 3000–3003、5173–5176 端口上的服务进程，最后退出 Electron；Music server 在 shutdown API 及系统终止信号下也会主动回收 mpv | `electron/main.js`, `workbench/client/src/components/layout/WindowTitleBar.tsx`, `Music/server/src/services/mpvController.ts`, `routes/playback.ts`, `index.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-25 | Codex | Music/Electron 窗口 | 播放页清晰封面改为最大 420px 的原比例显示，取消 `object-cover` 放大裁切，并移到灰蓝雾幕上方增强亮度、对比度和饱和度，中心高亮、边缘多向渐隐融入背景；歌词固定到右半区居中。无边框窗口恢复始终可见的自绘最小化、最大化和关闭按钮，并让全部嵌入 webview 从 56px 顶栏下方开始，消除 webview 覆盖窗口按钮点击区的问题 | `Music/client/src/components/dashboard/NowPlaying.tsx`, `index.css`, `workbench/client/src/components/layout/WorkbenchLayout.tsx`, `WindowTitleBar.tsx`, `electron/preload.js`, `main.js`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-25 | Codex | Music/歌词布局 | 适配全局 56px 顶栏后的播放页可用高度：取消歌词区域整体向下偏移，将歌词视口限制为 46vh/最大 400px，并为底部进度和控制栏预留 80px；首尾滚动留白改按歌词容器自身高度计算，避免歌词压到歌曲进度条 | `Music/client/src/components/dashboard/NowPlaying.tsx`, `LyricsPanel.tsx`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-25 | Codex | Electron/Music 退出 | 修复应用退出后歌曲仍继续播放：Music 启动 mpv 时在系统临时目录记录专属 PID并在正常退出时清除；Electron 关闭时依次调用 shutdown API、专用 named pipe，并以该 PID 强制结束本应用播放器进程树，覆盖服务或管道提前失效的情况且不按进程名误杀用户自行启动的 mpv | `Music/server/src/services/mpvController.ts`, `electron/main.js`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/运动计划 | 为全部运动计划补充可见的删除操作，取消内置计划不可删除限制，加入二次确认、删除中状态、自动选择下一计划及空计划引导；删除计划时保留既有运动记录 | `Fitness/client/src/App.tsx`, `Fitness/server/src/routes.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/每日计划 | 将“运动计划”扩展为通用每日计划：按星期记录起床、睡觉、早餐、午餐、晚餐、加餐和当天事项；增加日常安排类型，运动类型仅按需填写时长、距离和爬升，并在总览及详情中展示完整生活日程 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/routes.ts`, `storage.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/计划结构 | 将起床和睡觉时间从单条计划迁移为全局固定作息；明确支持同一天多条计划，新增计划编辑入口与 `PUT` 更新接口，并兼容迁移旧计划里的作息时间 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/routes.ts`, `storage.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/时间选择 | 替换 Chromium 原生时间输入框，改为整块可点击的小时/分钟分段选择器，统一固定作息卡片的灰蓝与绿色视觉，并通过浏览器实测选择交互 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/作息保存 | 移除固定作息的手动保存按钮，小时或分钟变更后自动防抖保存，并展示“保存中/已自动保存”状态；浏览器验证刷新后数据保持且恢复测试值 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/计划饮食 | 将现有食物分量解析接入每日计划四餐：输入后自动防抖显示热量、蛋白质、碳水和脂肪估算；新增或编辑计划时由后端重新计算并持久化，旧计划读取时兼容补算 | `Fitness/client/src/App.tsx`, `types.ts`, `Fitness/server/src/routes.ts`, `storage.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/计划活动 | 为每日计划增加嵌套活动列表：可添加、编辑、删除多项活动，并分别设置开始时间、类型、名称、时长和备注；计划详情按时间排序展示，旧运动计划自动迁移为一条兼容活动 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/routes.ts`, `storage.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/睡眠时长 | 固定作息根据睡觉时间到次日起床时间实时计算预计睡眠小时与分钟，并展示总分钟数；覆盖跨午夜时间计算 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/计划日期 | 每日计划支持“每周重复”和“指定日期”两种时间绑定；今日总览优先匹配当天日期计划并回退到对应星期计划，服务端约束每个星期及每个日期只能创建一份计划 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/一周计划生成 | 新增个性化一周计划生成器：自动读取已保存身体资料，收集训练经验、器械、伤病、上下班与通勤、可训练日及每日饮食，按目标生成 7 天训练/恢复、餐饮和生活安排；生成条件持久化，具体日期计划不被覆盖 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/身体数据 | 移除基础资料及今日测量的手动保存按钮，改为防抖自动保存与状态提示；体重趋势增加历史记录编辑、日期唯一校验和确认删除功能 | `Fitness/client/src/App.tsx`, `api.ts`, `Fitness/server/src/routes.ts`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/活动量分析 | 将日常活动量改为不可手动选择的计划分析结果；根据每周力量、有氧和主动恢复安排自动判定久坐/轻量/中等/高活动，并在计划增删改及重新生成后同步重算热量与营养目标 | `Fitness/client/src/App.tsx`, `api.ts`, `Fitness/server/src/profileCalculator.ts`, `routes.ts`, `storage.ts`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/大小周与加班 | 一周计划生成器新增大小周、已知大周周一、正常/最晚下班、加班频率和训练时段策略；大小周按具体日期生成连续14天，大周周六纳入工作日，并提供自动避开加班模式将不确定加班日的训练前移至上班前 | `Fitness/client/src/App.tsx`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `profileCalculator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/计划管理与恢复 | 将占宽的左侧计划栏改为顶部紧凑选择器，新增批量勾选、全选及一键删除；生成器增加久未运动恢复模式，按每天轻活动、首周2练、次周3练、单次最多40分钟与每动作最多2组递进，饮食先建立规律而非严格控卡 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `routes.ts`, `types.ts`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/体重自适应 | 每次晨重保存后自动评估最近一周均重趋势；不足7天只收集基线，达到门槛后按目标温和调整每日热量，每次100 kcal、累计最多±400 kcal，并设置7天冷却避免重复调整；最新体重同步基础资料，评估结果写入自动生成计划 | `Fitness/client/src/App.tsx`, `types.ts`, `Fitness/server/src/weightAdapter.ts`, `profileCalculator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
 
 ---
 
 > **文档维护者**：潘高远  
-> **最后更新**：2026-08-24
+> **最后更新**：2026-08-29

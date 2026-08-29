@@ -1,8 +1,10 @@
 const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain } = require("electron");
-const { spawn } = require("child_process");
+const { execFile } = require("child_process");
 const path = require("path");
 const http = require("http");
+const net = require("net");
 const fs = require("fs");
+const os = require("os");
 const zlib = require("zlib");
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -10,20 +12,25 @@ const MUSIC_PORT = 3001;
 const MUSIC_CLIENT_PORT = 5173;
 const WORKBENCH_PORT = 3000;
 const WORKBENCH_CLIENT_PORT = 5174;
+const SERVICE_PORTS = [3000, 3001, 3002, 3003, 5173, 5174, 5175, 5176];
+const MPV_PID_FILE = path.join(os.tmpdir(), "what-music-mpv.pid");
 
 const isDev = !app.isPackaged;
 
 // ── State ────────────────────────────────────────────────────────────────────
 let mainWindow = null;
 let tray = null;
-let isQuitting = false;
+let cleanupComplete = false;
+let shutdownPromise = null;
+let ownsInstanceLock = true;
 
 function isMainWindowEvent(event) {
   return mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents;
 }
 
 ipcMain.on("window:minimize", (event) => {
-  if (isMainWindowEvent(event)) mainWindow.minimize();
+  if (!isMainWindowEvent(event)) return;
+  mainWindow.minimize();
 });
 ipcMain.on("window:toggle-maximize", (event) => {
   if (!isMainWindowEvent(event)) return;
@@ -31,7 +38,8 @@ ipcMain.on("window:toggle-maximize", (event) => {
   else mainWindow.maximize();
 });
 ipcMain.on("window:close", (event) => {
-  if (isMainWindowEvent(event)) mainWindow.close();
+  if (!isMainWindowEvent(event)) return;
+  void requestQuit();
 });
 
 // ── Tray Icon PNG ────────────────────────────────────────────────────────────
@@ -104,6 +112,85 @@ function musicPost(endpoint, body) {
   });
 }
 
+function stopMpvViaPipe() {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    const client = net.createConnection("\\\\.\\pipe\\mpv-socket", () => {
+      client.write(`${JSON.stringify({ command: ["quit"] })}\n`);
+    });
+    client.on("error", finish);
+    client.on("close", finish);
+    setTimeout(() => { client.destroy(); finish(); }, 900);
+  });
+}
+
+function execFileSafe(file, args, timeout = 4000) {
+  return new Promise((resolve) => {
+    execFile(file, args, { windowsHide: true, timeout, encoding: "utf8" }, (error, stdout) => {
+      resolve({ error, stdout: stdout || "" });
+    });
+  });
+}
+
+async function stopProjectServices() {
+  if (process.platform !== "win32") return;
+  const { stdout } = await execFileSafe("netstat.exe", ["-ano", "-p", "tcp"]);
+  const targetPorts = new Set(SERVICE_PORTS.map(String));
+  const pids = new Set();
+
+  for (const line of stdout.split(/\r?\n/)) {
+    if (!/LISTENING/i.test(line)) continue;
+    const parts = line.trim().split(/\s+/);
+    const localAddress = parts[1] || "";
+    const pid = parts.at(-1) || "";
+    const port = localAddress.match(/:(\d+)$/)?.[1];
+    if (port && targetPorts.has(port) && /^\d+$/.test(pid) && Number(pid) !== process.pid) pids.add(pid);
+  }
+
+  await Promise.all([...pids].map((pid) => execFileSafe("taskkill.exe", ["/PID", pid, "/T", "/F"], 5000)));
+}
+
+async function stopOwnedMpvProcess() {
+  let record;
+  try {
+    record = JSON.parse(fs.readFileSync(MPV_PID_FILE, "utf8"));
+  } catch {
+    return;
+  }
+
+  const pid = Number(record?.pid);
+  const startedAt = Number(record?.startedAt);
+  const isRecentRecord = Number.isFinite(startedAt) && Date.now() - startedAt < 7 * 24 * 60 * 60 * 1000;
+  if (process.platform === "win32" && Number.isInteger(pid) && pid > 0 && isRecentRecord) {
+    await execFileSafe("taskkill.exe", ["/PID", String(pid), "/T", "/F"], 5000);
+  }
+
+  try { fs.unlinkSync(MPV_PID_FILE); } catch { /* already removed by Music server */ }
+}
+
+async function shutdownRelatedProcesses() {
+  await musicPost("/playback/shutdown", {});
+  await stopMpvViaPipe();
+  await stopOwnedMpvProcess();
+  await stopProjectServices();
+}
+
+function requestQuit() {
+  if (shutdownPromise) return;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
+  shutdownPromise = shutdownRelatedProcesses()
+    .catch(() => {})
+    .finally(() => {
+      cleanupComplete = true;
+      app.quit();
+    });
+}
+
 // ── Tray ─────────────────────────────────────────────────────────────────────
 function createTray() {
   const icon = createPNG(16, 99, 102, 241);
@@ -121,7 +208,7 @@ function createTray() {
     { label: "🔉 音量 -10", click: async () => { const s = await musicGet("/playback/state"); musicPost("/playback/volume", { level: Math.max(0, (s?.data?.volume || 70) - 10) }); } },
     { type: "separator" },
     { label: "👤 网易云登录状态", click: () => checkLoginStatus() },
-    { label: "退出", click: () => { isQuitting = true; app.quit(); } },
+    { label: "退出", click: requestQuit },
   ]);
 
   tray.setContextMenu(buildTrayMenu());
@@ -195,7 +282,10 @@ async function createMainWindow() {
   }
 
   mainWindow.on("close", (event) => {
-    if (!isQuitting) { event.preventDefault(); mainWindow.hide(); }
+    if (!cleanupComplete) {
+      event.preventDefault();
+      requestQuit();
+    }
   });
 
   // Open external links in browser
@@ -225,9 +315,13 @@ app.whenReady().then(async () => {
   await createMainWindow();
 });
 
-app.on("before-quit", () => { isQuitting = true; });
+app.on("before-quit", (event) => {
+  if (!ownsInstanceLock || cleanupComplete) return;
+  event.preventDefault();
+  requestQuit();
+});
 app.on("activate", () => { if (mainWindow) mainWindow.show(); else createMainWindow(); });
 
 const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) app.quit();
+if (!gotLock) { ownsInstanceLock = false; app.quit(); }
 else app.on("second-instance", () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); } });

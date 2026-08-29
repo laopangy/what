@@ -38,7 +38,7 @@ export default function ChatInput({ onSend, disabled }: Props) {
         className={`flex items-end gap-3 px-3.5 py-2 rounded-xl transition-all duration-200
           bg-surface-raised/80 border shadow-[0_10px_28px_rgb(0_0_0_/_0.22)]
           ${focused
-            ? "border-accent/45 shadow-[0_10px_30px_rgb(0_0_0_/_0.3),0_0_0_1px_rgb(217_154_22_/_0.08)]"
+            ? "border-accent/45 shadow-[0_10px_30px_rgb(28_47_58_/_0.24),0_0_0_1px_rgb(0_232_137_/_0.10)]"
             : "border-border/70 hover:border-border-glow/70"
           }`}
       >
@@ -60,7 +60,7 @@ export default function ChatInput({ onSend, disabled }: Props) {
           disabled={!canSend}
           className={`shrink-0 p-2 rounded-lg smooth flex items-center justify-center ${
             canSend
-              ? "bg-accent text-[#17130a] shadow-[0_4px_14px_rgb(217_154_22_/_0.18)] hover:bg-accent-dim"
+              ? "bg-accent text-[#123a2b] shadow-[0_4px_14px_rgb(0_232_137_/_0.18)] hover:bg-accent-dim"
               : disabled
                 ? "bg-accent/10 text-accent-dim/60"
                 : "bg-surface text-text-dim/30"

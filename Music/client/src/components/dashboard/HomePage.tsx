@@ -37,8 +37,7 @@ export default function HomePage() {
         setQqCharts(result.success && result.data ? result.data.charts : []);
         setQqLibrary(result.success && result.data ? result.data.library : { created: [], collected: [] });
         setQqLoggedIn(Boolean(result.data?.account.loggedIn));
-        setReady(true);
-      }).catch(() => { if (!c) setReady(true); });
+      }).catch(() => {}).finally(() => { if (!c) setReady(true); });
       return () => { c = true; };
     }
     Promise.all([
@@ -51,7 +50,7 @@ export default function HomePage() {
       if (c) return;
       setDaily(d); setLiked(l); setPlaylists(p); setHistory(h); setPersonalized(rp);
       setTimeout(() => { if (!c) setReady(true); }, 300); // brief delay for smooth transition
-    });
+    }).catch(() => { if (!c) setReady(true); });
     return () => { c = true; };
   }, [provider]);
 

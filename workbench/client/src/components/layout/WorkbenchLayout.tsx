@@ -1,12 +1,11 @@
-import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
-import { Sparkles, Music, BookOpen, Wrench, Bike, Dumbbell, Plane } from "lucide-react";
-import WeatherBar from "./WeatherBar";
+import { useState, type FormEvent, type ReactNode } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { ArrowLeft, Bike, BookOpen, ChevronRight, Dumbbell, Home, Music, Plane, Radio, RefreshCw, Search, Settings, Sparkles, Wrench } from "lucide-react";
 import WindowTitleBar from "./WindowTitleBar";
 
 const modules = [
-  { name: "AI 对话", icon: Sparkles, path: "/" },
-  { name: "音乐", icon: Music, path: "/music" },
+  { name: "AI 对话", icon: Home, path: "/" },
+  { name: "音乐", icon: Radio, path: "/music" },
   { name: "随手记", icon: BookOpen, path: "/journal" },
   { name: "骑行", icon: Bike, path: "/cycling" },
   { name: "肌肉大", icon: Dumbbell, path: "/fitness" },
@@ -14,64 +13,56 @@ const modules = [
   { name: "工具", icon: Wrench, path: "/tools" },
 ];
 
-const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium smooth border relative overflow-hidden ${
-    isActive
-      ? "bg-accent/[0.11] text-accent-dim border-accent/25 shadow-[inset_2px_0_0_#d99a16]"
-      : "text-text-dim border-transparent hover:text-text hover:bg-white/[0.035] hover:border-border/60"
-  }`;
-
 export default function WorkbenchLayout({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+
+  const submitSearch = (event: FormEvent) => {
+    event.preventDefault();
+    const query = search.trim();
+    if (query) navigate(`/music?query=${encodeURIComponent(query)}`);
+  };
+
   return (
-    <div className="h-screen flex flex-col bg-bg">
-      <WindowTitleBar />
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-52 flex flex-col bg-surface/95 p-2.5 gap-0.5 shrink-0 border-r border-border/70 relative shadow-[12px_0_30px_rgb(0_0_0_/_0.18)]">
-          {/* subtle right-edge gradient line */}
-          <div className="absolute right-0 top-0 h-24 w-px bg-gradient-to-b from-accent/55 to-transparent" />
-
-          {/* Logo */}
-          <div className="flex items-center gap-2.5 px-2.5 py-3 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shadow-[0_5px_16px_rgb(217_154_22_/_0.18)]">
-              <Sparkles className="w-4 h-4 text-[#17130a]" />
-            </div>
-            <div>
-              <span className="font-semibold text-[13px] text-text tracking-[0.02em]">工作台</span>
-              <p className="text-[9px] text-text-dim/65 tracking-[0.12em] uppercase">Night console</p>
-            </div>
-          </div>
-
-          <p className="px-3 text-[9px] uppercase tracking-[0.18em] text-text-dim/45 mb-1.5 mt-1 font-medium">
-            模块
-          </p>
-
-          {modules.map((m) => (
-            <NavLink key={m.name} to={m.path} className={linkClass}>
-              <m.icon className="w-3.5 h-3.5" strokeWidth={1.7} />
-              {m.name}
+    <div className="qq-shell h-screen min-h-[560px] overflow-hidden bg-bg text-text">
+      <aside className="qq-rail fixed inset-y-0 left-0 z-40 w-[78px] flex flex-col items-center border-r border-white/[0.07] bg-surface/55 backdrop-blur-2xl">
+        <button onClick={() => navigate("/")} className="relative mt-4 mb-4 w-9 h-9 rounded-full bg-[linear-gradient(145deg,#708694,#3e4a51)] text-white text-[11px] font-semibold shadow-[0_8px_24px_rgb(12_24_31_/.24)]" title="返回主页">
+          潘<span className="absolute right-0 bottom-0 w-2.5 h-2.5 rounded-full bg-accent border-2 border-[#62727d]" />
+        </button>
+        <nav className="flex flex-col items-center gap-1.5" aria-label="工作台模块">
+          {modules.map((module, index) => (
+            <NavLink key={`${module.name}-${index}`} to={module.path} end={module.path === "/"} aria-label={module.name} title={module.name}
+              className={({ isActive }) => `qq-rail-link group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200 ${isActive ? "bg-white/[0.14] text-white" : "text-white/62 hover:text-white hover:bg-white/[0.09]"}`}>
+              <module.icon className="w-[19px] h-[19px]" strokeWidth={1.65} />
+              <span className="pointer-events-none absolute left-[58px] whitespace-nowrap rounded-md bg-[#26323a]/92 px-2 py-1 text-[10px] text-white opacity-0 translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all shadow-xl">{module.name}</span>
             </NavLink>
           ))}
+        </nav>
+        <button onClick={() => navigate("/music?view=settings")} className="mt-auto mb-4 w-10 h-10 rounded-xl flex items-center justify-center text-white/50 hover:text-white hover:bg-white/[0.09] transition-colors" title="设置">
+          <Settings className="w-[18px] h-[18px]" strokeWidth={1.6} />
+        </button>
+      </aside>
 
-          {/* Footer */}
-          <div className="mt-auto pt-4">
-            <div className="h-px bg-gradient-to-r from-transparent via-border/70 to-transparent mb-2" />
-            <WeatherBar />
-            <div className="px-3 py-1.5 flex items-center gap-2 text-[10px] text-text-dim/60">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-mint opacity-50" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-mint" />
-              </span>
-              在线
-            </div>
+      <section className="ml-[78px] h-full relative overflow-hidden">
+        <header className="absolute inset-x-0 top-0 z-30 h-14 flex items-center gap-1 px-5 pr-36 text-white/62 [-webkit-app-region:drag]">
+          <div className="flex items-center gap-1 [-webkit-app-region:no-drag]">
+            <button onClick={() => navigate(-1)} className="qq-top-button" title="返回"><ArrowLeft className="w-[19px] h-[19px]" /></button>
+            <button onClick={() => navigate(1)} className="qq-top-button" title="前进"><ChevronRight className="w-[20px] h-[20px]" /></button>
+            <button onClick={() => window.location.reload()} className="qq-top-button" title="刷新"><RefreshCw className="w-[18px] h-[18px]" /></button>
           </div>
-        </aside>
-
-        {/* Main */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-          {children}
-        </main>
-      </div>
+          <form onSubmit={submitSearch} className="ml-2 w-[min(36vw,480px)] h-9 rounded-xl bg-white/[0.12] hover:bg-white/[0.16] focus-within:bg-white/[0.18] flex items-center gap-2 px-3 transition-colors [-webkit-app-region:no-drag]">
+            <button type="submit" aria-label="搜索" title="搜索" className="text-white/45 hover:text-white/80 transition-colors"><Search className="w-4 h-4" /></button>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索音乐" className="min-w-0 flex-1 bg-transparent outline-none text-xs text-white/82 placeholder:text-white/42" />
+          </form>
+          <div className="ml-3 hidden lg:flex items-center gap-2 text-[11px] text-white/68 [-webkit-app-region:no-drag]">
+            <span className="w-7 h-7 rounded-full border border-white/20 flex items-center justify-center"><Music className="w-3.5 h-3.5 text-accent" /></span>
+            <span className="w-7 h-7 rounded-full border border-white/20 flex items-center justify-center"><Sparkles className="w-3.5 h-3.5 text-accent" /></span>
+            <button onClick={() => navigate("/music?view=settings")} className="hover:text-white transition-colors">账号与服务</button>
+          </div>
+          <WindowTitleBar />
+        </header>
+        <main className="h-full overflow-hidden pt-14">{children}</main>
+      </section>
     </div>
   );
 }

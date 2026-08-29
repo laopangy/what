@@ -135,6 +135,7 @@ function AccountCard({
 
 export default function SettingsPage() {
   const [status, setStatus] = useState<SettingsStatus | null>(null);
+  const [provider, setProvider] = useState<"deepseek" | "openai">("deepseek");
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [model, setModel] = useState("");
@@ -145,6 +146,7 @@ export default function SettingsPage() {
     settingsApi.status().then((result) => {
       if (!result.success || !result.data) return;
       setStatus(result.data);
+      setProvider(result.data.ai.provider);
       setBaseUrl(result.data.ai.baseUrl);
       setModel(result.data.ai.model);
     });
@@ -158,7 +160,7 @@ export default function SettingsPage() {
       return;
     }
     setSaving(true);
-    const result = await settingsApi.saveAi(apiKey.trim(), baseUrl.trim(), model.trim());
+    const result = await settingsApi.saveAi(provider, apiKey.trim(), baseUrl.trim(), model.trim());
     setSaving(false);
     if (result.success) {
       setApiKey("");
@@ -217,7 +219,7 @@ export default function SettingsPage() {
               <Bot className="w-5 h-5 text-violet-400" />
             </div>
             <div>
-              <h2 className="font-semibold text-text">DeepSeek AI</h2>
+              <h2 className="font-semibold text-text">AI 服务</h2>
               <p className="text-xs text-text-dim mt-1">供工作台、音乐分析和日记 AI 使用；密钥不会回显。</p>
             </div>
           </div>
@@ -230,10 +232,28 @@ export default function SettingsPage() {
 
         <div className="grid md:grid-cols-2 gap-3 mt-5">
           <label className="md:col-span-2">
+            <span className="text-xs text-text-dim">提供商</span>
+            <select
+              value={provider}
+              onChange={(event) => {
+                const next = event.target.value as "deepseek" | "openai";
+                setProvider(next);
+                setApiKey("");
+                setBaseUrl(next === "openai" ? "https://api.openai.com/v1" : "https://api.deepseek.com/anthropic");
+                setModel(next === "openai" ? "gpt-5.6-terra" : "deepseek-v4-pro");
+                setSaveMessage("");
+              }}
+              className="mt-1.5 h-11 w-full rounded-2xl border border-border/60 bg-bg/50 px-3 outline-none text-sm text-text focus:border-accent/50"
+            >
+              <option value="deepseek">DeepSeek</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </label>
+          <label className="md:col-span-2">
             <span className="text-xs text-text-dim">API Key</span>
             <div className="mt-1.5 flex items-center gap-2 rounded-2xl border border-border/60 bg-bg/50 px-3">
               <KeyRound className="w-4 h-4 text-text-dim" />
-              <input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={status.ai.configured ? "输入新密钥以替换现有配置" : "输入 DeepSeek API Key"} className="h-11 flex-1 bg-transparent outline-none text-sm text-text placeholder:text-text-dim/40" />
+              <input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={status.ai.configured && provider === status.ai.provider ? "输入新密钥以替换现有配置" : `输入 ${provider === "openai" ? "OpenAI" : "DeepSeek"} API Key`} className="h-11 flex-1 bg-transparent outline-none text-sm text-text placeholder:text-text-dim/40" />
             </div>
           </label>
           <label>

@@ -1,5 +1,12 @@
 {
   "name": "fitness-module",
   "private": true,
-  "description": "健身模块 — 开发中"
+  "workspaces": ["client", "server"],
+  "scripts": {
+    "dev": "concurrently -n fitness-server,fitness-client -c green,yellow \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build": "npm run build -w server && npm run build -w client"
+  },
+  "devDependencies": { "concurrently": "^9.1.0" }
 }

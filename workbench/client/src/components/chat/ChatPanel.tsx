@@ -27,8 +27,8 @@ export default function ChatPanel() {
           {/* Animated logo */}
           <div className="relative">
             <div className="absolute -inset-3 rounded-2xl bg-accent/10 blur-2xl" />
-            <div className="relative w-16 h-16 rounded-xl bg-accent flex items-center justify-center border border-[#f0c451]/50 shadow-[0_14px_32px_rgb(0_0_0_/_0.35)]">
-              <Sparkles className="w-8 h-8 text-[#17130a]" strokeWidth={1.7} />
+            <div className="relative w-16 h-16 rounded-xl bg-accent flex items-center justify-center border border-white/20 shadow-[0_14px_32px_rgb(28_47_58_/_0.26)]">
+              <Sparkles className="w-8 h-8 text-[#123a2b]" strokeWidth={1.7} />
             </div>
           </div>
 

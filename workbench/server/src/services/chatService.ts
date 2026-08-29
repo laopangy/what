@@ -1,5 +1,11 @@
-import { config } from "../config.js";
+import { getActiveAiConfig } from "../config.js";
 import { getAllTools, executeTool } from "../tools/toolRegistry.js";
+import {
+  callOpenAiResponse,
+  type OpenAiFunctionCall,
+  type OpenAiMessageOutput,
+  type OpenAiOutputItem,
+} from "./aiClient.js";
 import type {
   ChatMessage,
   ChatResponse,
@@ -47,9 +53,13 @@ async function callDeepSeek(
   messages: DeepSeekMessage[],
   tools: unknown[]
 ): Promise<DeepSeekResponse> {
-  const url = `${config.deepseek.baseUrl}/v1/messages`;
+  const active = getActiveAiConfig();
+  if (active.provider !== "deepseek") {
+    throw new Error("当前 AI 提供商不是 DeepSeek");
+  }
+  const url = `${active.baseUrl.replace(/\/$/, "")}/v1/messages`;
   const body: Record<string, unknown> = {
-    model: config.deepseek.model,
+    model: active.model,
     max_tokens: 4096,
     system: SYSTEM_PROMPT,
     messages,
@@ -69,7 +79,7 @@ async function callDeepSeek(
     method: "POST",
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "x-api-key": config.deepseek.apiKey,
+      "x-api-key": active.apiKey,
       "anthropic-version": "2023-06-01",
     },
     body: bodyBuf,
@@ -85,10 +95,90 @@ async function callDeepSeek(
   return res.json() as Promise<DeepSeekResponse>;
 }
 
+function openAiTools(tools: ReturnType<typeof getAllTools>) {
+  return tools.map((tool) => ({
+    type: "function" as const,
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.input_schema,
+  }));
+}
+
+function parseToolArguments(call: OpenAiFunctionCall): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(call.arguments || "{}");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // A malformed tool call is reported to the model as a tool result below.
+  }
+  return {};
+}
+
+async function handleOpenAiChat(
+  messages: ChatMessage[],
+  tools: ReturnType<typeof getAllTools>,
+): Promise<ChatResponse> {
+  const toolCalls: ToolCall[] = [];
+  let input: unknown[] = messages.map((message) => ({
+    role: message.role,
+    content: message.content,
+  }));
+
+  for (let i = 0; i < MAX_LOOPS; i++) {
+    const response = await callOpenAiResponse({
+      instructions: SYSTEM_PROMPT,
+      input,
+      tools: openAiTools(tools),
+      tool_choice: "auto",
+      max_output_tokens: 4096,
+      reasoning: { effort: "low" },
+    });
+
+    const text = response.output
+      .filter((item): item is OpenAiMessageOutput => item.type === "message")
+      .flatMap((item) => item.content ?? [])
+      .map((item) => item.text)
+      .join("");
+    const functionCalls = response.output.filter(
+      (item): item is OpenAiFunctionCall => item.type === "function_call",
+    );
+
+    if (functionCalls.length === 0) {
+      if (!text && response.status === "incomplete") {
+        throw new Error(`OpenAI 响应未完成：${response.incomplete_details?.reason || "未知原因"}`);
+      }
+      return { content: text, toolCalls };
+    }
+
+    const outputs: Array<{ type: "function_call_output"; call_id: string; output: string }> = [];
+    for (const call of functionCalls) {
+      const args = parseToolArguments(call);
+      const result = await executeTool(call.name, args);
+      toolCalls.push({ name: call.name, args, result });
+      outputs.push({
+        type: "function_call_output",
+        call_id: call.call_id,
+        output: JSON.stringify(result),
+      });
+    }
+
+    // Stateless Responses API continuation: replay all output items (including
+    // encrypted reasoning items) followed by the local function results.
+    input = [...input, ...(response.output as OpenAiOutputItem[]), ...outputs];
+  }
+
+  return { content: "操作已完成", toolCalls };
+}
+
 export async function handleChat(
   messages: ChatMessage[]
 ): Promise<ChatResponse> {
   const tools = getAllTools();
+  if (getActiveAiConfig().provider === "openai") {
+    return handleOpenAiChat(messages, tools);
+  }
   const toolCalls: ToolCall[] = [];
 
   const deepseekMessages: DeepSeekMessage[] = messages.map(

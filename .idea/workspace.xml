@@ -1,39 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="81e41431-7143-4696-9ab7-f5e28ae4cbf5" name="更改" comment="0811">
+    <list default="true" id="81e41431-7143-4696-9ab7-f5e28ae4cbf5" name="更改" comment="created：&#10;添加VIP账号扫码登录功能呢个">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CLAUDE.md" beforeDir="false" afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/client/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Fitness/client/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Fitness/client/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Fitness/client/src/api.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Fitness/client/src/api.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Fitness/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/Fitness/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Fitness/server/src/routes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Fitness/server/src/routes.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Fitness/server/src/storage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Fitness/server/src/storage.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Music/client/src/api/client.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/api/client.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/client/src/components/dashboard/DailyRecommend.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/components/dashboard/DailyRecommend.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Music/client/src/components/dashboard/HomePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/components/dashboard/HomePage.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/client/src/components/dashboard/LikedSongs.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/components/dashboard/LikedSongs.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Music/client/src/components/dashboard/LyricsPanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/components/dashboard/LyricsPanel.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Music/client/src/components/dashboard/NowPlaying.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/components/dashboard/NowPlaying.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/client/src/components/dashboard/PlaylistDetail.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/components/dashboard/PlaylistDetail.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/client/src/components/dashboard/QueueView.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/components/dashboard/QueueView.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Music/client/src/components/dashboard/SearchPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/components/dashboard/SearchPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Music/client/src/components/dashboard/SettingsPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/components/dashboard/SettingsPage.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Music/client/src/components/layout/AppLayout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/components/layout/AppLayout.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/client/src/components/shared/TrackRow.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/components/shared/TrackRow.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/client/src/hooks/useLyrics.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/hooks/useLyrics.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/client/src/hooks/usePlaybackState.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/hooks/usePlaybackState.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Music/client/src/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/index.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/client/src/types/ncm.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/src/types/ncm.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/client/tsconfig.tsbuildinfo" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/tsconfig.tsbuildinfo" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/Music/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/server/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/Music/server/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Music/server/src/config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/server/src/config.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Music/server/src/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/server/src/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Music/server/src/routes/analyze.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/server/src/routes/analyze.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Music/server/src/routes/playback.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/server/src/routes/playback.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/server/src/routes/search.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/server/src/routes/search.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/server/src/routes/song.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/server/src/routes/song.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/server/src/routes/theme.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/server/src/routes/theme.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Music/server/src/routes/settings.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/server/src/routes/settings.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Music/server/src/services/mpvController.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Music/server/src/services/mpvController.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PROJECT.md" beforeDir="false" afterPath="$PROJECT_DIR$/PROJECT.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Tools/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/Tools/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Tools/client/src/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/Tools/client/src/index.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Tools/server/data/timers.json" beforeDir="false" afterPath="$PROJECT_DIR$/Tools/server/data/timers.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/start.bat" beforeDir="false" afterPath="$PROJECT_DIR$/start.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/start.vbs" beforeDir="false" afterPath="$PROJECT_DIR$/start.vbs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/main.js" beforeDir="false" afterPath="$PROJECT_DIR$/electron/main.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/preload.js" beforeDir="false" afterPath="$PROJECT_DIR$/electron/preload.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/clean-ports.js" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/clean-ports.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/setup.ps1" beforeDir="false" afterPath="$PROJECT_DIR$/setup.ps1" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/client/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/client/src/components/chat/ChatInput.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/src/components/chat/ChatInput.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/client/src/components/chat/ChatPanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/src/components/chat/ChatPanel.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/client/src/components/chat/MusicEmbed.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/src/components/chat/MusicEmbed.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/client/src/components/layout/WindowTitleBar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/src/components/layout/WindowTitleBar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/client/src/components/layout/WorkbenchLayout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/src/components/layout/WorkbenchLayout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/client/src/electron.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/src/electron.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/client/src/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/src/index.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/client/tsconfig.tsbuildinfo" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/tsconfig.tsbuildinfo" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/server/src/config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/server/src/config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/server/src/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/server/src/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/server/src/routes/journal.ts" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/server/src/routes/journal.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/workbench/server/src/services/chatService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/server/src/services/chatService.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -68,8 +79,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-30f59d01ecdd-63390994e64e-intellij.indexing.shared.core-IU-262.8665.258" />
-        <option value="bundled-js-predefined-d6986cc7102b-4abd2a77f808-JavaScript-IU-262.8665.258" />
+        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.33813.25" />
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.33813.25" />
       </set>
     </attachedChunks>
   </component>
@@ -90,6 +101,8 @@
       <workItem from="1786070617005" duration="596000" />
       <workItem from="1786082223496" duration="834000" />
       <workItem from="1786438397278" duration="482000" />
+      <workItem from="1787620069854" duration="598000" />
+      <workItem from="1787972192864" duration="2311000" />
     </task>
     <servers />
   </component>

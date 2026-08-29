@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Search } from "lucide-react";
 import { searchApi } from "../../api/client";
 import TrackRow from "../shared/TrackRow";
@@ -11,7 +11,8 @@ type Tab = "songs" | "playlists" | "albums";
 type Provider = "netease" | "qq";
 
 export default function SearchPage() {
-  const [query, setQuery] = useState("");
+  const initialQuery = new URLSearchParams(window.location.search).get("query") ?? "";
+  const [query, setQuery] = useState(initialQuery);
   const [tab, setTab] = useState<Tab>("songs");
   const [provider, setProvider] = useState<Provider>("netease");
   const [loading, setLoading] = useState(false);
@@ -34,6 +35,10 @@ export default function SearchPage() {
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }, [query, tab, provider]);
+
+  useEffect(() => {
+    if (initialQuery) void doSearch();
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") doSearch();

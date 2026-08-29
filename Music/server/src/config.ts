@@ -22,6 +22,12 @@ function loadEnv() {
 }
 loadEnv();
 
+export type AiProvider = "deepseek" | "openai";
+
+function aiProvider(value: string | undefined): AiProvider {
+  return value?.toLowerCase() === "openai" ? "openai" : "deepseek";
+}
+
 function cookieStr(): string {
   const raw = process.env.NETEASE_COOKIE || "";
   if (!raw) return "";
@@ -38,10 +44,18 @@ export const config = {
   ncmCliArgs: [] as string[],
   themeImagesDir: process.env.THEME_IMAGES_DIR
     || path.resolve(process.cwd(), "..", "client", "public", "images"),
-  deepseek: {
-    baseUrl: process.env.ANTHROPIC_BASE_URL || "https://api.deepseek.com/anthropic",
-    apiKey: process.env.ANTHROPIC_AUTH_TOKEN || "",
-    model: process.env.ANTHROPIC_MODEL || "deepseek-v4-pro",
+  ai: {
+    provider: aiProvider(process.env.AI_PROVIDER),
+    deepseek: {
+      baseUrl: process.env.ANTHROPIC_BASE_URL || "https://api.deepseek.com/anthropic",
+      apiKey: process.env.ANTHROPIC_AUTH_TOKEN || "",
+      model: process.env.ANTHROPIC_MODEL || "deepseek-v4-pro",
+    },
+    openai: {
+      baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+      apiKey: process.env.OPENAI_API_KEY || "",
+      model: process.env.OPENAI_MODEL || "gpt-5.6-terra",
+    },
   },
   cors: {
     origin: process.env.CORS_ORIGIN || "http://localhost:5173",
@@ -56,3 +70,8 @@ export const config = {
     pollIntervalMs: 15000,
   },
 };
+
+export function getActiveAiConfig() {
+  const provider = config.ai.provider;
+  return { provider, ...config.ai[provider] };
+}

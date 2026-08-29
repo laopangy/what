@@ -1,33 +1,33 @@
 @import "tailwindcss";
 
-/* Cinematic amber design tokens shared with the desktop workbench. */
+/* QQ Music inspired cool slate tokens shared with the desktop workbench. */
 
 @theme {
-  --color-accent: #d99a16;
-  --color-accent-dim: #f0c451;
-  --color-accent-soft: #453712;
-  --color-surface: #15140e;
-  --color-surface-raised: #211f15;
-  --color-surface-glass: rgb(21 20 14 / 0.92);
-  --color-border: #39331f;
-  --color-border-glow: #5b4d25;
-  --color-text: #eee6cc;
-  --color-text-dim: #9c947b;
-  --color-bg: #0b0b08;
-  --color-zinc-50: #f7f1dc;
-  --color-zinc-100: #eee6cc;
-  --color-zinc-200: #d8cfb2;
-  --color-zinc-300: #bfb69b;
-  --color-zinc-400: #9c947b;
-  --color-zinc-500: #7d765f;
-  --color-zinc-600: #5f5947;
-  --color-zinc-700: #494331;
-  --color-zinc-800: #302d20;
-  --color-zinc-900: #211f15;
-  --color-zinc-950: #0b0b08;
-  --color-rose-400: #f0c451;
-  --color-rose-500: #d99a16;
-  --color-rose-600: #b7790d;
+  --color-accent: #00e889;
+  --color-accent-dim: #55f0ac;
+  --color-accent-soft: #1f6650;
+  --color-surface: #52616c;
+  --color-surface-raised: #63727d;
+  --color-surface-glass: rgb(75 89 100 / 0.9);
+  --color-border: #71808a;
+  --color-border-glow: #8c9aa4;
+  --color-text: #f2f5f6;
+  --color-text-dim: #c0c9ce;
+  --color-bg: #44515b;
+  --color-zinc-50: #f3f6f7;
+  --color-zinc-100: #e7ecef;
+  --color-zinc-200: #d1d9de;
+  --color-zinc-300: #b8c4ca;
+  --color-zinc-400: #9eacb4;
+  --color-zinc-500: #7f909a;
+  --color-zinc-600: #697983;
+  --color-zinc-700: #586873;
+  --color-zinc-800: #4c5a64;
+  --color-zinc-900: #3f4c55;
+  --color-zinc-950: #344049;
+  --color-rose-400: #55f0ac;
+  --color-rose-500: #00e889;
+  --color-rose-600: #00c875;
   --radius-lg: 0.5rem;
   --radius-xl: 0.625rem;
   --radius-2xl: 0.75rem;
@@ -59,8 +59,8 @@ body::before {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(ellipse 75% 55% at 55% -10%, rgb(217 154 22 / 0.11), transparent 60%),
-    repeating-linear-gradient(0deg, rgb(255 238 180 / 0.012) 0 1px, transparent 1px 4px);
+    radial-gradient(ellipse 75% 55% at 55% -10%, rgb(173 197 211 / 0.16), transparent 60%),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.012) 0 1px, transparent 1px 4px);
 }
 
 #root {
@@ -80,7 +80,7 @@ body::before {
 /* ---- Panels ---- */
 .glass,
 .glass-strong {
-  background: rgb(25 24 16 / 0.9);
+  background: rgb(70 84 94 / 0.82);
   border: 1px solid var(--color-border);
   border-radius: 0.625rem;
   box-shadow: 0 12px 28px rgb(0 0 0 / 0.22);
@@ -209,7 +209,7 @@ button:focus-visible, a:focus-visible {
 }
 
 .player-lyrics-mask {
-  mask-image: linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 9%, black 89%, transparent 100%);
 }
 
 .player-lyrics-scroll {
@@ -221,8 +221,25 @@ button:focus-visible, a:focus-visible {
 }
 
 .player-theme input[type="range"]::-webkit-slider-thumb {
-  background: #eef7f8;
+  width: 11px;
+  height: 11px;
+  background: #f4fff9;
   border-color: var(--player-accent);
+}
+
+.player-art-dissolve {
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 62%, rgb(0 0 0 / 0.92) 72%, rgb(0 0 0 / 0.48) 88%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 0%, #000 62%, rgb(0 0 0 / 0.92) 72%, rgb(0 0 0 / 0.48) 88%, transparent 100%);
+  filter: drop-shadow(0 22px 42px rgb(8 16 22 / 0.2));
+}
+
+.player-art-vertical-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / 0.72) 6%, #000 13%, #000 87%, rgb(0 0 0 / 0.7) 95%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / 0.72) 6%, #000 13%, #000 87%, rgb(0 0 0 / 0.7) 95%, transparent 100%);
+}
+
+.player-theme input[type="range"] {
+  height: 3px;
 }
 
 @media (max-width: 1023px) {

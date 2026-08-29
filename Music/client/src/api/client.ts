@@ -17,24 +17,32 @@ async function request<T>(
   };
   if (body) opts.body = JSON.stringify(body);
 
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
+  opts.signal = controller.signal;
+
   let res: Response;
   try {
     res = await fetch(`${BASE}${path}`, opts);
   } catch (e) {
+    if ((e as Error).name === "AbortError") {
+      return { success: false, error: "请求超时，请确认音乐服务已启动" };
+    }
     return { success: false, error: `网络请求失败: ${(e as Error).message}` };
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 
+  const text = await res.text().catch(() => "");
   if (!res.ok && res.status >= 500) {
-    const text = await res.text().catch(() => "");
     return { success: false, error: `服务器错误 (${res.status}): ${text.slice(0, 200)}` };
   }
 
   try {
-    const json = await res.json();
+    const json = JSON.parse(text);
     return json as ApiResponse<T>;
   } catch {
     // Empty or non-JSON response
-    const text = await res.text().catch(() => "");
     return { success: false, error: text ? `响应异常: ${text.slice(0, 200)}` : "服务器返回空响应，请重试" };
   }
 }
@@ -153,15 +161,18 @@ export const userApi = {
 };
 
 export interface SettingsStatus {
-  ai: { configured: boolean; baseUrl: string; model: string };
+  ai: { configured: boolean; provider: "deepseek" | "openai"; baseUrl: string; model: string };
   netease: { loggedIn: boolean; nickname?: string };
   qq: { loggedIn: boolean; uin?: string };
 }
 
 export const settingsApi = {
   status: () => api.get<SettingsStatus>("/settings/status"),
-  saveAi: (apiKey: string, baseUrl: string, model: string) =>
-    api.post<{ configured: boolean; baseUrl: string; model: string }>("/settings/ai", { apiKey, baseUrl, model }),
+  saveAi: (provider: "deepseek" | "openai", apiKey: string, baseUrl: string, model: string) =>
+    api.post<{ configured: boolean; provider: "deepseek" | "openai"; baseUrl: string; model: string }>(
+      "/settings/ai",
+      { provider, apiKey, baseUrl, model },
+    ),
   qqLoginQr: () => api.post<{ qrKey: string; qrimg: string; message: string; alreadyLoggedIn?: boolean }>("/settings/qq/login-qr"),
   qqLoginCheck: (qrKey: string) => api.post<{
     status: "waiting" | "success" | "expired" | "error";

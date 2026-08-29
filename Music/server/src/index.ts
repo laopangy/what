@@ -8,7 +8,7 @@ dotenv.config({ path: resolve(__dirname, "..", ".env"), override: true });
 import express from "express";
 import cors from "cors";
 import { createServer } from "http";
-import { config } from "./config.js";
+import { config, getActiveAiConfig } from "./config.js";
 import { setupWebSocket } from "./services/wsManager.js";
 import { errorHandler, logger } from "./middleware/errorHandler.js";
 import { playbackRouter } from "./routes/playback.js";
@@ -59,5 +59,19 @@ setupWebSocket(server);
 
 server.listen(config.port, () => {
   console.log(`Server running on http://localhost:${config.port}`);
-  console.log(`DeepSeek model: ${config.deepseek.model}`);
+  const ai = getActiveAiConfig();
+  console.log(`AI provider: ${ai.provider}, model: ${ai.model}`);
 });
+
+let shuttingDown = false;
+async function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  const { stopMpv } = await import("./services/mpvController.js");
+  await stopMpv();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 1500).unref();
+}
+
+process.once("SIGINT", () => { void shutdown(); });
+process.once("SIGTERM", () => { void shutdown(); });

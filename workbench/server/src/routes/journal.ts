@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { config } from "../config.js";
+import { getActiveAiConfig } from "../config.js";
+import { callAiText } from "../services/aiClient.js";
 
 export const journalRouter = Router();
 
@@ -41,42 +42,13 @@ journalRouter.post("/process", async (req, res) => {
     return;
   }
 
-  if (!config.deepseek.apiKey) {
-    res.status(500).json({ error: "DeepSeek API Key 未配置，请在 workbench/server/.env 中设置 ANTHROPIC_AUTH_TOKEN" });
+  if (!getActiveAiConfig().apiKey) {
+    res.status(500).json({ error: "当前 AI 提供商未配置 API Key，请前往账号与服务设置" });
     return;
   }
 
   try {
-    const url = `${config.deepseek.baseUrl}/v1/messages`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": config.deepseek.apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: Buffer.from(JSON.stringify({
-        model: config.deepseek.model,
-        max_tokens: 2048,
-        system: JOURNAL_PROMPT,
-        messages: [{ role: "user", content: rawText }],
-      }), "utf-8"),
-    });
-
-    if (!response.ok) {
-      const err = await response.text().catch(() => "");
-      const detail = err.slice(0, 200) || `HTTP ${response.status}`;
-      throw new Error(`DeepSeek API 返回错误: ${detail}`);
-    }
-
-    const data = (await response.json()) as {
-      content: { type: string; text?: string }[];
-    };
-
-    const text = data.content
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("");
+    const text = await callAiText(JOURNAL_PROMPT, rawText, 2048);
 
     // Parse JSON from response
     const jsonMatch =

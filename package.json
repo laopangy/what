@@ -7,15 +7,16 @@
   "scripts": {
     "start": "npm run dev",
     "predev": "node scripts/clean-ports.js",
-    "dev": "concurrently -n tools,music,workbench,electron -c yellow,blue,green,magenta \"cd Tools && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\" \"wait-on http-get://localhost:5174 && electron .\"",
+    "dev": "concurrently -n tools,fitness,music,workbench,electron -c yellow,cyan,blue,green,magenta \"cd Tools && npm run dev\" \"cd Fitness && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\" \"wait-on http-get://localhost:5174 && electron .\"",
     "dev:electron": "electron .",
-    "dev:web": "concurrently -n tools,music,workbench -c yellow,blue,green \"cd Tools && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\"",
+    "dev:web": "concurrently -n tools,fitness,music,workbench -c yellow,cyan,blue,green \"cd Tools && npm run dev\" \"cd Fitness && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\"",
     "login": "cd Music && npx tsx server/src/scripts/login.ts",
     "build:music": "cd Music/client && npm run build",
     "build:workbench": "cd workbench/client && npm run build",
     "build:tools": "cd Tools/client && npm run build",
-    "build": "npm run build:music && npm run build:workbench && npm run build:tools && electron-builder --win",
-    "postinstall": "cd Music && npm install && cd ../workbench && npm install && cd ../Tools && npm install"
+    "build:fitness": "cd Fitness && npm run build",
+    "build": "npm run build:music && npm run build:workbench && npm run build:tools && npm run build:fitness && electron-builder --win",
+    "postinstall": "cd Music && npm install && cd ../workbench && npm install && cd ../Tools && npm install && cd ../Fitness && npm install"
   },
   "build": {
     "appId": "com.laopangy.what",
@@ -36,7 +37,10 @@
       "Tools/client/dist/**/*",
       "Tools/server/src/**/*",
       "Tools/server/package.json",
-      "Tools/server/tsconfig.json"
+      "Tools/server/tsconfig.json",
+      "Fitness/client/dist/**/*",
+      "Fitness/server/dist/**/*",
+      "Fitness/server/package.json"
     ],
     "extraResources": [
       {
@@ -50,6 +54,10 @@
       {
         "from": "Tools/server",
         "to": "tools-server"
+      },
+      {
+        "from": "Fitness/server",
+        "to": "fitness-server"
       }
     ],
     "win": {

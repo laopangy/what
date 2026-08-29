@@ -440,6 +440,14 @@ for (const [action, fn] of Object.entries(simpleActions)) {
   });
 }
 
+playbackRouter.post("/shutdown", async (_req, res, next) => {
+  try {
+    await mpv.stopMpv();
+    notifyPlaybackChange();
+    res.json({ success: true });
+  } catch (e) { next(e); }
+});
+
 playbackRouter.post("/seek", async (req, res, next) => {
   try {
     const { seconds } = z.object({ seconds: z.number() }).parse(req.body);

@@ -24,7 +24,10 @@ what/
 │   └── server/data/        # JSON 文件持久化（自动创建）
 │   └── 子工具: 定时器 ⏰
 ├── Cycling/                # 🚴 骑行模块（开发中，仅占位 package.json）
-├── Fitness/                # 💪 健身模块（开发中，仅占位 package.json）
+├── Fitness/                # 💪 肌肉大（训练、饮食与身体数据管理，已上线）
+│   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
+│   ├── server/             # Express 5 + TypeScript + Zod
+│   └── server/data/        # 本地 JSON 持久化（自动创建）
 └── Travel/                 # ✈️ 旅游模块（开发中，仅占位 package.json）
 ```
 
@@ -51,10 +54,12 @@ what/
 | Music | 5173 | 3001 |
 | Workbench | 5174 | 3000 |
 | Tools | 5175 | 3002 |
+| Fitness | 5176 | 3003 |
 
 ### Vite 代理配置
 - Music client 的 `/api` → `http://localhost:3001`，`/ws` → `ws://localhost:3001`
 - Workbench client 的 `/api` → `http://localhost:3000`
+- Fitness client 的 `/api` → `http://localhost:3003`
 
 ## 新电脑完整配置流程
 
@@ -65,7 +70,7 @@ what/
 
 安装器提供以下能力：
 
-- 自动检测 Node.js 22、Git for Windows、mpv、ncm-cli、项目 npm 依赖和 `.env`
+- 自动检测 Node.js 22、Git for Windows、mpv、ncm-cli、项目 npm 依赖和 `.env`；依赖检查会比较锁文件更新时间并验证各工作区直接依赖，代码更新后新增依赖不会被旧 `node_modules` 标记误判为已安装
 - 双击后先显示安装器和“正在检测”状态，再执行首次扫描；启动失败会弹窗并写入临时错误日志
 - 必需环境全部完成后显示“以后直接启动”；只有用户主动启用后才跳过安装器，任何必需项缺失都会强制恢复显示（可选 Git 不阻塞）
 - “启动后自动关闭”默认开启；项目进程拉起后约 0.8 秒关闭安装器，可取消勾选以保留窗口，选择会记入本机偏好
@@ -107,8 +112,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\setup.ps1 -ForceS
 - 也可运行 `npm run login`，在终端扫描二维码登录网易云
 - QQ 音乐公开搜索、歌词和榜单无需登录；扫码登录后主页会读取“我喜欢”、创建歌单和收藏歌单，会员/版权受限歌曲也会使用该登录态
 - QQ 首页的“我喜欢”、创建歌单和收藏歌单均可进入独立详情页，支持单曲与整单播放；非首页页面可使用顶栏返回按钮回到上一步
-- 网易云与 QQ 音乐共用同一个“正在播放”页面：均从当前专辑封面提取代表色，并将封面环境色同步到背景、歌词和播放控件；封面像素通过受限的 QQ/网易云图片代理读取
+- 整个 Electron 工作台采用 QQ 音乐桌面端风格：全局使用窄图标侧栏、透明顶栏、灰蓝玻璃表面与 QQ 绿强调色；Workbench、Music、Tools、Fitness 共享同一视觉令牌，Music 嵌入时复用工作台顶栏而不重复显示内部导航
+- 网易云与 QQ 音乐共用同一个 QQ 音乐风格的沉浸式“正在播放”页面：封面以“全屏模糊底图 + 灰蓝雾幕 + 左侧高亮清晰图 + 多方向羽化遮罩”合成；清晰层按原比例装入最大 420px 的正方形区域，不裁切、不额外放大，并在雾幕上方轻微增强亮度、对比度和饱和度，中心清晰而四周渐隐融入背景；歌词固定在右半区居中，当前歌词及关键控制使用 QQ 绿
+- 播放页为底部进度与控制栏预留独立空间；歌词可视区限制为 46vh/最大 400px，取消整体向下偏移，首尾定位留白按歌词容器自身高度计算，不会压到进度条
 - 网易云与 QQ 的歌单、收藏、每日推荐、搜索结果和榜单点歌时会保留所选歌曲之后的列表上下文，当前歌曲结束后自动续播下一首
+- Electron 无边框窗口始终显示自绘的最小化、最大化和关闭按钮；所有嵌入 webview 从顶栏下方开始布局，避免其覆盖 56px 窗口控制点击区。关闭按钮、Alt+F4 和托盘“退出”会真正退出应用：依次通过 Music API、专用 named pipe 和临时 PID 记录关闭本应用创建的 mpv，再清理 Tools、Fitness、Music、Workbench 的前后端监听进程；PID 兜底只结束关联播放器及其子进程，不按进程名误杀其他 mpv；最小化按钮仍只最小化，不停止音乐
 - DeepSeek API Key 可在安装器或 Music“账号与服务设置”中配置，密钥只写入本机且不会回显
 - `.env` 格式可参考 `Music/server/.env.example` 和 `workbench/server/.env.example`
 
@@ -239,6 +247,24 @@ workbench/client ──WebSocket────────────────
 | `/api/timer/:id/trigger` | 手动触发执行 |
 | `/api/timer/:id/history` | 执行历史 |
 | `/api/timer/history/all` | 全部执行历史 |
+| `/api/health` | 健康检查 |
+
+## Fitness 服务器 API 端点（肌肉大）
+
+| 路由 | 用途 |
+|------|------|
+| `/api/fitness/state` | 获取个人资料、训练计划、训练/饮食/体重记录 |
+| `/api/fitness/foods` | 获取内置常见食物名称 |
+| `/api/fitness/foods/calculate` (POST) | 解析食物分量、`/` 分隔整餐和中文数量词；也支持每100克/每百毫升的 kJ/kcal 营养标签与实际摄入量换算 |
+| `/api/fitness/routine` (PUT) | 保存全局固定起床和睡觉时间 |
+| `/api/fitness/sessions` (POST) | 新增每日计划；单个计划可包含多条带开始时间、类型、时长和备注的活动，四餐文本自动估算并保存热量与三大营养素 |
+| `/api/fitness/sessions/:id` (PUT) | 编辑已有每日计划、嵌套活动及四餐营养估算 |
+| `/api/fitness/sessions/:id` (DELETE) | 删除每日计划（包括内置计划，历史运动记录保留） |
+| `/api/fitness/profile` (PUT) | 保存资料并重新计算热量和营养目标 |
+| `/api/fitness/meals` (POST) | 添加饮食记录 |
+| `/api/fitness/meals/:id` (DELETE) | 删除饮食记录 |
+| `/api/fitness/workouts` (POST) | 保存逐组训练记录 |
+| `/api/fitness/weights` (POST) | 新增或覆盖当天身体数据 |
 | `/api/health` | 健康检查 |
 
 ### 定时器数据模型
