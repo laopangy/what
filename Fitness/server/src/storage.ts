@@ -7,6 +7,7 @@ const initialState: FitnessState = {
     name: "阿潘", sex: "male", age: 28, heightCm: 175, weightKg: 70, activityLevel: 1.45, goal: "gain",
     calorieTarget: 2550, proteinTarget: 140, carbsTarget: 330, fatTarget: 70, waterTarget: 2500,
   },
+  routine: { wakeTime: "07:00", sleepTime: "23:00" },
   plan: {
     id: "starter-ppl",
     name: "增肌基础 · 每周三练",
@@ -50,6 +51,8 @@ export function readState(): FitnessState {
   try {
     if (!existsSync(config.dataFile)) return structuredClone(initialState);
     const state = JSON.parse(readFileSync(config.dataFile, "utf8")) as FitnessState;
+    const legacyRoutine = state.plan.sessions.find((session) => session.wakeTime || session.sleepTime);
+    state.routine = state.routine || { wakeTime: legacyRoutine?.wakeTime || "07:00", sleepTime: legacyRoutine?.sleepTime || "23:00" };
     state.plan.sessions = state.plan.sessions.map((session) => ({
       ...session,
       activityType: session.activityType || "strength",

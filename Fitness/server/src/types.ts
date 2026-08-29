@@ -36,6 +36,7 @@ export interface WorkoutSession {
   custom?: boolean;
 }
 export interface WorkoutPlan { id: string; name: string; sessions: WorkoutSession[]; }
+export interface DailyRoutine { wakeTime: string; sleepTime: string; }
 export interface CompletedSet { exerciseId: string; exerciseName: string; setNumber: number; weightKg: number; reps: number; }
 export interface WorkoutLog {
   id: string;
@@ -54,4 +55,4 @@ export interface MealEntry {
   calories: number; protein: number; carbs: number; fat: number; createdAt: string;
 }
 export interface WeightEntry { id: string; date: string; weightKg: number; bodyFat?: number; }
-export interface FitnessState { profile: Profile; plan: WorkoutPlan; workoutLogs: WorkoutLog[]; meals: MealEntry[]; weights: WeightEntry[]; }
+export interface FitnessState { profile: Profile; routine: DailyRoutine; plan: WorkoutPlan; workoutLogs: WorkoutLog[]; meals: MealEntry[]; weights: WeightEntry[]; }

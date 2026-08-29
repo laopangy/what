@@ -21,10 +21,25 @@ const workoutSchema = z.object({
   distanceKm: z.number().min(0).max(10000).optional(), elevationM: z.number().min(0).max(100000).optional(),
   sets: z.array(z.object({ exerciseId: z.string(), exerciseName: z.string(), setNumber: z.number().int().positive(), weightKg: z.number().min(0).max(1000), reps: z.number().int().min(0).max(1000) })).max(100),
 });
+const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const optionalText = z.string().trim().max(120).optional();
+const sessionSchema = z.object({
+  name: z.string().trim().min(1).max(60), activityType: z.enum(["daily", "strength", "cycling", "running", "hiking", "other"]),
+  weekday: z.number().int().min(0).max(6), focus: z.string().trim().min(1).max(120),
+  targetDurationMinutes: z.number().int().min(0).max(1440), targetDistanceKm: z.number().min(0).max(10000).optional(),
+  targetElevationM: z.number().min(0).max(100000).optional(), breakfast: optionalText, lunch: optionalText, dinner: optionalText, snack: optionalText,
+});
 
 fitnessRouter.get("/state", (_req, res) => res.json(readState()));
 
 fitnessRouter.get("/foods", (_req, res) => res.json(foodCatalog.map((food) => food.name)));
+
+fitnessRouter.put("/routine", (req, res) => {
+  const parsed = z.object({ wakeTime: time, sleepTime: time }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ success: false, error: "作息时间格式不正确" });
+  const state = readState(); state.routine = parsed.data; writeState(state);
+  return res.json(state.routine);
+});
 
 fitnessRouter.post("/foods/calculate", (req, res) => {
   const parsed = z.object({ query: z.string().trim().min(1).max(100) }).safeParse(req.body);
@@ -35,20 +50,28 @@ fitnessRouter.post("/foods/calculate", (req, res) => {
 });
 
 fitnessRouter.post("/sessions", (req, res) => {
-  const optionalText = z.string().trim().max(120).optional();
-  const parsed = z.object({
-    name: z.string().trim().min(1).max(60), activityType: z.enum(["daily", "strength", "cycling", "running", "hiking", "other"]),
-    weekday: z.number().int().min(0).max(6), focus: z.string().trim().min(1).max(120),
-    targetDurationMinutes: z.number().int().min(0).max(1440), targetDistanceKm: z.number().min(0).max(10000).optional(),
-    targetElevationM: z.number().min(0).max(100000).optional(),
-    wakeTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(), sleepTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
-    breakfast: optionalText, lunch: optionalText, dinner: optionalText, snack: optionalText,
-  }).safeParse(req.body);
+  const parsed = sessionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "计划格式不正确" });
   const state = readState();
   const session = { id: uuid(), ...parsed.data, exercises: [], custom: true };
   state.plan.sessions.push(session); writeState(state);
   return res.status(201).json(session);
+});
+
+fitnessRouter.put("/sessions/:id", (req, res) => {
+  const parsed = sessionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "计划格式不正确" });
+  const state = readState();
+  const index = state.plan.sessions.findIndex((item) => item.id === req.params.id);
+  if (index < 0) return res.status(404).json({ success: false, error: "计划不存在" });
+  state.plan.sessions[index] = {
+    ...state.plan.sessions[index], ...parsed.data,
+    targetDistanceKm: parsed.data.targetDistanceKm, targetElevationM: parsed.data.targetElevationM,
+    breakfast: parsed.data.breakfast || "", lunch: parsed.data.lunch || "", dinner: parsed.data.dinner || "", snack: parsed.data.snack || "",
+    wakeTime: undefined, sleepTime: undefined,
+  };
+  writeState(state);
+  return res.json(state.plan.sessions[index]);
 });
 
 fitnessRouter.delete("/sessions/:id", (req, res) => {

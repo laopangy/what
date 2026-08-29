@@ -1,4 +1,4 @@
-import type { FitnessState, FoodCalculation, MealEntry, Profile, WeightEntry, WorkoutLog, WorkoutSession } from "./types";
+import type { DailyRoutine, FitnessState, FoodCalculation, MealEntry, Profile, WeightEntry, WorkoutLog, WorkoutSession } from "./types";
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, options);
@@ -11,7 +11,9 @@ const json = (method: string, data: unknown): RequestInit => ({ method, headers:
 export const api = {
   state: () => request<FitnessState>("/api/fitness/state"),
   calculateFood: (query: string) => request<FoodCalculation>("/api/fitness/foods/calculate", json("POST", { query })),
-  addSession: (data: Pick<WorkoutSession, "name" | "activityType" | "weekday" | "focus" | "targetDurationMinutes" | "targetDistanceKm" | "targetElevationM" | "wakeTime" | "sleepTime" | "breakfast" | "lunch" | "dinner" | "snack">) => request<WorkoutSession>("/api/fitness/sessions", json("POST", data)),
+  routine: (data: DailyRoutine) => request<DailyRoutine>("/api/fitness/routine", json("PUT", data)),
+  addSession: (data: Pick<WorkoutSession, "name" | "activityType" | "weekday" | "focus" | "targetDurationMinutes" | "targetDistanceKm" | "targetElevationM" | "breakfast" | "lunch" | "dinner" | "snack">) => request<WorkoutSession>("/api/fitness/sessions", json("POST", data)),
+  updateSession: (id: string, data: Pick<WorkoutSession, "name" | "activityType" | "weekday" | "focus" | "targetDurationMinutes" | "targetDistanceKm" | "targetElevationM" | "breakfast" | "lunch" | "dinner" | "snack">) => request<WorkoutSession>(`/api/fitness/sessions/${id}`, json("PUT", data)),
   deleteSession: (id: string) => request<{ success: boolean }>(`/api/fitness/sessions/${id}`, { method: "DELETE" }),
   profile: (data: Pick<Profile, "name" | "sex" | "age" | "heightCm" | "weightKg" | "activityLevel" | "goal">) => request<Profile>("/api/fitness/profile", json("PUT", data)),
   addMeal: (data: Omit<MealEntry, "id" | "createdAt">) => request<MealEntry>("/api/fitness/meals", json("POST", data)),
