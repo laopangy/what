@@ -29,12 +29,21 @@ const plannedActivitySchema = z.object({
 });
 const sessionSchema = z.object({
   name: z.string().trim().min(1).max(60), activityType: z.enum(["daily", "strength", "cycling", "running", "hiking", "other"]),
-  weekday: z.number().int().min(0).max(6), focus: z.string().trim().max(120),
+  weekday: z.number().int().min(0).max(6), scheduledDate: date.optional(), focus: z.string().trim().max(120),
   targetDurationMinutes: z.number().int().min(0).max(1440), targetDistanceKm: z.number().min(0).max(10000).optional(),
   targetElevationM: z.number().min(0).max(100000).optional(), breakfast: optionalText, lunch: optionalText, dinner: optionalText, snack: optionalText,
   activities: z.array(plannedActivitySchema).max(30).default([]),
 });
 const planMealKeys = ["breakfast", "lunch", "dinner", "snack"] as const;
+const hasScheduleConflict = (sessions: ReturnType<typeof readState>["plan"]["sessions"], candidate: z.infer<typeof sessionSchema>, excludedId?: string) => sessions.some((session) => {
+  if (session.id === excludedId) return false;
+  return candidate.scheduledDate
+    ? session.scheduledDate === candidate.scheduledDate
+    : !session.scheduledDate && session.weekday === candidate.weekday;
+});
+const scheduleConflictMessage = (session: z.infer<typeof sessionSchema>) => session.scheduledDate
+  ? `${session.scheduledDate} 已有计划，请编辑原计划`
+  : `该星期已有计划，请编辑原计划`;
 const estimatePlanMeals = (session: z.infer<typeof sessionSchema>) => Object.fromEntries(planMealKeys.flatMap((key) => {
   const query = session[key]?.trim();
   if (!query) return [];
@@ -65,6 +74,7 @@ fitnessRouter.post("/sessions", (req, res) => {
   const parsed = sessionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "计划格式不正确" });
   const state = readState();
+  if (hasScheduleConflict(state.plan.sessions, parsed.data)) return res.status(409).json({ success: false, error: scheduleConflictMessage(parsed.data) });
   const session = { id: uuid(), ...parsed.data, mealNutrition: estimatePlanMeals(parsed.data), exercises: [], custom: true };
   state.plan.sessions.push(session); writeState(state);
   return res.status(201).json(session);
@@ -76,8 +86,10 @@ fitnessRouter.put("/sessions/:id", (req, res) => {
   const state = readState();
   const index = state.plan.sessions.findIndex((item) => item.id === req.params.id);
   if (index < 0) return res.status(404).json({ success: false, error: "计划不存在" });
+  if (hasScheduleConflict(state.plan.sessions, parsed.data, req.params.id)) return res.status(409).json({ success: false, error: scheduleConflictMessage(parsed.data) });
   state.plan.sessions[index] = {
     ...state.plan.sessions[index], ...parsed.data,
+    scheduledDate: parsed.data.scheduledDate,
     targetDistanceKm: parsed.data.targetDistanceKm, targetElevationM: parsed.data.targetElevationM,
     breakfast: parsed.data.breakfast || "", lunch: parsed.data.lunch || "", dinner: parsed.data.dinner || "", snack: parsed.data.snack || "",
     mealNutrition: estimatePlanMeals(parsed.data),

@@ -24,6 +24,7 @@ export interface WorkoutSession {
   id: string;
   name: string;
   weekday: number;
+  scheduledDate?: string;
   focus: string;
   activityType: ActivityType;
   targetDurationMinutes: number;

@@ -62,6 +62,7 @@ export function readState(): FitnessState {
     state.routine = state.routine || { wakeTime: legacyRoutine?.wakeTime || "07:00", sleepTime: legacyRoutine?.sleepTime || "23:00" };
     state.plan.sessions = state.plan.sessions.map((session) => ({
       ...session,
+      scheduledDate: session.scheduledDate || undefined,
       activityType: session.activityType || "strength",
       targetDurationMinutes: session.targetDurationMinutes ?? 60,
       wakeTime: session.wakeTime || "",
