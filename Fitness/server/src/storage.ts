@@ -71,6 +71,7 @@ export function readState(): FitnessState {
       dinner: session.dinner || "",
       snack: session.snack || "",
       mealNutrition: session.mealNutrition || estimateStoredMeals(session),
+      activities: session.activities || (session.activityType !== "daily" ? [{ id: `legacy-${session.id}`, startTime: "18:00", name: session.name, activityType: session.activityType, durationMinutes: session.targetDurationMinutes || 60, notes: session.focus }] : []),
       exercises: session.exercises || [],
     }));
     state.workoutLogs = state.workoutLogs.map((log) => ({ ...log, activityType: log.activityType || "strength", sets: log.sets || [] }));

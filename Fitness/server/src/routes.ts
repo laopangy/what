@@ -23,11 +23,16 @@ const workoutSchema = z.object({
 });
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const optionalText = z.string().trim().max(120).optional();
+const plannedActivitySchema = z.object({
+  id: z.string().min(1).max(80), startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), name: z.string().trim().min(1).max(60),
+  activityType: z.enum(["daily", "strength", "cycling", "running", "hiking", "other"]), durationMinutes: z.number().int().min(1).max(1440).optional(), notes: z.string().trim().max(120).optional(),
+});
 const sessionSchema = z.object({
   name: z.string().trim().min(1).max(60), activityType: z.enum(["daily", "strength", "cycling", "running", "hiking", "other"]),
-  weekday: z.number().int().min(0).max(6), focus: z.string().trim().min(1).max(120),
+  weekday: z.number().int().min(0).max(6), focus: z.string().trim().max(120),
   targetDurationMinutes: z.number().int().min(0).max(1440), targetDistanceKm: z.number().min(0).max(10000).optional(),
   targetElevationM: z.number().min(0).max(100000).optional(), breakfast: optionalText, lunch: optionalText, dinner: optionalText, snack: optionalText,
+  activities: z.array(plannedActivitySchema).max(30).default([]),
 });
 const planMealKeys = ["breakfast", "lunch", "dinner", "snack"] as const;
 const estimatePlanMeals = (session: z.infer<typeof sessionSchema>) => Object.fromEntries(planMealKeys.flatMap((key) => {

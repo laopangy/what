@@ -19,6 +19,7 @@ export interface Profile {
 export interface Exercise { id: string; name: string; muscle: string; sets: number; reps: string; restSeconds: number; }
 export type PlannedMealType = "breakfast" | "lunch" | "dinner" | "snack";
 export interface NutritionEstimate { calories: number; protein: number; carbs: number; fat: number; }
+export interface PlannedActivity { id: string; startTime: string; name: string; activityType: ActivityType; durationMinutes?: number; notes?: string; }
 export interface WorkoutSession {
   id: string;
   name: string;
@@ -35,6 +36,7 @@ export interface WorkoutSession {
   dinner?: string;
   snack?: string;
   mealNutrition?: Partial<Record<PlannedMealType, NutritionEstimate>>;
+  activities?: PlannedActivity[];
   exercises: Exercise[];
   custom?: boolean;
 }
