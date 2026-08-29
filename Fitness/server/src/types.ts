@@ -16,7 +16,8 @@ export interface Profile {
   waterTarget: number;
 }
 
-export interface Exercise { id: string; name: string; muscle: string; sets: number; reps: string; restSeconds: number; }
+export type ExerciseTrackingType = "weight_reps" | "reps" | "duration";
+export interface Exercise { id: string; name: string; muscle: string; sets: number; reps: string; restSeconds: number; trackingType?: ExerciseTrackingType; }
 export type PlannedMealType = "breakfast" | "lunch" | "dinner" | "snack";
 export interface NutritionEstimate { calories: number; protein: number; carbs: number; fat: number; }
 export interface PlannedActivity { id: string; startTime: string; name: string; activityType: ActivityType; durationMinutes?: number; notes?: string; }
@@ -65,7 +66,7 @@ export interface PlanPreferences {
   dinner: string;
   snack: string;
 }
-export interface CompletedSet { exerciseId: string; exerciseName: string; setNumber: number; weightKg: number; reps: number; }
+export interface CompletedSet { exerciseId: string; exerciseName: string; setNumber: number; trackingType?: ExerciseTrackingType; weightKg?: number; reps?: number; durationSeconds?: number; }
 export interface WorkoutLog {
   id: string;
   sessionId: string;

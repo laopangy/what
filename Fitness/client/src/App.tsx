@@ -5,7 +5,7 @@ import {
   ChevronDown, Flame, Footprints, HeartPulse, History, LayoutDashboard, ListTodo, LoaderCircle, Moon, Mountain, Pencil, Plus, Scale, Sparkles, Sunrise, Target, Timer, Trash2, TrendingUp, Utensils, X,
 } from "lucide-react";
 import { api } from "./api";
-import type { ActivityType, CompletedSet, FitnessState, FoodCalculation, MealEntry, NutritionEstimate, PlannedActivity, PlannedMealType, PlanPreferences, Profile, Tab, WeightEntry, WorkoutSession } from "./types";
+import type { ActivityType, CompletedSet, Exercise, ExerciseTrackingType, FitnessState, FoodCalculation, MealEntry, NutritionEstimate, PlannedActivity, PlannedMealType, PlanPreferences, Profile, Tab, WeightEntry, WorkoutSession } from "./types";
 
 const today = () => {
   const now = new Date();
@@ -161,7 +161,7 @@ function Dashboard({ data, go }: { data: FitnessState; go: (tab: Tab) => void })
   );
 }
 
-interface SetValue { weight: string; reps: string; done: boolean; }
+interface SetValue { weight: string; reps: string; duration: string; done: boolean; }
 
 const defaultPlanPreferences: PlanPreferences = {
   returnMode: "gentle", trainingLevel: "beginner", equipment: "gym", workSchedule: "big_small", bigWeekStartDate: currentMonday(), workStart: "09:00", workEnd: "18:00", latestWorkEnd: "21:00", overtimeFrequency: "sometimes", commuteMinutes: 30,
@@ -178,13 +178,13 @@ function WeekPlanGenerator({ data, refresh, notify, close }: { data: FitnessStat
     if (!form.healthNotes.trim()) return notify("请填写伤病或身体限制，没有请填“无”");
     if (form.availableWeekdays.length === 0) return notify("请至少选择一个可训练日");
     const caution = form.healthNotes.trim() === "无" ? "" : `\n你填写了身体限制：“${form.healthNotes}”。生成内容不能替代医生或康复师建议。`;
-    if (form.workSchedule === "big_small" && dateWeekday(form.bigWeekStartDate) !== 1) return notify("请选择一个大周开始的周一");
+    if (form.workSchedule === "big_small" && dateWeekday(form.bigWeekStartDate) !== 1) return notify("请选择一个确定属于大周的周一");
     if (!window.confirm(`生成后会替换现有的重复计划和上次生成的日期计划，手动绑定的具体日期计划会保留。${caution}\n\n确定继续吗？`)) return;
     try {
       setGenerating(true);
       await api.generateWeek({ ...form, healthNotes: form.healthNotes.trim() });
       await refresh();
-      notify(form.workSchedule === "big_small" ? "已按大小周生成连续两周计划" : "已根据生活安排生成一周计划");
+      notify(form.workSchedule === "big_small" ? "已从今天起生成连续两周计划" : "已从今天起生成一周计划");
       close();
     } catch (error) { notify(error instanceof Error ? error.message : "生成失败"); }
     finally { setGenerating(false); }
@@ -199,7 +199,7 @@ function WeekPlanGenerator({ data, refresh, notify, close }: { data: FitnessStat
       <label><span className="label">每次训练分钟</span><input className="field" type="number" min="20" max="120" value={form.workoutDurationMinutes} onChange={(event) => setForm({ ...form, workoutDurationMinutes: Number(event.target.value) })}/></label>
       <label><span className="label">训练时段</span><select className="field" value={form.preferredTrainingTime} onChange={(event) => setForm({ ...form, preferredTrainingTime: event.target.value as PlanPreferences["preferredTrainingTime"] })}><option value="adaptive">自动避开加班（推荐）</option><option value="rest_day">只在休息日</option><option value="before_work">固定上班前</option><option value="after_work">下班后（按最晚时间）</option></select></label>
       <label><span className="label">工作周期</span><select className="field" value={form.workSchedule} onChange={(event) => setForm({ ...form, workSchedule: event.target.value as PlanPreferences["workSchedule"] })}><option value="big_small">大小周</option><option value="five_day">固定双休</option></select></label>
-      {form.workSchedule === "big_small" && <label><span className="label">大周开始的周一</span><input className="field" type="date" value={form.bigWeekStartDate} onChange={(event) => setForm({ ...form, bigWeekStartDate: event.target.value })}/><span className="block text-muted text-[9px] mt-1">从这天起生成大周＋小周连续14天。</span></label>}
+      {form.workSchedule === "big_small" && <label><span className="label">任意一个大周的周一</span><input className="field" type="date" value={form.bigWeekStartDate} onChange={(event) => setForm({ ...form, bigWeekStartDate: event.target.value })}/><span className="block text-muted text-[9px] mt-1">仅用于判断大小周；计划始终从今天开始。</span></label>}
       <label><span className="label">上班时间</span><input className="field" type="time" value={form.workStart} onChange={(event) => setForm({ ...form, workStart: event.target.value })}/></label>
       <label><span className="label">正常下班时间</span><input className="field" type="time" value={form.workEnd} onChange={(event) => setForm({ ...form, workEnd: event.target.value })}/></label>
       <label><span className="label">加班最晚下班</span><input className="field" type="time" value={form.latestWorkEnd} onChange={(event) => setForm({ ...form, latestWorkEnd: event.target.value })}/></label>
@@ -239,7 +239,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const [planMealEstimates, setPlanMealEstimates] = useState<Partial<Record<PlannedMealType, NutritionEstimate>>>({});
   const [calculatingPlanMeals, setCalculatingPlanMeals] = useState<Partial<Record<PlannedMealType, boolean>>>({});
   const [routineForm, setRoutineForm] = useState(data.routine);
-  const emptyPlanForm = { name: "", activityType: "daily" as ActivityType, weekday, scheduledDate: "", focus: "", breakfast: "", lunch: "", dinner: "", snack: "", activities: [] as PlannedActivity[], targetDurationMinutes: "60", targetDistanceKm: "", targetElevationM: "" };
+  const emptyPlanForm = { name: "", activityType: "daily" as ActivityType, weekday, scheduledDate: "", focus: "", breakfast: "", lunch: "", dinner: "", snack: "", activities: [] as PlannedActivity[], exercises: [] as Exercise[], targetDurationMinutes: "60", targetDistanceKm: "", targetElevationM: "" };
   const [planForm, setPlanForm] = useState(emptyPlanForm);
   const session = data.plan.sessions.find((item) => item.id === selectedId) ?? defaultSession;
   const plannedSleep = sleepDuration(routineForm.wakeTime, routineForm.sleepTime);
@@ -280,7 +280,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
     const initial: Record<string, SetValue> = {};
     session.exercises.forEach((exercise) => Array.from({ length: exercise.sets }, (_, index) => {
       const previous = lastLog?.sets.find((item) => item.exerciseId === exercise.id && item.setNumber === index + 1);
-      initial[`${exercise.id}-${index + 1}`] = { weight: previous ? String(previous.weightKg) : "", reps: previous ? String(previous.reps) : "", done: false };
+      initial[`${exercise.id}-${index + 1}`] = { weight: previous?.weightKg !== undefined ? String(previous.weightKg) : "", reps: previous?.reps !== undefined ? String(previous.reps) : "", duration: previous?.durationSeconds !== undefined ? String(previous.durationSeconds) : "", done: false };
     }));
     setSets(initial);
     setDuration(String(session.targetDurationMinutes || 60));
@@ -295,15 +295,19 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const addActivity = () => setPlanForm((current) => ({ ...current, activities: [...current.activities, { id: crypto.randomUUID(), startTime: current.activities.length === 0 ? "09:00" : "14:00", name: "", activityType: "other", durationMinutes: 60, notes: "" }] }));
   const updateActivity = (id: string, patch: Partial<PlannedActivity>) => setPlanForm((current) => ({ ...current, activities: current.activities.map((activity) => activity.id === id ? { ...activity, ...patch } : activity) }));
   const removeActivity = (id: string) => setPlanForm((current) => ({ ...current, activities: current.activities.filter((activity) => activity.id !== id) }));
+  const addExercise = () => setPlanForm((current) => ({ ...current, activityType: "strength", exercises: [...current.exercises, { id: crypto.randomUUID(), name: "跳绳", muscle: "有氧", sets: 3, reps: "60秒", restSeconds: 60, trackingType: "duration" }] }));
+  const updateExercise = (id: string, patch: Partial<Exercise>) => setPlanForm((current) => ({ ...current, exercises: current.exercises.map((exercise) => exercise.id === id ? { ...exercise, ...patch } : exercise) }));
+  const removeExercise = (id: string) => setPlanForm((current) => ({ ...current, exercises: current.exercises.filter((exercise) => exercise.id !== id) }));
   const closePlanForm = () => { setShowAdd(false); setEditingId(""); setPlanForm({ ...emptyPlanForm }); setPlanMealEstimates({}); setCalculatingPlanMeals({}); };
   const editPlan = (item: WorkoutSession) => {
     setEditingId(item.id); setShowAdd(true); setSelectedId(item.id);
     setPlanMealEstimates(item.mealNutrition || {});
-    setPlanForm({ name: item.name, activityType: item.activityType, weekday: item.weekday, scheduledDate: item.scheduledDate || "", focus: item.focus, breakfast: item.breakfast || "", lunch: item.lunch || "", dinner: item.dinner || "", snack: item.snack || "", activities: item.activities || [], targetDurationMinutes: String(item.targetDurationMinutes || 60), targetDistanceKm: item.targetDistanceKm ? String(item.targetDistanceKm) : "", targetElevationM: item.targetElevationM ? String(item.targetElevationM) : "" });
+    setPlanForm({ name: item.name, activityType: item.activityType, weekday: item.weekday, scheduledDate: item.scheduledDate || "", focus: item.focus, breakfast: item.breakfast || "", lunch: item.lunch || "", dinner: item.dinner || "", snack: item.snack || "", activities: item.activities || [], exercises: item.exercises || [], targetDurationMinutes: String(item.targetDurationMinutes || 60), targetDistanceKm: item.targetDistanceKm ? String(item.targetDistanceKm) : "", targetElevationM: item.targetElevationM ? String(item.targetElevationM) : "" });
   };
   const addPlan = async () => {
     if (!planForm.name.trim()) return notify("请填写计划名称");
     if (planForm.activities.some((activity) => !activity.name.trim())) return notify("请填写每项活动的名称");
+    if (planForm.exercises.some((exercise) => !exercise.name.trim() || !exercise.muscle.trim() || !exercise.reps.trim())) return notify("请补全每个训练动作的名称、类型和目标");
     const conflict = data.plan.sessions.find((item) => item.id !== editingId && (planForm.scheduledDate ? item.scheduledDate === planForm.scheduledDate : !item.scheduledDate && item.weekday === planForm.weekday));
     if (conflict) return notify(planForm.scheduledDate ? `${planForm.scheduledDate} 已有“${conflict.name}”，请直接编辑` : `${weekdayNames[planForm.weekday]}已有“${conflict.name}”，请直接编辑`);
     try {
@@ -315,6 +319,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
         ...(planForm.targetElevationM ? { targetElevationM: Number(planForm.targetElevationM) } : {}),
         breakfast: planForm.breakfast, lunch: planForm.lunch, dinner: planForm.dinner, snack: planForm.snack,
         activities: planForm.activities.map((activity) => ({ ...activity, name: activity.name.trim(), notes: activity.notes?.trim() || undefined })),
+        exercises: planForm.exercises.map((exercise) => ({ ...exercise, name: exercise.name.trim(), muscle: exercise.muscle.trim(), reps: exercise.reps.trim(), trackingType: exercise.trackingType || "weight_reps" })),
       };
       const saved = editingId ? await api.updateSession(editingId, payload) : await api.addSession(payload);
       await refresh(); setSelectedId(saved.id); closePlanForm();
@@ -353,10 +358,18 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const finish = async () => {
     if (!session) return;
     if (session.exercises.length > 0 && completedCount === 0) return notify("至少完成一组后再保存训练");
+    const hasIncompleteSet = session.exercises.some((exercise) => Array.from({ length: exercise.sets }, (_, index) => sets[`${exercise.id}-${index + 1}`]).some((value) => value?.done && ((exercise.trackingType === "duration" && !(Number(value.duration) > 0)) || (exercise.trackingType === "reps" && !(Number(value.reps) > 0)) || ((!exercise.trackingType || exercise.trackingType === "weight_reps") && (!(Number(value.reps) > 0) || value.weight === "")))));
+    if (hasIncompleteSet) return notify("请补全已完成组的记录数据");
     const completed: CompletedSet[] = [];
     session.exercises.forEach((exercise) => Array.from({ length: exercise.sets }, (_, index) => {
       const key = `${exercise.id}-${index + 1}`; const value = sets[key];
-      if (value?.done) completed.push({ exerciseId: exercise.id, exerciseName: exercise.name, setNumber: index + 1, weightKg: Number(value.weight) || 0, reps: Number(value.reps) || 0 });
+      const trackingType = exercise.trackingType || "weight_reps";
+      if (value?.done) completed.push({
+        exerciseId: exercise.id, exerciseName: exercise.name, setNumber: index + 1, trackingType,
+        ...(trackingType === "weight_reps" ? { weightKg: Number(value.weight) || 0, reps: Number(value.reps) || 0 } : {}),
+        ...(trackingType === "reps" ? { reps: Number(value.reps) || 0 } : {}),
+        ...(trackingType === "duration" ? { durationSeconds: Number(value.duration) } : {}),
+      });
     }));
     try { setSaving(true); await api.addWorkout({ sessionId: session.id, date: today(), durationMinutes: Number(duration) || 60, ...(distance ? { distanceKm: Number(distance) } : {}), ...(elevation ? { elevationM: Number(elevation) } : {}), notes, sets: completed }); await refresh(); notify("运动记录已保存，今天又向前一步"); setNotes(""); setSets((current) => Object.fromEntries(Object.entries(current).map(([key, value]) => [key, { ...value, done: false }]))); }
     catch (error) { notify(error instanceof Error ? error.message : "保存失败"); } finally { setSaving(false); }
@@ -378,6 +391,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
         <PlanMealField label="晚上吃什么" placeholder="例如：面条1碗 / 牛肉150克" value={planForm.dinner} estimate={planMealEstimates.dinner} calculating={calculatingPlanMeals.dinner} onChange={(dinner) => setPlanForm({ ...planForm, dinner })}/>
         <PlanMealField label="加餐是什么" placeholder="例如：酸奶200克 / 坚果30克" value={planForm.snack} estimate={planMealEstimates.snack} calculating={calculatingPlanMeals.snack} onChange={(snack) => setPlanForm({ ...planForm, snack })}/>
         <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-border/80 bg-black/10 p-4"><div className="flex items-center justify-between gap-3 mb-3"><div><h3 className="font-semibold flex items-center gap-2"><ListTodo size={15} className="text-accent-light"/>活动安排</h3><p className="text-muted text-[10px] mt-1">同一天可以安排骑车、跑步、打麻将等多项活动。</p></div><button type="button" className="btn-quiet flex items-center gap-1.5" onClick={addActivity}><Plus size={13}/>添加活动</button></div>{planForm.activities.length === 0 ? <div className="border border-dashed border-border rounded-lg py-6 text-center text-muted text-[11px]">还没有活动，点击“添加活动”开始安排</div> : <div className="space-y-3">{planForm.activities.map((activity, index) => <div key={activity.id} className="rounded-lg border border-border/70 bg-bg/25 p-3"><div className="flex items-center justify-between mb-2"><strong className="text-[11px]">活动 {index + 1}</strong><button type="button" className="text-muted hover:text-red-300 p-1" onClick={() => removeActivity(activity.id)} aria-label={`删除活动 ${index + 1}`}><Trash2 size={13}/></button></div><div className="grid sm:grid-cols-2 lg:grid-cols-[150px_150px_1fr_110px] gap-2 items-end"><CompactTimePicker value={activity.startTime} onChange={(startTime) => updateActivity(activity.id, { startTime })}/><label><span className="label">活动类型</span><select className="field" value={activity.activityType} onChange={(event) => updateActivity(activity.id, { activityType: event.target.value as ActivityType })}>{Object.entries(activityNames).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label><span className="label">活动名称</span><input className="field" placeholder="例如：骑车 / 跑步 / 打麻将" value={activity.name} onChange={(event) => updateActivity(activity.id, { name: event.target.value })}/></label><label><span className="label">时长（分钟）</span><input className="field" type="number" min="1" placeholder="可选" value={activity.durationMinutes ?? ""} onChange={(event) => updateActivity(activity.id, { durationMinutes: event.target.value ? Number(event.target.value) : undefined })}/></label><label className="sm:col-span-2 lg:col-span-4"><span className="label">备注（可选）</span><input className="field" placeholder="路线、地点、和谁一起、需要准备什么……" value={activity.notes || ""} onChange={(event) => updateActivity(activity.id, { notes: event.target.value })}/></label></div></div>)}</div>}</div>
+        <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-accent/25 bg-accent/5 p-4"><div className="flex items-center justify-between gap-3 mb-3"><div><h3 className="font-semibold flex items-center gap-2"><Dumbbell size={15} className="text-accent-light"/>训练动作</h3><p className="text-muted text-[10px] mt-1">生成的动作不是固定内容，可以修改、删除，或添加跳绳等自定义动作。</p></div><button type="button" className="btn-quiet flex items-center gap-1.5" onClick={addExercise}><Plus size={13}/>添加动作</button></div>{planForm.exercises.length === 0 ? <div className="border border-dashed border-border rounded-lg py-6 text-center text-muted text-[11px]">暂无训练动作；点击“添加动作”会先添加一个可编辑的跳绳示例</div> : <div className="space-y-3">{planForm.exercises.map((exercise, index) => <div key={exercise.id} className="rounded-lg border border-border/70 bg-bg/25 p-3"><div className="flex items-center justify-between mb-2"><strong className="text-[11px]">动作 {index + 1}</strong><button type="button" className="text-muted hover:text-red-300 p-1" onClick={() => removeExercise(exercise.id)} aria-label={`删除动作 ${exercise.name}`}><Trash2 size={13}/></button></div><div className="grid sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_130px_90px_120px_100px] gap-2 items-end"><label><span className="label">动作名称</span><input className="field" value={exercise.name} onChange={(event) => updateExercise(exercise.id, { name: event.target.value })}/></label><label><span className="label">部位 / 类型</span><input className="field" placeholder="胸 / 有氧" value={exercise.muscle} onChange={(event) => updateExercise(exercise.id, { muscle: event.target.value })}/></label><label><span className="label">记录方式</span><select className="field" value={exercise.trackingType || "weight_reps"} onChange={(event) => updateExercise(exercise.id, { trackingType: event.target.value as ExerciseTrackingType })}><option value="weight_reps">重量＋次数</option><option value="reps">只记次数</option><option value="duration">记录时长</option></select></label><label><span className="label">组数</span><input className="field" type="number" min="1" max="20" value={exercise.sets} onChange={(event) => updateExercise(exercise.id, { sets: Number(event.target.value) || 1 })}/></label><label><span className="label">目标</span><input className="field" placeholder="8–12 / 60秒" value={exercise.reps} onChange={(event) => updateExercise(exercise.id, { reps: event.target.value })}/></label><label><span className="label">休息（秒）</span><input className="field" type="number" min="0" max="1800" value={exercise.restSeconds} onChange={(event) => updateExercise(exercise.id, { restSeconds: Number(event.target.value) || 0 })}/></label></div></div>)}</div>}</div>
         <label className="sm:col-span-2 lg:col-span-4"><span className="label">当天备注（可选）</span><textarea className="field min-h-20 resize-y" placeholder="记录这一天的其他提醒……" value={planForm.focus} onChange={(event) => setPlanForm({ ...planForm, focus: event.target.value })}/></label>
       </div><div className="flex items-center gap-3 mt-4"><button className="btn-primary" disabled={saving} onClick={addPlan}>{saving ? "保存中…" : editingId ? "保存修改" : "添加此计划"}</button><span className="text-muted text-[10px]">计划内可以包含多项按时间排序的活动。</span></div></section>}
       <div className="space-y-4">
@@ -393,7 +407,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
             {session.activityType !== "daily" && session.exercises.length === 0 && (() => { const Icon = activityIcons[session.activityType]; return <div className="rounded-xl border border-accent/25 bg-gradient-to-br from-accent/10 to-transparent p-6"><Icon size={30} className="text-accent-light mb-4"/><h3 className="text-xl font-semibold">{session.focus}</h3><div className="flex flex-wrap gap-2 mt-4 text-[11px] text-muted"><span className="border border-border rounded-full px-3 py-1">目标 {session.targetDurationMinutes} 分钟</span>{session.targetDistanceKm && <span className="border border-border rounded-full px-3 py-1">距离 {session.targetDistanceKm} km</span>}{session.targetElevationM && <span className="border border-border rounded-full px-3 py-1">爬升 {session.targetElevationM} m</span>}</div></div>; })()}
             {session?.exercises.map((exercise, exerciseIndex) => <div key={exercise.id}>
               <div className="flex items-center gap-3 mb-2"><span className="w-7 h-7 rounded bg-panel grid place-items-center text-muted text-[11px]">{exerciseIndex + 1}</span><div className="flex-1"><h3 className="font-semibold">{exercise.name}</h3><p className="text-muted text-[10px]">{exercise.muscle} · 目标 {exercise.reps} · 休息 {exercise.restSeconds}秒</p></div></div>
-              <div className="ml-10 space-y-1.5">{Array.from({ length: exercise.sets }, (_, index) => { const key = `${exercise.id}-${index + 1}`; const value = sets[key] ?? { weight: "", reps: "", done: false }; return <div key={key} className={`grid grid-cols-[38px_1fr_1fr_72px] gap-2 items-center rounded-lg p-2 border ${value.done ? "border-mint/50 bg-mint/10" : "border-border/70 bg-black/10"}`}><span className="text-muted text-center">{index + 1}</span><label className="relative"><input className="field !py-2 pr-8" type="number" min="0" placeholder="重量" value={value.weight} onChange={(event) => updateSet(key, { weight: event.target.value })}/><span className="absolute right-2 top-2.5 text-muted text-[10px]">kg</span></label><label className="relative"><input className="field !py-2 pr-8" type="number" min="0" placeholder="次数" value={value.reps} onChange={(event) => updateSet(key, { reps: event.target.value })}/><span className="absolute right-2 top-2.5 text-muted text-[10px]">次</span></label><button className={value.done ? "btn-primary !p-2" : "btn-quiet !p-2"} onClick={() => completeSet(key, exercise.restSeconds)}>{value.done ? <Check size={15} className="mx-auto"/> : "完成"}</button></div>; })}</div>
+              <div className="ml-10 space-y-1.5">{Array.from({ length: exercise.sets }, (_, index) => { const key = `${exercise.id}-${index + 1}`; const value = sets[key] ?? { weight: "", reps: "", duration: "", done: false }; const trackingType = exercise.trackingType || "weight_reps"; return <div key={key} className={`grid ${trackingType === "weight_reps" ? "grid-cols-[38px_1fr_1fr_72px]" : "grid-cols-[38px_1fr_72px]"} gap-2 items-center rounded-lg p-2 border ${value.done ? "border-mint/50 bg-mint/10" : "border-border/70 bg-black/10"}`}><span className="text-muted text-center">{index + 1}</span>{trackingType === "weight_reps" && <label className="relative"><input className="field !py-2 pr-8" type="number" min="0" placeholder="重量" value={value.weight} onChange={(event) => updateSet(key, { weight: event.target.value })}/><span className="absolute right-2 top-2.5 text-muted text-[10px]">kg</span></label>}{trackingType !== "duration" ? <label className="relative"><input className="field !py-2 pr-8" type="number" min="0" placeholder="次数" value={value.reps} onChange={(event) => updateSet(key, { reps: event.target.value })}/><span className="absolute right-2 top-2.5 text-muted text-[10px]">次</span></label> : <label className="relative"><input className="field !py-2 pr-8" type="number" min="1" placeholder="时长" value={value.duration} onChange={(event) => updateSet(key, { duration: event.target.value })}/><span className="absolute right-2 top-2.5 text-muted text-[10px]">秒</span></label>}<button className={value.done ? "btn-primary !p-2" : "btn-quiet !p-2"} onClick={() => completeSet(key, exercise.restSeconds)}>{value.done ? <Check size={15} className="mx-auto"/> : "完成"}</button></div>; })}</div>
             </div>)}
             {session.activityType !== "daily" && <div className="grid sm:grid-cols-2 lg:grid-cols-[120px_120px_120px_1fr_auto] gap-3 pt-4 border-t border-border items-end"><label><span className="label">时长（分钟）</span><input className="field" type="number" min="1" value={duration} onChange={(event) => setDuration(event.target.value)} /></label><label><span className="label">距离 km</span><input className="field" type="number" min="0" step=".1" placeholder="可选" value={distance} onChange={(event) => setDistance(event.target.value)} /></label><label><span className="label">爬升 m</span><input className="field" type="number" min="0" placeholder="可选" value={elevation} onChange={(event) => setElevation(event.target.value)} /></label><label><span className="label">运动感受</span><input className="field" placeholder="路线、强度、身体状态……" value={notes} onChange={(event) => setNotes(event.target.value)} /></label><button className="btn-primary h-[38px]" disabled={saving} onClick={finish}>{saving ? "保存中…" : "结束并保存"}</button></div>}
           </div>

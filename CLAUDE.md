@@ -261,13 +261,13 @@ workbench/client ──WebSocket────────────────
 | `/api/fitness/foods` | 获取内置常见食物名称 |
 | `/api/fitness/foods/calculate` (POST) | 解析食物分量、`/` 分隔整餐和中文数量词；也支持每100克/每百毫升的 kJ/kcal 营养标签与实际摄入量换算 |
 | `/api/fitness/routine` (PUT) | 保存全局固定起床和睡觉时间 |
-| `/api/fitness/sessions` (POST) | 新增每日计划；单个计划可包含多条带开始时间、类型、时长和备注的活动，四餐文本自动估算并保存热量与三大营养素 |
-| `/api/fitness/sessions/:id` (PUT) | 编辑已有每日计划、嵌套活动及四餐营养估算 |
+| `/api/fitness/sessions` (POST) | 新增每日计划；单个计划可包含多条活动和可动态配置的训练动作，四餐文本自动估算并保存热量与三大营养素 |
+| `/api/fitness/sessions/:id` (PUT) | 编辑已有每日计划、嵌套活动、训练动作及四餐营养估算 |
 | `/api/fitness/sessions/:id` (DELETE) | 删除每日计划（包括内置计划，历史运动记录保留） |
 | `/api/fitness/profile` (PUT) | 保存资料并重新计算热量和营养目标 |
 | `/api/fitness/meals` (POST) | 添加饮食记录 |
 | `/api/fitness/meals/:id` (DELETE) | 删除饮食记录 |
-| `/api/fitness/workouts` (POST) | 保存逐组训练记录 |
+| `/api/fitness/workouts` (POST) | 保存逐组训练记录，支持重量＋次数、仅次数及按秒计时动作 |
 | `/api/fitness/weights` (POST) | 新增或覆盖当天身体数据 |
 | `/api/health` | 健康检查 |
 

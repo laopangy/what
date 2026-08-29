@@ -14,6 +14,17 @@ const addDays = (value: string, days: number) => {
   result.setDate(result.getDate() + days);
   return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, "0")}-${String(result.getDate()).padStart(2, "0")}`;
 };
+const localToday = () => {
+  const value = new Date();
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+};
+const weekdayOf = (value: string) => new Date(`${value}T12:00:00`).getDay();
+const mondayOf = (value: string) => addDays(value, -((weekdayOf(value) + 6) % 7));
+const calendarDaysBetween = (from: string, to: string) => {
+  const [fromYear, fromMonth, fromDay] = from.split("-").map(Number);
+  const [toYear, toMonth, toDay] = to.split("-").map(Number);
+  return Math.round((Date.UTC(toYear, toMonth - 1, toDay) - Date.UTC(fromYear, fromMonth - 1, fromDay)) / 86400000);
+};
 
 const exercise = (id: string, name: string, muscle: string, sets: number, reps: string, restSeconds = 90): Exercise => ({ id, name, muscle, sets, reps, restSeconds });
 
@@ -37,17 +48,18 @@ const templates = {
   ],
 } as const;
 
-export function generateWeeklyPlan(profile: Profile, preferences: PlanPreferences): GeneratedSession[] {
-  const orderedWeekdays = [1, 2, 3, 4, 5, 6, 0];
+export function generateWeeklyPlan(profile: Profile, preferences: PlanPreferences, startDate = localToday()): GeneratedSession[] {
   const standardTrainingDays = preferences.trainingLevel === "beginner" ? 3 : preferences.trainingLevel === "intermediate" ? 4 : 5;
   const sourceTemplates = templates[preferences.equipment];
   const isAlternating = preferences.workSchedule === "big_small";
   const days = Array.from({ length: isAlternating ? 14 : 7 }, (_, index) => {
+    const scheduledDate = addDays(startDate, index);
     const weekIndex = Math.floor(index / 7);
-    const weekday = orderedWeekdays[index % 7];
-    const isBigWeek = weekIndex === 0;
+    const weekday = weekdayOf(scheduledDate);
+    const weeksFromKnownBigWeek = Math.floor(calendarDaysBetween(preferences.bigWeekStartDate, mondayOf(scheduledDate)) / 7);
+    const isBigWeek = isAlternating && ((weeksFromKnownBigWeek % 2) + 2) % 2 === 0;
     const workday = weekday >= 1 && weekday <= 5 || isAlternating && isBigWeek && weekday === 6;
-    return { weekday, weekIndex, isBigWeek, workday, scheduledDate: isAlternating ? addDays(preferences.bigWeekStartDate, index) : undefined };
+    return { weekday, weekIndex, isBigWeek, workday, scheduledDate };
   });
   const trainingKeys = new Set(days.flatMap((day, index) => {
     const desiredTrainingDays = preferences.returnMode === "gentle" ? day.weekIndex === 0 ? 2 : 3 : standardTrainingDays;
@@ -76,7 +88,7 @@ export function generateWeeklyPlan(profile: Profile, preferences: PlanPreference
     ];
     const goalText = profile.goal === "gain" ? "增肌" : profile.goal === "lose" ? "减脂" : "维持体能";
     return {
-      name: `${scheduledDate ? `${isBigWeek ? "大周" : "小周"} · ` : ""}${weekdayNames[weekday]} · ${isTrainingDay ? template.name : workday ? "工作与恢复" : "主动恢复"}`,
+      name: `${isAlternating ? `${isBigWeek ? "大周" : "小周"} · ` : ""}${weekdayNames[weekday]} · ${isTrainingDay ? template.name : workday ? "工作与恢复" : "主动恢复"}`,
       weekday,
       scheduledDate,
       generated: true,

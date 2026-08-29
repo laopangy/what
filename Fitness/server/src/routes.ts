@@ -25,7 +25,15 @@ const weightSchema = z.object({ date, weightKg: z.number().min(30).max(350), bod
 const workoutSchema = z.object({
   sessionId: z.string(), date, durationMinutes: z.number().int().min(1).max(600), notes: z.string().max(300).default(""),
   distanceKm: z.number().min(0).max(10000).optional(), elevationM: z.number().min(0).max(100000).optional(),
-  sets: z.array(z.object({ exerciseId: z.string(), exerciseName: z.string(), setNumber: z.number().int().positive(), weightKg: z.number().min(0).max(1000), reps: z.number().int().min(0).max(1000) })).max(100),
+  sets: z.array(z.object({
+    exerciseId: z.string(), exerciseName: z.string(), setNumber: z.number().int().positive(),
+    trackingType: z.enum(["weight_reps", "reps", "duration"]).optional(), weightKg: z.number().min(0).max(1000).optional(),
+    reps: z.number().int().min(0).max(10000).optional(), durationSeconds: z.number().int().min(1).max(86400).optional(),
+  }).superRefine((value, context) => {
+    if (value.trackingType === "duration" && value.durationSeconds === undefined) context.addIssue({ code: z.ZodIssueCode.custom, path: ["durationSeconds"], message: "请填写动作时长" });
+    if (value.trackingType === "reps" && value.reps === undefined) context.addIssue({ code: z.ZodIssueCode.custom, path: ["reps"], message: "请填写动作次数" });
+    if ((!value.trackingType || value.trackingType === "weight_reps") && (value.weightKg === undefined || value.reps === undefined)) context.addIssue({ code: z.ZodIssueCode.custom, message: "请填写重量和次数" });
+  })).max(100),
 });
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const planPreferencesSchema = z.object({
@@ -43,12 +51,17 @@ const plannedActivitySchema = z.object({
   id: z.string().min(1).max(80), startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), name: z.string().trim().min(1).max(60),
   activityType: z.enum(["daily", "strength", "cycling", "running", "hiking", "other"]), durationMinutes: z.number().int().min(1).max(1440).optional(), notes: z.string().trim().max(120).optional(),
 });
+const exerciseSchema = z.object({
+  id: z.string().min(1).max(80), name: z.string().trim().min(1).max(60), muscle: z.string().trim().min(1).max(40),
+  sets: z.number().int().min(1).max(20), reps: z.string().trim().min(1).max(40), restSeconds: z.number().int().min(0).max(1800),
+  trackingType: z.enum(["weight_reps", "reps", "duration"]).optional(),
+});
 const sessionSchema = z.object({
   name: z.string().trim().min(1).max(60), activityType: z.enum(["daily", "strength", "cycling", "running", "hiking", "other"]),
   weekday: z.number().int().min(0).max(6), scheduledDate: date.optional(), focus: z.string().trim().max(120),
   targetDurationMinutes: z.number().int().min(0).max(1440), targetDistanceKm: z.number().min(0).max(10000).optional(),
   targetElevationM: z.number().min(0).max(100000).optional(), breakfast: optionalText, lunch: optionalText, dinner: optionalText, snack: optionalText,
-  activities: z.array(plannedActivitySchema).max(30).default([]),
+  activities: z.array(plannedActivitySchema).max(30).default([]), exercises: z.array(exerciseSchema).max(30).default([]),
 });
 const planMealKeys = ["breakfast", "lunch", "dinner", "snack"] as const;
 const hasScheduleConflict = (sessions: FitnessState["plan"]["sessions"], candidate: z.infer<typeof sessionSchema>, excludedId?: string) => sessions.some((session) => {
@@ -106,7 +119,7 @@ fitnessRouter.post("/sessions", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "计划格式不正确" });
   const state = await readState();
   if (hasScheduleConflict(state.plan.sessions, parsed.data)) return res.status(409).json({ success: false, error: scheduleConflictMessage(parsed.data) });
-  const session = { id: uuid(), ...parsed.data, mealNutrition: estimatePlanMeals(parsed.data), exercises: [], custom: true };
+  const session = { id: uuid(), ...parsed.data, mealNutrition: estimatePlanMeals(parsed.data), custom: true };
   state.plan.sessions.push(session); refreshProfileTargets(state); await writeState(state);
   return res.status(201).json(session);
 });

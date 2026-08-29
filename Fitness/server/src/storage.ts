@@ -73,10 +73,10 @@ function normalizeState(state: FitnessState): FitnessState {
       snack: session.snack || "",
       mealNutrition: session.mealNutrition || estimateStoredMeals(session),
       activities: session.activities || (session.activityType !== "daily" ? [{ id: `legacy-${session.id}`, startTime: "18:00", name: session.name, activityType: session.activityType, durationMinutes: session.targetDurationMinutes || 60, notes: session.focus }] : []),
-      exercises: session.exercises || [],
+      exercises: (session.exercises || []).map((exercise) => ({ ...exercise, trackingType: exercise.trackingType || "weight_reps" })),
     }));
     state.profile = calculateProfileTargets(state.profile, state.plan.sessions, state.planAdaptation?.calorieAdjustment || 0);
-    state.workoutLogs = state.workoutLogs.map((log) => ({ ...log, activityType: log.activityType || "strength", sets: log.sets || [] }));
+    state.workoutLogs = state.workoutLogs.map((log) => ({ ...log, activityType: log.activityType || "strength", sets: (log.sets || []).map((set) => ({ ...set, trackingType: set.trackingType || "weight_reps" })) }));
     return state;
 }
 
