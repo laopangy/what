@@ -11,6 +11,11 @@ const today = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 };
+const currentMonday = () => {
+  const value = new Date();
+  value.setDate(value.getDate() - ((value.getDay() + 6) % 7));
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+};
 const weekdayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 const dateWeekday = (value: string) => new Date(`${value}T12:00:00`).getDay();
 const planForDate = (sessions: WorkoutSession[], value: string) => {
@@ -158,13 +163,13 @@ function Dashboard({ data, go }: { data: FitnessState; go: (tab: Tab) => void })
 interface SetValue { weight: string; reps: string; done: boolean; }
 
 const defaultPlanPreferences: PlanPreferences = {
-  trainingLevel: "beginner", equipment: "gym", workStart: "09:00", workEnd: "18:00", commuteMinutes: 30,
-  workoutDurationMinutes: 60, preferredTrainingTime: "after_work", availableWeekdays: [1, 3, 5], healthNotes: "无",
+  trainingLevel: "beginner", equipment: "gym", workSchedule: "big_small", bigWeekStartDate: currentMonday(), workStart: "09:00", workEnd: "18:00", latestWorkEnd: "21:00", overtimeFrequency: "sometimes", commuteMinutes: 30,
+  workoutDurationMinutes: 60, preferredTrainingTime: "adaptive", availableWeekdays: [1, 3, 5], healthNotes: "无",
   breakfast: "", lunches: Array.from({ length: 7 }, () => ""), dinner: "", snack: "",
 };
 
 function WeekPlanGenerator({ data, refresh, notify, close }: { data: FitnessState; refresh: () => Promise<void>; notify: (message: string) => void; close: () => void }) {
-  const [form, setForm] = useState<PlanPreferences>(() => ({ ...defaultPlanPreferences, ...data.planPreferences, lunches: data.planPreferences?.lunches || [...defaultPlanPreferences.lunches] }));
+  const [form, setForm] = useState<PlanPreferences>(() => { const saved = data.planPreferences; const legacy = Boolean(saved && !("workSchedule" in saved)); return { ...defaultPlanPreferences, ...saved, ...(legacy ? { preferredTrainingTime: "adaptive" as const } : {}), lunches: saved?.lunches || [...defaultPlanPreferences.lunches] }; });
   const [generating, setGenerating] = useState(false);
   const toggleDay = (weekday: number) => setForm((current) => ({ ...current, availableWeekdays: current.availableWeekdays.includes(weekday) ? current.availableWeekdays.filter((day) => day !== weekday) : [...current.availableWeekdays, weekday] }));
   const updateLunch = (weekday: number, value: string) => setForm((current) => ({ ...current, lunches: current.lunches.map((lunch, index) => index === weekday ? value : lunch) }));
@@ -172,12 +177,13 @@ function WeekPlanGenerator({ data, refresh, notify, close }: { data: FitnessStat
     if (!form.healthNotes.trim()) return notify("请填写伤病或身体限制，没有请填“无”");
     if (form.availableWeekdays.length === 0) return notify("请至少选择一个可训练日");
     const caution = form.healthNotes.trim() === "无" ? "" : `\n你填写了身体限制：“${form.healthNotes}”。生成内容不能替代医生或康复师建议。`;
-    if (!window.confirm(`生成后会替换现有的周一至周日重复计划，已绑定具体日期的计划会保留。${caution}\n\n确定继续吗？`)) return;
+    if (form.workSchedule === "big_small" && dateWeekday(form.bigWeekStartDate) !== 1) return notify("请选择一个大周开始的周一");
+    if (!window.confirm(`生成后会替换现有的重复计划和上次生成的日期计划，手动绑定的具体日期计划会保留。${caution}\n\n确定继续吗？`)) return;
     try {
       setGenerating(true);
       await api.generateWeek({ ...form, healthNotes: form.healthNotes.trim() });
       await refresh();
-      notify("已根据身体资料和生活安排生成一周计划");
+      notify(form.workSchedule === "big_small" ? "已按大小周生成连续两周计划" : "已根据生活安排生成一周计划");
       close();
     } catch (error) { notify(error instanceof Error ? error.message : "生成失败"); }
     finally { setGenerating(false); }
@@ -189,9 +195,13 @@ function WeekPlanGenerator({ data, refresh, notify, close }: { data: FitnessStat
       <label><span className="label">训练经验</span><select className="field" value={form.trainingLevel} onChange={(event) => setForm({ ...form, trainingLevel: event.target.value as PlanPreferences["trainingLevel"] })}><option value="beginner">新手（每周3练）</option><option value="intermediate">有基础（每周4练）</option><option value="advanced">进阶（每周5练）</option></select></label>
       <label><span className="label">训练条件</span><select className="field" value={form.equipment} onChange={(event) => setForm({ ...form, equipment: event.target.value as PlanPreferences["equipment"] })}><option value="gym">健身房</option><option value="home">居家，有简单器械</option><option value="none">无器械</option></select></label>
       <label><span className="label">每次训练分钟</span><input className="field" type="number" min="20" max="120" value={form.workoutDurationMinutes} onChange={(event) => setForm({ ...form, workoutDurationMinutes: Number(event.target.value) })}/></label>
-      <label><span className="label">训练时段</span><select className="field" value={form.preferredTrainingTime} onChange={(event) => setForm({ ...form, preferredTrainingTime: event.target.value as PlanPreferences["preferredTrainingTime"] })}><option value="after_work">下班后</option><option value="before_work">上班前</option></select></label>
+      <label><span className="label">训练时段</span><select className="field" value={form.preferredTrainingTime} onChange={(event) => setForm({ ...form, preferredTrainingTime: event.target.value as PlanPreferences["preferredTrainingTime"] })}><option value="adaptive">自动避开加班（推荐）</option><option value="rest_day">只在休息日</option><option value="before_work">固定上班前</option><option value="after_work">下班后（按最晚时间）</option></select></label>
+      <label><span className="label">工作周期</span><select className="field" value={form.workSchedule} onChange={(event) => setForm({ ...form, workSchedule: event.target.value as PlanPreferences["workSchedule"] })}><option value="big_small">大小周</option><option value="five_day">固定双休</option></select></label>
+      {form.workSchedule === "big_small" && <label><span className="label">大周开始的周一</span><input className="field" type="date" value={form.bigWeekStartDate} onChange={(event) => setForm({ ...form, bigWeekStartDate: event.target.value })}/><span className="block text-muted text-[9px] mt-1">从这天起生成大周＋小周连续14天。</span></label>}
       <label><span className="label">上班时间</span><input className="field" type="time" value={form.workStart} onChange={(event) => setForm({ ...form, workStart: event.target.value })}/></label>
-      <label><span className="label">下班时间</span><input className="field" type="time" value={form.workEnd} onChange={(event) => setForm({ ...form, workEnd: event.target.value })}/></label>
+      <label><span className="label">正常下班时间</span><input className="field" type="time" value={form.workEnd} onChange={(event) => setForm({ ...form, workEnd: event.target.value })}/></label>
+      <label><span className="label">加班最晚下班</span><input className="field" type="time" value={form.latestWorkEnd} onChange={(event) => setForm({ ...form, latestWorkEnd: event.target.value })}/></label>
+      <label><span className="label">加班频率</span><select className="field" value={form.overtimeFrequency} onChange={(event) => setForm({ ...form, overtimeFrequency: event.target.value as PlanPreferences["overtimeFrequency"] })}><option value="rare">很少加班</option><option value="sometimes">经常不准时</option><option value="frequent">频繁加班</option></select></label>
       <label><span className="label">单程通勤分钟</span><input className="field" type="number" min="0" max="240" value={form.commuteMinutes} onChange={(event) => setForm({ ...form, commuteMinutes: Number(event.target.value) })}/></label>
       <label><span className="label">伤病或身体限制</span><input className="field" placeholder="没有请填：无" value={form.healthNotes} onChange={(event) => setForm({ ...form, healthNotes: event.target.value })}/></label>
       <div className="sm:col-span-2 lg:col-span-4"><span className="label">可以训练的日期</span><div className="grid grid-cols-4 sm:grid-cols-7 gap-2">{[1, 2, 3, 4, 5, 6, 0].map((day) => <button key={day} type="button" className={`rounded-lg border px-2 py-2.5 text-[11px] transition ${form.availableWeekdays.includes(day) ? "border-accent/50 bg-accent/15 text-accent-light" : "border-border text-muted hover:border-accent/30"}`} onClick={() => toggleDay(day)}>{weekdayNames[day]}</button>)}</div></div>

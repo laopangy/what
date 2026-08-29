@@ -6,18 +6,22 @@ export interface Exercise { id: string; name: string; muscle: string; sets: numb
 export type PlannedMealType = "breakfast" | "lunch" | "dinner" | "snack";
 export interface NutritionEstimate { calories: number; protein: number; carbs: number; fat: number; }
 export interface PlannedActivity { id: string; startTime: string; name: string; activityType: ActivityType; durationMinutes?: number; notes?: string; }
-export interface WorkoutSession { id: string; name: string; weekday: number; scheduledDate?: string; focus: string; activityType: ActivityType; targetDurationMinutes: number; targetDistanceKm?: number; targetElevationM?: number; wakeTime?: string; sleepTime?: string; breakfast?: string; lunch?: string; dinner?: string; snack?: string; mealNutrition?: Partial<Record<PlannedMealType, NutritionEstimate>>; activities?: PlannedActivity[]; exercises: Exercise[]; custom?: boolean; }
+export interface WorkoutSession { id: string; name: string; weekday: number; scheduledDate?: string; generated?: boolean; focus: string; activityType: ActivityType; targetDurationMinutes: number; targetDistanceKm?: number; targetElevationM?: number; wakeTime?: string; sleepTime?: string; breakfast?: string; lunch?: string; dinner?: string; snack?: string; mealNutrition?: Partial<Record<PlannedMealType, NutritionEstimate>>; activities?: PlannedActivity[]; exercises: Exercise[]; custom?: boolean; }
 export interface CompletedSet { exerciseId: string; exerciseName: string; setNumber: number; weightKg: number; reps: number; }
 export interface WorkoutLog { id: string; sessionId: string; sessionName: string; activityType: ActivityType; date: string; durationMinutes: number; distanceKm?: number; elevationM?: number; notes: string; sets: CompletedSet[]; }
 export interface DailyRoutine { wakeTime: string; sleepTime: string; }
 export interface PlanPreferences {
   trainingLevel: "beginner" | "intermediate" | "advanced";
   equipment: "gym" | "home" | "none";
+  workSchedule: "five_day" | "big_small";
+  bigWeekStartDate: string;
   workStart: string;
   workEnd: string;
+  latestWorkEnd: string;
+  overtimeFrequency: "rare" | "sometimes" | "frequent";
   commuteMinutes: number;
   workoutDurationMinutes: number;
-  preferredTrainingTime: "before_work" | "after_work";
+  preferredTrainingTime: "adaptive" | "before_work" | "after_work" | "rest_day";
   availableWeekdays: number[];
   healthNotes: string;
   breakfast: string;

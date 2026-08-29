@@ -69,6 +69,7 @@ export function readState(): FitnessState {
     state.plan.sessions = state.plan.sessions.map((session) => ({
       ...session,
       scheduledDate: session.scheduledDate || undefined,
+      generated: session.generated || false,
       activityType: session.activityType || "strength",
       targetDurationMinutes: session.targetDurationMinutes ?? 60,
       wakeTime: session.wakeTime || "",

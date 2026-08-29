@@ -5,13 +5,14 @@ const trainingTypes = new Set(["strength", "cycling", "running", "hiking"]);
 export function analyzeActivityLevel(sessions: WorkoutSession[]): number {
   const recurring = sessions.filter((session) => !session.scheduledDate);
   const source = recurring.length > 0 ? recurring : sessions;
-  const weeklyLoad = source.reduce((sum, session) => {
+  const totalLoad = source.reduce((sum, session) => {
     const activities = session.activities || [];
     const hasTraining = session.exercises.length > 0 || trainingTypes.has(session.activityType) || activities.some((activity) => trainingTypes.has(activity.activityType));
     if (hasTraining) return sum + 1;
     const hasActiveRecovery = activities.some((activity) => activity.durationMinutes && activity.durationMinutes >= 20 && !["上班", "下班"].includes(activity.name));
     return sum + (hasActiveRecovery ? 0.35 : 0);
   }, 0);
+  const weeklyLoad = totalLoad * Math.min(1, 7 / Math.max(1, source.length));
   if (weeklyLoad < 0.5) return 1.2;
   if (weeklyLoad < 3) return 1.375;
   if (weeklyLoad < 5.5) return 1.55;

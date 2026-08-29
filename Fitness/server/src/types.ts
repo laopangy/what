@@ -25,6 +25,7 @@ export interface WorkoutSession {
   name: string;
   weekday: number;
   scheduledDate?: string;
+  generated?: boolean;
   focus: string;
   activityType: ActivityType;
   targetDurationMinutes: number;
@@ -46,11 +47,15 @@ export interface DailyRoutine { wakeTime: string; sleepTime: string; }
 export interface PlanPreferences {
   trainingLevel: "beginner" | "intermediate" | "advanced";
   equipment: "gym" | "home" | "none";
+  workSchedule: "five_day" | "big_small";
+  bigWeekStartDate: string;
   workStart: string;
   workEnd: string;
+  latestWorkEnd: string;
+  overtimeFrequency: "rare" | "sometimes" | "frequent";
   commuteMinutes: number;
   workoutDurationMinutes: number;
-  preferredTrainingTime: "before_work" | "after_work";
+  preferredTrainingTime: "adaptive" | "before_work" | "after_work" | "rest_day";
   availableWeekdays: number[];
   healthNotes: string;
   breakfast: string;

@@ -28,10 +28,13 @@ const workoutSchema = z.object({
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const planPreferencesSchema = z.object({
   trainingLevel: z.enum(["beginner", "intermediate", "advanced"]), equipment: z.enum(["gym", "home", "none"]),
-  workStart: time, workEnd: time, commuteMinutes: z.number().int().min(0).max(240), workoutDurationMinutes: z.number().int().min(20).max(120),
-  preferredTrainingTime: z.enum(["before_work", "after_work"]), availableWeekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+  workSchedule: z.enum(["five_day", "big_small"]), bigWeekStartDate: date, workStart: time, workEnd: time, latestWorkEnd: time,
+  overtimeFrequency: z.enum(["rare", "sometimes", "frequent"]), commuteMinutes: z.number().int().min(0).max(240), workoutDurationMinutes: z.number().int().min(20).max(120),
+  preferredTrainingTime: z.enum(["adaptive", "before_work", "after_work", "rest_day"]), availableWeekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
   healthNotes: z.string().trim().min(1).max(200), breakfast: z.string().trim().max(120), lunches: z.array(z.string().trim().max(120)).length(7),
   dinner: z.string().trim().max(120), snack: z.string().trim().max(120),
+}).superRefine((value, context) => {
+  if (value.workSchedule === "big_small" && new Date(`${value.bigWeekStartDate}T12:00:00`).getDay() !== 1) context.addIssue({ code: z.ZodIssueCode.custom, path: ["bigWeekStartDate"], message: "大周开始日期必须选择周一" });
 });
 const optionalText = z.string().trim().max(120).optional();
 const plannedActivitySchema = z.object({
@@ -90,7 +93,7 @@ fitnessRouter.post("/sessions/generate-week", (req, res) => {
   }));
   state.planPreferences = parsed.data;
   state.plan.name = `${state.profile.name}的个性化一周计划`;
-  state.plan.sessions = [...state.plan.sessions.filter((session) => Boolean(session.scheduledDate)), ...sessions];
+  state.plan.sessions = [...state.plan.sessions.filter((session) => Boolean(session.scheduledDate) && !session.generated), ...sessions];
   refreshProfileTargets(state);
   writeState(state);
   return res.status(201).json({ sessions, preferences: parsed.data });
