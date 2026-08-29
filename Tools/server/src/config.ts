@@ -1,7 +1,7 @@
 import path from "path";
 import { readFileSync } from "fs";
 
-function loadEnvFrom(filePath: string) {
+function loadEnvFrom(filePath: string, allowedKeys?: ReadonlySet<string>): void {
   try {
     const content = readFileSync(filePath, "utf-8");
     for (const line of content.split("\n")) {
@@ -11,6 +11,7 @@ function loadEnvFrom(filePath: string) {
       if (eq === -1) continue;
       const key = trimmed.slice(0, eq).trim();
       const val = trimmed.slice(eq + 1).trim();
+      if (allowedKeys && !allowedKeys.has(key)) continue;
       if (!process.env[key]) process.env[key] = val;
     }
   } catch {
@@ -22,7 +23,10 @@ function loadEnv() {
   // Load own .env first
   loadEnvFrom(path.resolve(import.meta.dirname, "..", ".env"));
   // Also load workbench .env for shared keys (DeepSeek API key etc.)
-  loadEnvFrom(path.resolve(import.meta.dirname, "..", "..", "..", "workbench", "server", ".env"));
+  loadEnvFrom(
+    path.resolve(import.meta.dirname, "..", "..", "..", "workbench", "server", ".env"),
+    new Set(["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL"]),
+  );
 }
 loadEnv();
 

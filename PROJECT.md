@@ -1278,6 +1278,7 @@ Fitness API：
 | 2026-08-29 | Codex | Fitness/计划管理与恢复 | 将占宽的左侧计划栏改为顶部紧凑选择器，新增批量勾选、全选及一键删除；生成器增加久未运动恢复模式，按每天轻活动、首周2练、次周3练、单次最多40分钟与每动作最多2组递进，饮食先建立规律而非严格控卡 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `routes.ts`, `types.ts`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/体重自适应 | 每次晨重保存后自动评估最近一周均重趋势；不足7天只收集基线，达到门槛后按目标温和调整每日热量，每次100 kcal、累计最多±400 kcal，并设置7天冷却避免重复调整；最新体重同步基础资料，评估结果写入自动生成计划 | `Fitness/client/src/App.tsx`, `types.ts`, `Fitness/server/src/weightAdapter.ts`, `profileCalculator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
 | 2026-08-29 | Codex | 全局数据存储 | 将定时器、执行历史、日记和健身状态迁入单一 `data/what.vault`；使用随机盐、PBKDF2-SHA256 与 AES-256-GCM 加密，工作台启动后统一密码解锁，并移除旧明文 JSON | `Tools/server/src/vault.ts`, `Fitness/server/src/vault.ts`, `workbench/client/src/components/chat/PasswordGate.tsx`, `data/what.vault`, `.gitignore`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-29 | Codex | Tools/启动配置 | 修复 Tools 读取 Workbench `.env` 时错误继承 `PORT=3000`，导致 3002 未监听、加密仓库解锁页显示 `Failed to fetch`；共享配置现仅加载 AI 相关变量 | `Tools/server/src/config.ts`, `PROJECT.md` |
 
 ---
 
