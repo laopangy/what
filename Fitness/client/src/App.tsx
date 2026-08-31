@@ -419,6 +419,36 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
   );
 }
 
+interface NutritionProcessState {
+  mode: "calculate" | "record";
+  query: string;
+  status: "running" | "completed" | "failed";
+  startedAt: number;
+  finishedAt?: number;
+  result?: FoodCalculation;
+  error?: string;
+}
+
+function NutritionProcess({ process, elapsedMs, open, toggle }: { process: NutritionProcessState | null; elapsedMs: number; open: boolean; toggle: () => void }) {
+  const running = process?.status === "running";
+  const duration = process ? ((process.finishedAt ?? process.startedAt + elapsedMs) - process.startedAt) / 1000 : 0;
+  const result = process?.result;
+  return <>
+    <button type="button" className="btn-quiet !px-2.5 shrink-0 flex items-center gap-1.5 text-[10px]" onClick={toggle} aria-expanded={open}><ChevronDown size={12} className={`transition-transform ${open ? "rotate-180" : ""}`}/>{running ? `计算过程 ${duration.toFixed(1)}s` : "计算过程"}</button>
+    {open && <div className="basis-full w-full mt-2 rounded-lg border border-border/80 bg-black/15 p-3 text-[10px]">
+      {!process ? <p className="text-muted">开始识别后，这里会显示等待时间、估算方式和每项汇总过程。</p> : <div className="space-y-2">
+        <div className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0 text-accent-light"/><div><strong>已读取输入</strong><p className="text-muted mt-0.5 break-words">{process.query}</p></div></div>
+        {running ? <div className="flex gap-2"><LoaderCircle size={12} className="mt-0.5 shrink-0 text-accent-light animate-spin"/><div><strong>服务端正在拆分并估算 · {duration.toFixed(1)} 秒</strong><p className="text-muted mt-0.5">{duration < 2 ? "正在检查本地食物库和常见组合规则…" : "复杂描述可能正在等待 AI 返回；若 AI 不可用，服务端会尝试本地降级估算。"}</p></div></div> : process.status === "failed" ? <div className="flex gap-2 text-red-300"><X size={12} className="mt-0.5 shrink-0"/><div><strong>计算未完成 · {duration.toFixed(1)} 秒</strong><p className="mt-0.5">{process.error}</p></div></div> : result && <>
+          <div className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0 text-accent-light"/><div><strong>{result.estimationMethod === "ai" ? "AI 已返回分项估算" : "已采用本地分项估算"} · {duration.toFixed(1)} 秒</strong>{result.note && <p className="text-muted mt-0.5">{result.note}</p>}</div></div>
+          <div className="border-l border-accent/25 ml-1.5 pl-3 space-y-1">{result.items.map((item, index) => <div key={`${item.name}-${index}`} className="flex justify-between gap-3"><span>{index + 1}. {item.name} · {item.amount}</span><span className="text-muted shrink-0">→ {item.calories} kcal</span></div>)}</div>
+          <div className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0 text-accent-light"/><div><strong>汇总 {result.items.length} 项：{result.calories} kcal</strong><p className="text-muted mt-0.5">蛋白质 {result.protein}g · 碳水 {result.carbs}g · 脂肪 {result.fat}g</p></div></div>
+          {process.mode === "record" && <div className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0 text-accent-light"/><strong>已写入今天的饮食记录</strong></div>}
+        </>}
+      </div>}
+    </div>}
+  </>;
+}
+
 function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () => Promise<void>; notify: (message: string) => void }) {
   const blank = { date: today(), mealType: "breakfast" as MealEntry["mealType"], name: "", amount: "1份", calories: "", protein: "", carbs: "", fat: "" };
   const [form, setForm] = useState(blank);
@@ -427,6 +457,9 @@ function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () 
   const [calculating, setCalculating] = useState(false);
   const [recordingFromText, setRecordingFromText] = useState(false);
   const [calculation, setCalculation] = useState<FoodCalculation | null>(null);
+  const [nutritionProcess, setNutritionProcess] = useState<NutritionProcessState | null>(null);
+  const [processOpen, setProcessOpen] = useState(false);
+  const [processElapsedMs, setProcessElapsedMs] = useState(0);
   const meals = data.meals.filter((meal) => meal.date === today());
   const totals = meals.reduce((sum, item) => ({ calories: sum.calories + item.calories, protein: sum.protein + item.protein, carbs: sum.carbs + item.carbs, fat: sum.fat + item.fat }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
   const nutrientCards: { label: string; value: number; target: number; unit: string; icon: LucideIcon; color: string }[] = [
@@ -435,15 +468,33 @@ function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () 
     { label: "碳水", value: totals.carbs, target: data.profile.carbsTarget, unit: "g", icon: Activity, color: "#74898d" },
     { label: "脂肪", value: totals.fat, target: data.profile.fatTarget, unit: "g", icon: CircleGauge, color: "#7f8750" },
   ];
+  useEffect(() => {
+    if (nutritionProcess?.status !== "running") return;
+    const update = () => setProcessElapsedMs(Date.now() - nutritionProcess.startedAt);
+    update();
+    const id = window.setInterval(update, 250);
+    return () => window.clearInterval(id);
+  }, [nutritionProcess?.status, nutritionProcess?.startedAt]);
+  const beginNutritionProcess = (mode: NutritionProcessState["mode"]) => {
+    const startedAt = Date.now();
+    setNutritionProcess({ mode, query: foodQuery.trim(), status: "running", startedAt });
+    setProcessElapsedMs(0);
+    setProcessOpen(true);
+    return startedAt;
+  };
+  const completeNutritionProcess = (mode: NutritionProcessState["mode"], startedAt: number, result: FoodCalculation) => setNutritionProcess({ mode, query: foodQuery.trim(), status: "completed", startedAt, finishedAt: Date.now(), result });
+  const failNutritionProcess = (mode: NutritionProcessState["mode"], startedAt: number, error: unknown) => setNutritionProcess({ mode, query: foodQuery.trim(), status: "failed", startedAt, finishedAt: Date.now(), error: error instanceof Error ? error.message : "计算失败" });
   const calculate = async () => {
     if (!foodQuery.trim()) return notify("输入食物和分量，例如：鸡胸肉 200克");
+    const startedAt = beginNutritionProcess("calculate");
     try {
       setCalculating(true);
       const result = await api.calculateFood(foodQuery);
       setForm((current) => ({ ...current, name: result.name, amount: result.amount, calories: String(result.calories), protein: String(result.protein), carbs: String(result.carbs), fat: String(result.fat) }));
       setCalculation(result);
+      completeNutritionProcess("calculate", startedAt, result);
       notify(result.estimationMethod === "ai" ? `AI 已拆分并估算 ${result.items.length} 项食物` : result.unmatched.length > 0 ? `已计算 ${result.items.length} 项，另有 ${result.unmatched.length} 项未识别` : result.items.some((item) => item.note) ? "已根据营养标签换算热量" : `已分项计算 ${result.items.length} 项食物`);
-    } catch (error) { notify(error instanceof Error ? error.message : "计算失败"); } finally { setCalculating(false); }
+    } catch (error) { failNutritionProcess("calculate", startedAt, error); notify(error instanceof Error ? error.message : "计算失败"); } finally { setCalculating(false); }
   };
   const add = async () => {
     if (!form.name.trim()) return notify("先填写食物名称");
@@ -452,14 +503,16 @@ function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () 
   };
   const recordFromText = async () => {
     if (!foodQuery.trim()) return notify("例如：我今天中午吃了沙县鸡腿饭，另外加一个去皮鸭腿");
+    const startedAt = beginNutritionProcess("record");
     try {
       setRecordingFromText(true);
       const result = await api.addMealFromText(foodQuery);
       setCalculation(result.calculation);
-      setFoodQuery("");
       await refresh();
+      completeNutritionProcess("record", startedAt, result.calculation);
+      setFoodQuery("");
       notify(`已自动记录到今天${mealNames[result.meal.mealType]}`);
-    } catch (error) { notify(error instanceof Error ? error.message : "自动记录失败"); }
+    } catch (error) { failNutritionProcess("record", startedAt, error); notify(error instanceof Error ? error.message : "自动记录失败"); }
     finally { setRecordingFromText(false); }
   };
   const remove = async (id: string) => { try { await api.deleteMeal(id); await refresh(); } catch (error) { notify(error instanceof Error ? error.message : "删除失败"); } };
@@ -470,7 +523,7 @@ function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">{nutrientCards.map(({ label, value, target, unit, icon: Icon, color }) => <div className="panel rounded-xl p-4" key={label}><div className="flex justify-between mb-3"><span className="text-muted text-[11px]">{label}</span><Icon size={15} style={{ color }}/></div><p className="text-xl font-semibold">{value}<small className="text-muted text-[11px] font-normal ml-1">/ {target} {unit}</small></p><div className="mt-3"><Progress value={value} target={target} color={color}/></div></div>)}</div>
 
       <div className="grid xl:grid-cols-[.8fr_1.2fr] gap-4 items-start">
-        <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-4"><Plus size={16} className="text-accent-light"/><h2 className="font-semibold">添加一餐</h2></div><div className="rounded-lg border border-accent/30 bg-accent/10 p-3 mb-4"><label><span className="label !text-accent-light flex items-center gap-1"><Sparkles size={12}/>AI 智能饮食记录</span><input className="field" placeholder="例如：我今天中午吃了沙县鸡腿饭，另外加一个去皮鸭腿" value={foodQuery} onChange={(event) => { setFoodQuery(event.target.value); setCalculation(null); }} onKeyDown={(event) => { if (event.key === "Enter") recordFromText(); }}/></label><div className="flex flex-wrap gap-2 mt-2"><button className="btn-primary flex-1 min-w-32" disabled={recordingFromText || calculating} onClick={recordFromText}>{recordingFromText ? "AI 识别并记录中…" : "识别并自动记录"}</button><button className="btn-quiet shrink-0" disabled={calculating || recordingFromText} onClick={calculate}>{calculating ? "计算中…" : "只计算不记录"}</button></div>{calculation && <div className="mt-3 border-t border-accent/20 pt-2 space-y-1.5"><div className="flex justify-between text-[10px] text-accent-light"><span>{calculation.estimationMethod === "ai" ? "AI 分项估算" : "本地分项估算"}</span><strong>合计 {calculation.calories} kcal</strong></div>{calculation.items.map((item, index) => <div key={`${item.name}-${index}`}><div className="flex justify-between text-[10px]"><span>{item.name} · {item.amount}</span><span className="text-muted">{item.calories} kcal · 蛋白 {item.protein}g · 碳水 {item.carbs}g · 脂肪 {item.fat}g</span></div>{item.note && <p className="text-[9px] text-amber-300/80 mt-0.5">{item.note}</p>}</div>)}{calculation.note && <p className="text-[9px] text-muted border-t border-accent/15 pt-1.5">{calculation.note}</p>}{calculation.unmatched.map((item) => <div key={item} className="text-[10px] text-red-300">未识别：{item}</div>)}</div>}<p className="text-[9px] text-muted mt-2">说出“今天早餐 / 中午 / 晚上 / 加餐吃了什么”即可自动归类并入账；不写餐次时按当前时间判断。结果仍可使用下方表单手动调整。</p></div><div className="grid grid-cols-2 gap-3">
+        <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-4"><Plus size={16} className="text-accent-light"/><h2 className="font-semibold">添加一餐</h2></div><div className="rounded-lg border border-accent/30 bg-accent/10 p-3 mb-4"><label><span className="label !text-accent-light flex items-center gap-1"><Sparkles size={12}/>AI 智能饮食记录</span><input className="field" placeholder="例如：我今天中午吃了沙县鸡腿饭，另外加一个去皮鸭腿" value={foodQuery} onChange={(event) => { setFoodQuery(event.target.value); setCalculation(null); setNutritionProcess(null); }} onKeyDown={(event) => { if (event.key === "Enter") recordFromText(); }}/></label><div className="flex flex-wrap gap-2 mt-2"><button className="btn-primary flex-1 min-w-32" disabled={recordingFromText || calculating} onClick={recordFromText}>{recordingFromText ? "AI 识别并记录中…" : "识别并自动记录"}</button><button className="btn-quiet shrink-0" disabled={calculating || recordingFromText} onClick={calculate}>{calculating ? "计算中…" : "只计算不记录"}</button><NutritionProcess process={nutritionProcess} elapsedMs={processElapsedMs} open={processOpen} toggle={() => setProcessOpen((current) => !current)}/></div>{calculation && <div className="mt-3 border-t border-accent/20 pt-2 space-y-1.5"><div className="flex justify-between text-[10px] text-accent-light"><span>{calculation.estimationMethod === "ai" ? "AI 分项估算" : "本地分项估算"}</span><strong>合计 {calculation.calories} kcal</strong></div>{calculation.items.map((item, index) => <div key={`${item.name}-${index}`}><div className="flex justify-between text-[10px]"><span>{item.name} · {item.amount}</span><span className="text-muted">{item.calories} kcal · 蛋白 {item.protein}g · 碳水 {item.carbs}g · 脂肪 {item.fat}g</span></div>{item.note && <p className="text-[9px] text-amber-300/80 mt-0.5">{item.note}</p>}</div>)}{calculation.note && <p className="text-[9px] text-muted border-t border-accent/15 pt-1.5">{calculation.note}</p>}{calculation.unmatched.map((item) => <div key={item} className="text-[10px] text-red-300">未识别：{item}</div>)}</div>}<p className="text-[9px] text-muted mt-2">说出“今天早餐 / 中午 / 晚上 / 加餐吃了什么”即可自动归类并入账；不写餐次时按当前时间判断。结果仍可使用下方表单手动调整。</p></div><div className="grid grid-cols-2 gap-3">
           <label><span className="label">餐次</span><select className="field" value={form.mealType} onChange={(event) => setForm({ ...form, mealType: event.target.value as MealEntry["mealType"] })}>{Object.entries(mealNames).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
           <label><span className="label">分量</span><input className="field" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })}/></label>
           <label className="col-span-2"><span className="label">食物或餐食</span><input className="field" placeholder="自动带出，也可以手动填写" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })}/></label>

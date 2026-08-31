@@ -1314,6 +1314,7 @@ Fitness API：
 | 2026-08-31 | Codex | 全局数据安全 | 清理迁移后残留的 Fitness 明文数据；规定所有用户业务数据必须写入 `data/what.vault`，迁移成功后立即删除明文源，并在开发及构建前自动检查旧数据目录和加密信封结构 | `scripts/check-encrypted-data.js`, `package.json`, `Fitness/server/src/scripts/migrate-json.ts`, `Tools/server/src/scripts/migrate-json.ts`, `AGENTS.md`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Fitness/饮食估算超时 | 将复杂餐食 AI 等待时间从 20 秒提升到 60 秒；AI 超时时对常见鸡腿饭、额外鸡腿、去皮修饰和定量橙汁进行本地分项降级估算，并明确未实际食用的歧义食物不计入 | `Fitness/server/src/aiNutrition.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Fitness/复合餐食降级 | 补全鸡腿饭复合输入中的明确数量鸭腿、榴莲和猪肉煎饼估算；鸡腿饭、鸭腿、橙汁、榴莲及猪肉煎饼均被完整识别时直接使用本地分项结果，不再等待 AI 超时 | `Fitness/server/src/aiNutrition.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Fitness/饮食计算过程 | AI 饮食识别增加可折叠的“计算过程”按钮；等待期间实时显示耗时及本地规则/AI 等待阶段，完成后展示估算来源、逐项热量换算、营养汇总和自动入账状态，失败时保留错误阶段 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
 | 2026-08-31 | Codex | Tools/拼豆 | 新增拼豆规格图工具：本地图片上传、豆数与颜色数量调节、颜色聚类、带坐标的逐格预览、色号用量统计及完整 PNG 图纸导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `Tools/client/src/App.tsx`, `Tools/client/src/components/layout/*`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Tools/拼豆精细化 | 将复杂图片默认精度提升至 128 横豆并开放 160 横豆与 48 色；采用 CIELAB 感知色差、边缘和高饱和颜色加权、三档细节增强，新增成品效果与施工图纸双视图 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `PROJECT.md` |
 | 2026-08-31 | Codex | Tools/拼豆成片预览 | 新增独立成片大图弹窗与无网格 PNG 下载，支持遮罩、关闭按钮和 Esc 退出，施工规格图继续单独导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `PROJECT.md` |
