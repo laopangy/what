@@ -259,7 +259,7 @@ workbench/client ──WebSocket────────────────
 |------|------|
 | `/api/fitness/state` | 获取个人资料、训练计划、训练/饮食/体重记录 |
 | `/api/fitness/foods` | 获取内置常见食物名称 |
-| `/api/fitness/foods/calculate` (POST) | 解析食物分量、`/` 分隔整餐和中文数量词；也支持每100克/每百毫升的 kJ/kcal 营养标签与实际摄入量换算 |
+| `/api/fitness/foods/calculate` (POST) | 简单食物使用本地食物库；套餐、额外加菜、去皮/少油等复杂自然语言调用 AI 拆分并估算热量与三大营养素；AI 不可用时尽量回退本地估算；也支持营养标签换算 |
 | `/api/fitness/routine` (PUT) | 保存全局固定起床和睡觉时间 |
 | `/api/fitness/sessions` (POST) | 新增每日计划；单个计划可包含多条活动和可动态配置的训练动作，四餐文本自动估算并保存热量与三大营养素 |
 | `/api/fitness/sessions/:id` (PUT) | 编辑已有每日计划、嵌套活动、训练动作及四餐营养估算 |
@@ -305,7 +305,7 @@ workbench/client ──WebSocket────────────────
 
 ## Fitness 服务器配置项
 
-Fitness 与 Tools 共用根目录的加密数据仓库，服务重启后需再次输入密码解锁。
+Fitness 与 Tools 共用根目录的加密数据仓库，服务重启后需再次输入密码解锁。饮食记录的 AI 营养估算复用 `workbench/server/.env` 中的 DeepSeek/OpenAI 配置，也允许在 `Fitness/server/.env` 中使用同名变量单独覆盖；未配置 AI 时，简单食物仍可使用本地食物库计算。
 
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|

@@ -3,6 +3,7 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { readState, writeState } from "./storage.js";
 import { calculateFood, foodCatalog } from "./foodCalculator.js";
+import { calculateFoodWithAi } from "./aiNutrition.js";
 import { generateWeeklyPlan } from "./planGenerator.js";
 import { calculateProfileTargets } from "./profileCalculator.js";
 import { evaluateWeightTrend } from "./weightAdapter.js";
@@ -91,12 +92,15 @@ fitnessRouter.put("/routine", async (req, res) => {
   return res.json(state.routine);
 });
 
-fitnessRouter.post("/foods/calculate", (req, res) => {
-  const parsed = z.object({ query: z.string().trim().min(1).max(100) }).safeParse(req.body);
+fitnessRouter.post("/foods/calculate", async (req, res) => {
+  const parsed = z.object({ query: z.string().trim().min(1).max(500) }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: "请输入食物名称和分量" });
-  const result = calculateFood(parsed.data.query);
-  if (!result) return res.status(404).json({ success: false, error: "暂时没有找到这种食物，可手动填写营养数据" });
-  return res.json(result);
+  try {
+    return res.json(await calculateFoodWithAi(parsed.data.query));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "AI 营养估算失败";
+    return res.status(503).json({ success: false, error: message });
+  }
 });
 
 fitnessRouter.post("/sessions/generate-week", async (req, res) => {

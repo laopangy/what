@@ -20,6 +20,8 @@ export interface FoodCalculation extends FoodNutrition {
   matchedFood: string;
   items: FoodCalculationItem[];
   unmatched: string[];
+  estimationMethod?: "local" | "ai";
+  note?: string;
 }
 
 export interface FoodCalculationItem extends FoodNutrition {
