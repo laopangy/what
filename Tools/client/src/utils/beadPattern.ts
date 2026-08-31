@@ -20,11 +20,54 @@ interface RgbColor {
   b: number;
 }
 
-const colorDistance = (a: RgbColor, b: RgbColor) => {
-  const red = a.r - b.r;
-  const green = a.g - b.g;
-  const blue = a.b - b.b;
-  return red * red * 0.3 + green * green * 0.59 + blue * blue * 0.11;
+interface LabColor {
+  l: number;
+  a: number;
+  b: number;
+}
+
+interface SampleColor {
+  rgb: RgbColor;
+  lab: LabColor;
+  weight: number;
+}
+
+export type DetailMode = "soft" | "balanced" | "sharp";
+
+interface CreatePatternOptions {
+  gridWidth: number;
+  requestedColors: number;
+  detailMode?: DetailMode;
+}
+
+const clampChannel = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
+
+const rgbToLab = ({ r, g, b }: RgbColor): LabColor => {
+  const linearize = (channel: number) => {
+    const normalized = channel / 255;
+    return normalized <= 0.04045
+      ? normalized / 12.92
+      : ((normalized + 0.055) / 1.055) ** 2.4;
+  };
+  const red = linearize(r);
+  const green = linearize(g);
+  const blue = linearize(b);
+  const x = (red * 0.4124564 + green * 0.3575761 + blue * 0.1804375) / 0.95047;
+  const y = red * 0.2126729 + green * 0.7151522 + blue * 0.072175;
+  const z = (red * 0.0193339 + green * 0.119192 + blue * 0.9503041) / 1.08883;
+  const transform = (value: number) =>
+    value > 0.008856 ? Math.cbrt(value) : 7.787 * value + 16 / 116;
+  const fx = transform(x);
+  const fy = transform(y);
+  const fz = transform(z);
+  return { l: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+};
+
+const colorDistance = (a: LabColor, b: LabColor) => {
+  const lightness = a.l - b.l;
+  const greenRed = a.a - b.a;
+  const blueYellow = a.b - b.b;
+  return lightness * lightness + greenRed * greenRed + blueYellow * blueYellow;
 };
 
 const colorToHex = ({ r, g, b }: RgbColor) =>
@@ -32,7 +75,7 @@ const colorToHex = ({ r, g, b }: RgbColor) =>
     .map((channel) => Math.round(channel).toString(16).padStart(2, "0"))
     .join("")}`.toUpperCase();
 
-const nearestColor = (color: RgbColor, centroids: RgbColor[]) => {
+const nearestColor = (color: LabColor, centroids: LabColor[]) => {
   let nearest = 0;
   let distance = Number.POSITIVE_INFINITY;
 
@@ -47,29 +90,34 @@ const nearestColor = (color: RgbColor, centroids: RgbColor[]) => {
   return nearest;
 };
 
-function clusterColors(colors: RgbColor[], requestedColors: number) {
+function clusterColors(colors: SampleColor[], requestedColors: number) {
   if (colors.length === 0) return [];
 
   const colorCount = Math.min(requestedColors, colors.length);
   const average = colors.reduce(
-    (sum, color) => ({ r: sum.r + color.r, g: sum.g + color.g, b: sum.b + color.b }),
-    { r: 0, g: 0, b: 0 },
+    (sum, color) => ({
+      l: sum.l + color.lab.l * color.weight,
+      a: sum.a + color.lab.a * color.weight,
+      b: sum.b + color.lab.b * color.weight,
+      weight: sum.weight + color.weight,
+    }),
+    { l: 0, a: 0, b: 0, weight: 0 },
   );
-  const centroids: RgbColor[] = [
+  const centroids: LabColor[] = [
     {
-      r: average.r / colors.length,
-      g: average.g / colors.length,
-      b: average.b / colors.length,
+      l: average.l / average.weight,
+      a: average.a / average.weight,
+      b: average.b / average.weight,
     },
   ];
 
   while (centroids.length < colorCount) {
-    let farthest = colors[0];
+    let farthest = colors[0].lab;
     let farthestDistance = -1;
     colors.forEach((color) => {
-      const distance = Math.min(...centroids.map((centroid) => colorDistance(color, centroid)));
+      const distance = Math.min(...centroids.map((centroid) => colorDistance(color.lab, centroid))) * color.weight;
       if (distance > farthestDistance) {
-        farthest = color;
+        farthest = color.lab;
         farthestDistance = distance;
       }
     });
@@ -77,37 +125,76 @@ function clusterColors(colors: RgbColor[], requestedColors: number) {
   }
 
   for (let iteration = 0; iteration < 12; iteration += 1) {
-    const sums = centroids.map(() => ({ r: 0, g: 0, b: 0, count: 0 }));
+    const sums = centroids.map(() => ({ l: 0, a: 0, b: 0, weight: 0 }));
     colors.forEach((color) => {
-      const index = nearestColor(color, centroids);
-      sums[index].r += color.r;
-      sums[index].g += color.g;
-      sums[index].b += color.b;
-      sums[index].count += 1;
+      const index = nearestColor(color.lab, centroids);
+      sums[index].l += color.lab.l * color.weight;
+      sums[index].a += color.lab.a * color.weight;
+      sums[index].b += color.lab.b * color.weight;
+      sums[index].weight += color.weight;
     });
 
     sums.forEach((sum, index) => {
-      if (sum.count > 0) {
+      if (sum.weight > 0) {
         centroids[index] = {
-          r: Math.round(sum.r / sum.count),
-          g: Math.round(sum.g / sum.count),
-          b: Math.round(sum.b / sum.count),
+          l: sum.l / sum.weight,
+          a: sum.a / sum.weight,
+          b: sum.b / sum.weight,
         };
       }
     });
   }
 
-  return centroids;
+  return centroids.map((centroid) => {
+    const assigned = colors.filter(
+      (color) => nearestColor(color.lab, centroids) === centroids.indexOf(centroid),
+    );
+    const totalWeight = assigned.reduce((sum, color) => sum + color.weight, 0) || 1;
+    return {
+      rgb: {
+        r: assigned.reduce((sum, color) => sum + color.rgb.r * color.weight, 0) / totalWeight,
+        g: assigned.reduce((sum, color) => sum + color.rgb.g * color.weight, 0) / totalWeight,
+        b: assigned.reduce((sum, color) => sum + color.rgb.b * color.weight, 0) / totalWeight,
+      },
+      lab: centroid,
+    };
+  });
+}
+
+function enhancePixels(data: Uint8ClampedArray, width: number, height: number, mode: DetailMode) {
+  if (mode === "soft") return data;
+  const source = new Uint8ClampedArray(data);
+  const sharpen = mode === "sharp" ? 0.42 : 0.24;
+  const saturation = mode === "sharp" ? 1.12 : 1.06;
+
+  for (let row = 0; row < height; row += 1) {
+    for (let column = 0; column < width; column += 1) {
+      const index = (row * width + column) * 4;
+      if (source[index + 3] < 64) continue;
+      const left = (row * width + Math.max(0, column - 1)) * 4;
+      const right = (row * width + Math.min(width - 1, column + 1)) * 4;
+      const top = (Math.max(0, row - 1) * width + column) * 4;
+      const bottom = (Math.min(height - 1, row + 1) * width + column) * 4;
+      const enhanced = [0, 1, 2].map((channel) =>
+        source[index + channel] * (1 + sharpen * 4)
+          - (source[left + channel] + source[right + channel] + source[top + channel] + source[bottom + channel]) * sharpen,
+      );
+      const luminance = enhanced[0] * 0.299 + enhanced[1] * 0.587 + enhanced[2] * 0.114;
+      data[index] = clampChannel(luminance + (enhanced[0] - luminance) * saturation);
+      data[index + 1] = clampChannel(luminance + (enhanced[1] - luminance) * saturation);
+      data[index + 2] = clampChannel(luminance + (enhanced[2] - luminance) * saturation);
+    }
+  }
+  return data;
 }
 
 export function createBeadPattern(
   image: CanvasImageSource,
   naturalWidth: number,
   naturalHeight: number,
-  gridWidth: number,
-  requestedColors: number,
+  { gridWidth, requestedColors, detailMode = "balanced" }: CreatePatternOptions,
 ): BeadPattern {
-  const gridHeight = Math.max(1, Math.min(96, Math.round((gridWidth * naturalHeight) / naturalWidth)));
+  const gridHeight = Math.max(1, Math.min(240, Math.round((gridWidth * naturalHeight) / naturalWidth)));
   const canvas = document.createElement("canvas");
   canvas.width = gridWidth;
   canvas.height = gridHeight;
@@ -119,9 +206,13 @@ export function createBeadPattern(
   context.imageSmoothingQuality = "high";
   context.drawImage(image, 0, 0, gridWidth, gridHeight);
 
-  const data = context.getImageData(0, 0, gridWidth, gridHeight).data;
+  const data = enhancePixels(
+    context.getImageData(0, 0, gridWidth, gridHeight).data,
+    gridWidth,
+    gridHeight,
+    detailMode,
+  );
   const sourceColors: Array<RgbColor | null> = [];
-  const opaqueColors: RgbColor[] = [];
 
   for (let index = 0; index < data.length; index += 4) {
     if (data[index + 3] < 64) {
@@ -131,13 +222,30 @@ export function createBeadPattern(
 
     const color = { r: data[index], g: data[index + 1], b: data[index + 2] };
     sourceColors.push(color);
-    opaqueColors.push(color);
   }
+
+  const opaqueColors = sourceColors.flatMap((color, index): SampleColor[] => {
+    if (!color) return [];
+    const lab = rgbToLab(color);
+    const column = index % gridWidth;
+    const neighbors = [
+      column > 0 ? sourceColors[index - 1] : null,
+      index >= gridWidth ? sourceColors[index - gridWidth] : null,
+    ].filter((neighbor): neighbor is RgbColor => neighbor !== null);
+    const edgeWeight = neighbors.reduce(
+      (maximum, neighbor) => Math.max(maximum, Math.sqrt(colorDistance(lab, rgbToLab(neighbor))) / 10),
+      0,
+    );
+    const chromaWeight = Math.min(0.5, Math.sqrt(lab.a * lab.a + lab.b * lab.b) / 140);
+    return [{ rgb: color, lab, weight: 1 + Math.min(3, edgeWeight) + chromaWeight }];
+  });
 
   if (opaqueColors.length === 0) throw new Error("图片中没有可识别的不透明内容");
 
   const centroids = clusterColors(opaqueColors, requestedColors);
-  const initialCells = sourceColors.map((color) => (color ? nearestColor(color, centroids) : -1));
+  const initialCells = sourceColors.map((color) =>
+    color ? nearestColor(rgbToLab(color), centroids.map((centroid) => centroid.lab)) : -1,
+  );
   const counts = centroids.map(() => 0);
   initialCells.forEach((index) => {
     if (index >= 0) counts[index] += 1;
@@ -150,7 +258,7 @@ export function createBeadPattern(
   const remap = new Map(sortedIndices.map(({ index }, sortedIndex) => [index, sortedIndex]));
 
   const palette = sortedIndices.map(({ count, index }, sortedIndex): BeadColor => {
-    const color = centroids[index];
+    const color = centroids[index].rgb;
     const luminance = color.r * 0.299 + color.g * 0.587 + color.b * 0.114;
     return {
       code: `P${String(sortedIndex + 1).padStart(2, "0")}`,
@@ -174,14 +282,15 @@ interface DrawOptions {
   cellSize: number;
   includeLegend?: boolean;
   title?: string;
+  mode?: "beads" | "chart";
 }
 
 export function drawBeadPattern(
   canvas: HTMLCanvasElement,
   pattern: BeadPattern,
-  { cellSize, includeLegend = false, title = "拼豆规格图" }: DrawOptions,
+  { cellSize, includeLegend = false, title = "拼豆规格图", mode = "chart" }: DrawOptions,
 ) {
-  const ruler = Math.max(26, Math.round(cellSize * 1.25));
+  const ruler = mode === "beads" ? 0 : Math.max(26, Math.round(cellSize * 1.25));
   const header = includeLegend ? 74 : 0;
   const legendColumns = Math.min(4, Math.max(1, Math.floor(pattern.width * cellSize / 240)));
   const legendRows = Math.ceil(pattern.palette.length / legendColumns);
@@ -195,7 +304,7 @@ export function drawBeadPattern(
 
   canvas.width = width;
   canvas.height = height;
-  context.fillStyle = "#E7ECEF";
+  context.fillStyle = mode === "beads" ? "#BAC5CB" : "#E7ECEF";
   context.fillRect(0, 0, width, height);
 
   if (includeLegend) {
@@ -219,18 +328,23 @@ export function drawBeadPattern(
       const y = originY + row * cellSize;
       if (paletteIndex < 0) {
         context.fillStyle = (row + column) % 2 === 0 ? "#F3F6F7" : "#DCE3E7";
+      } else if (mode === "beads") {
+        context.fillStyle = pattern.palette[paletteIndex].hex;
+        context.fillRect(x, y, cellSize, cellSize);
       } else {
         context.fillStyle = pattern.palette[paletteIndex].hex;
       }
-      context.fillRect(x, y, cellSize, cellSize);
+      if (paletteIndex < 0 || mode === "chart") context.fillRect(x, y, cellSize, cellSize);
 
-      if (paletteIndex >= 0 && cellSize >= 16) {
+      if (mode === "chart" && paletteIndex >= 0 && cellSize >= 16) {
         context.fillStyle = pattern.palette[paletteIndex].textColor;
         context.font = `700 ${Math.max(8, Math.floor(cellSize * 0.38))}px ui-monospace, monospace`;
         context.fillText(String(paletteIndex + 1), x + cellSize / 2, y + cellSize / 2 + 0.5);
       }
     }
   }
+
+  if (mode === "beads") return;
 
   context.strokeStyle = "rgba(52, 64, 73, 0.32)";
   context.lineWidth = 1;

@@ -4,14 +4,20 @@ import {
   Grid3X3,
   ImagePlus,
   Info,
+  LayoutGrid,
   Palette,
   RotateCcw,
   Sparkles,
   Upload,
 } from "lucide-react";
-import { createBeadPattern, drawBeadPattern, type BeadPattern } from "../../utils/beadPattern";
+import {
+  createBeadPattern,
+  drawBeadPattern,
+  type BeadPattern,
+  type DetailMode,
+} from "../../utils/beadPattern";
 
-const GRID_SIZES = [16, 24, 32, 40, 48, 64];
+const GRID_SIZES = [48, 64, 80, 96, 128, 160];
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 interface LoadedImage {
@@ -27,8 +33,10 @@ export default function BeadPatternMaker() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<LoadedImage | null>(null);
   const [pattern, setPattern] = useState<BeadPattern | null>(null);
-  const [gridWidth, setGridWidth] = useState(32);
-  const [colorCount, setColorCount] = useState(12);
+  const [gridWidth, setGridWidth] = useState(128);
+  const [colorCount, setColorCount] = useState(32);
+  const [detailMode, setDetailMode] = useState<DetailMode>("balanced");
+  const [viewMode, setViewMode] = useState<"beads" | "chart">("beads");
   const [dragging, setDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +55,11 @@ export default function BeadPatternMaker() {
     setError(null);
     const frame = requestAnimationFrame(() => {
       try {
-        setPattern(createBeadPattern(image.element, image.width, image.height, gridWidth, colorCount));
+        setPattern(createBeadPattern(image.element, image.width, image.height, {
+          gridWidth,
+          requestedColors: colorCount,
+          detailMode,
+        }));
       } catch (cause) {
         setPattern(null);
         setError(cause instanceof Error ? cause.message : "生成规格图失败，请换一张图片重试");
@@ -57,13 +69,13 @@ export default function BeadPatternMaker() {
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [colorCount, gridWidth, image]);
+  }, [colorCount, detailMode, gridWidth, image]);
 
   useEffect(() => {
     if (!pattern || !canvasRef.current) return;
-    const cellSize = pattern.width <= 24 ? 26 : pattern.width <= 40 ? 20 : 15;
-    drawBeadPattern(canvasRef.current, pattern, { cellSize });
-  }, [pattern]);
+    const cellSize = Math.max(5, Math.min(18, Math.floor(920 / pattern.width)));
+    drawBeadPattern(canvasRef.current, pattern, { cellSize, mode: viewMode });
+  }, [pattern, viewMode]);
 
   const loadFile = (file?: File) => {
     if (!file) return;
@@ -79,6 +91,13 @@ export default function BeadPatternMaker() {
     const previewUrl = URL.createObjectURL(file);
     const element = new Image();
     element.onload = () => {
+      if (element.naturalWidth >= 1600) {
+        setGridWidth(128);
+        setColorCount(32);
+      } else {
+        setGridWidth(80);
+        setColorCount(24);
+      }
       setImage((current) => {
         if (current) URL.revokeObjectURL(current.previewUrl);
         return {
@@ -112,7 +131,7 @@ export default function BeadPatternMaker() {
     if (!pattern || !image) return;
     const exportCanvas = document.createElement("canvas");
     drawBeadPattern(exportCanvas, pattern, {
-      cellSize: 30,
+      cellSize: Math.max(16, Math.min(30, Math.floor(3600 / pattern.width))),
       includeLegend: true,
       title: image.name.replace(/\.[^.]+$/, ""),
     });
@@ -253,8 +272,8 @@ export default function BeadPatternMaker() {
               <input
                 id="bead-color-count"
                 type="range"
-                min="4"
-                max="24"
+                min="8"
+                max="48"
                 step="1"
                 value={colorCount}
                 onChange={(event) => setColorCount(Number(event.target.value))}
@@ -266,9 +285,33 @@ export default function BeadPatternMaker() {
               </div>
             </div>
 
+            <fieldset className="mt-5">
+              <legend className="mb-2 text-xs font-medium text-slate-400">细节处理</legend>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { value: "soft", label: "柔和" },
+                  { value: "balanced", label: "均衡" },
+                  { value: "sharp", label: "锐利" },
+                ] as const).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setDetailMode(option.value)}
+                    className={`rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
+                      detailMode === option.value
+                        ? "border-indigo-500 bg-indigo-500 text-[#172027]"
+                        : "border-slate-800 bg-slate-950/35 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
             <div className="mt-4 flex gap-2 rounded-lg bg-slate-950/35 p-3 text-xs leading-relaxed text-slate-500">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.8} />
-              纵向豆数会按原图比例自动计算。透明区域不计入豆数。
+              复杂场景建议使用 96-160 横豆。豆数越高，人物五官和轮廓越清楚，但成品也会更大。
             </div>
           </section>
         </aside>
@@ -313,7 +356,8 @@ export default function BeadPatternMaker() {
             </div>
           ) : (
             <div className="p-4 md:p-5">
-              <div className="mb-4 grid grid-cols-3 gap-2.5">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="grid flex-1 grid-cols-3 gap-2.5">
                 {[
                   { label: "成品尺寸", value: `${pattern.width} x ${pattern.height}` },
                   { label: "拼豆总数", value: pattern.totalBeads.toLocaleString("zh-CN") },
@@ -324,6 +368,29 @@ export default function BeadPatternMaker() {
                     <p className="mt-0.5 text-[11px] text-slate-500">{item.label}</p>
                   </div>
                 ))}
+                </div>
+                <div className="grid shrink-0 grid-cols-2 rounded-xl bg-slate-950/35 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("beads")}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                      viewMode === "beads" ? "bg-slate-800 text-indigo-400" : "text-slate-500 hover:text-slate-200"
+                    }`}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    成品效果
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("chart")}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                      viewMode === "chart" ? "bg-slate-800 text-indigo-400" : "text-slate-500 hover:text-slate-200"
+                    }`}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    施工图纸
+                  </button>
+                </div>
               </div>
 
               <div className="flex min-h-[420px] items-center justify-center overflow-auto rounded-xl bg-[#dfe5e8] p-4 md:p-6">

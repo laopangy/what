@@ -934,9 +934,11 @@ Tools 前端使用 React 19、React Router 7 与 Tailwind CSS 4，端口为 `517
 
 - 支持拖拽或选择 PNG、JPG、WebP 图片，单文件上限 20 MB
 - 图片仅在浏览器本地处理，不传到服务器
-- 横向豆数可选 16、24、32、40、48、64，纵向豆数按原图比例自动计算
-- 最大颜色数可在 4-24 之间调整；使用确定性的颜色聚类生成色板，并按使用量排序为 `P01`、`P02` 等内部色号
-- 规格预览包含逐格数字、每 5 格坐标、成品尺寸、总豆数、实际用色数和颜色用量清单
+- 横向豆数可选 48、64、80、96、128、160，纵向豆数按原图比例自动计算；大于 1600px 的复杂图片默认使用 128 横豆
+- 最大颜色数可在 8-48 之间调整；颜色聚类改用 CIELAB 感知色差，并提高轮廓与高饱和小面积颜色的采样权重，减少肤色、发色被大面积背景色吞并的问题
+- 提供柔和、均衡、锐利三档细节处理；均衡和锐利模式在缩图后进行局部反差与饱和度增强
+- 预览可在无格线的“成品效果”和带逐格数字、每 5 格坐标的“施工图纸”之间切换
+- 规格统计包含成品尺寸、总豆数、实际用色数和颜色用量清单
 - 透明像素保留为空格且不计入豆数；导出 PNG 会同时包含完整图纸和颜色图例
 - 首版使用图片近似色，不绑定具体拼豆品牌色卡，后续可在现有色板数据结构上增加品牌色号映射
 
@@ -1304,6 +1306,7 @@ Fitness API：
 | 2026-08-31 | Codex | Fitness/AI 饮食估算 | 饮食记录采用本地食物库与 AI 混合估算：复杂整餐可识别套餐、额外食物及去皮/少油等跨项修饰，按常见份量拆分并返回热量、蛋白质、碳水、脂肪和估算依据；复用工作台 DeepSeek/OpenAI 配置，AI 失败时尽量回退本地计算 | `Fitness/server/src/aiConfig.ts`, `aiNutrition.ts`, `foodCalculator.ts`, `routes.ts`, `Fitness/client/src/App.tsx`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Fitness/自然语言饮食入账 | 修复中文占位 API Key 进入请求头引发 ByteString 异常：服务端及安装器提前校验并显示明确提示；新增“识别并自动记录”，可从“我今天中午吃了……”识别餐次、估算整餐营养并直接写入今天对应餐次，同时保留只计算不记录 | `setup.ps1`, `Fitness/server/src/aiNutrition.ts`, `routes.ts`, `Fitness/client/src/App.tsx`, `api.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Tools/拼豆 | 新增拼豆规格图工具：本地图片上传、豆数与颜色数量调节、颜色聚类、带坐标的逐格预览、色号用量统计及完整 PNG 图纸导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `Tools/client/src/App.tsx`, `Tools/client/src/components/layout/*`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Tools/拼豆精细化 | 将复杂图片默认精度提升至 128 横豆并开放 160 横豆与 48 色；采用 CIELAB 感知色差、边缘和高饱和颜色加权、三档细节增强，新增成品效果与施工图纸双视图 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `PROJECT.md` |
 
 ---
 
