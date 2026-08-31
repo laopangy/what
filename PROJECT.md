@@ -1269,7 +1269,7 @@ Fitness API：
 | 2026-08-29 | Codex | Fitness/作息保存 | 移除固定作息的手动保存按钮，小时或分钟变更后自动防抖保存，并展示“保存中/已自动保存”状态；浏览器验证刷新后数据保持且恢复测试值 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/计划饮食 | 将现有食物分量解析接入每日计划四餐：输入后自动防抖显示热量、蛋白质、碳水和脂肪估算；新增或编辑计划时由后端重新计算并持久化，旧计划读取时兼容补算 | `Fitness/client/src/App.tsx`, `types.ts`, `Fitness/server/src/routes.ts`, `storage.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/计划活动 | 为每日计划增加嵌套活动列表：可添加、编辑、删除多项活动，并分别设置开始时间、类型、名称、时长和备注；计划详情按时间排序展示，旧运动计划自动迁移为一条兼容活动 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/routes.ts`, `storage.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
-| 2026-08-29 | Codex | Fitness/睡眠时长 | 固定作息根据睡觉时间到次日起床时间实时计算预计睡眠小时与分钟，并展示总分钟数；覆盖跨午夜时间计算 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/睡眠时长 | 固定作息根据睡觉时间到次日起床时间实时计算预计睡眠小时与分钟，并统一使用小时/分钟展示；覆盖跨午夜时间计算 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/计划日期 | 每日计划支持“每周重复”和“指定日期”两种时间绑定；今日总览优先匹配当天日期计划并回退到对应星期计划，服务端约束每个星期及每个日期只能创建一份计划 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/一周计划生成 | 新增个性化一周计划生成器：自动读取已保存身体资料，收集训练经验、器械、伤病、上下班与通勤、可训练日及每日饮食，按目标生成 7 天训练/恢复、餐饮和生活安排；生成条件持久化，具体日期计划不被覆盖 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/身体数据 | 移除基础资料及今日测量的手动保存按钮，改为防抖自动保存与状态提示；体重趋势增加历史记录编辑、日期唯一校验和确认删除功能 | `Fitness/client/src/App.tsx`, `api.ts`, `Fitness/server/src/routes.ts`, `PROJECT.md` |
@@ -1283,8 +1283,9 @@ Fitness API：
 | 2026-08-30 | Codex | Fitness/计划生成与动作 | 修复自动计划从已知大周周一而非当天开始的问题，大小周参考日期仅用于判断轮换；计划动作支持新增、编辑、删除及重量次数、仅次数、按时长三种记录方式，可直接添加跳绳等自定义动作 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-30 | Codex | Workbench/加密解锁 | 修复 Fitness 后端热更新重启后仓库重新上锁、工作台仍停留在模块内导致“重新连接”无反应的问题；工作台进入后定期并在窗口聚焦时检查两项数据服务，确认重新上锁后自动返回密码页 | `workbench/client/src/components/chat/PasswordGate.tsx`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-30 | Codex | Fitness/动作编辑 | 为训练详情的每个动作增加可见的“编辑”入口并自动定位到对应编辑卡片；移除固定动作库和默认新增内容，动作名称、部位、记录方式、组数、目标及休息时间均由用户自由填写，新动作从空白项开始 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
+| 2026-08-31 | Codex | Fitness/睡眠展示 | 将固定作息详情中的睡眠总分钟数改为小时与分钟，例如 450 分钟显示为 7 小时 30 分钟 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
 
 ---
 
 > **文档维护者**：潘高远  
-> **最后更新**：2026-08-30
+> **最后更新**：2026-08-31
