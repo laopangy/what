@@ -938,6 +938,7 @@ Tools 前端使用 React 19、React Router 7 与 Tailwind CSS 4，端口为 `517
 - 最大颜色数可在 8-48 之间调整；颜色聚类改用 CIELAB 感知色差，并提高轮廓与高饱和小面积颜色的采样权重，减少肤色、发色被大面积背景色吞并的问题
 - 提供柔和、均衡、锐利三档细节处理；均衡和锐利模式在缩图后进行局部反差与饱和度增强
 - 预览可在无格线的“成品效果”和带逐格数字、每 5 格坐标的“施工图纸”之间切换
+- 成片预览支持独立大图弹窗，可按 `Esc`、关闭按钮或点击遮罩退出，并可单独下载无网格成片 PNG
 - 规格统计包含成品尺寸、总豆数、实际用色数和颜色用量清单
 - 透明像素保留为空格且不计入豆数；导出 PNG 会同时包含完整图纸和颜色图例
 - 首版使用图片近似色，不绑定具体拼豆品牌色卡，后续可在现有色板数据结构上增加品牌色号映射
@@ -1307,6 +1308,7 @@ Fitness API：
 | 2026-08-31 | Codex | Fitness/自然语言饮食入账 | 修复中文占位 API Key 进入请求头引发 ByteString 异常：服务端及安装器提前校验并显示明确提示；新增“识别并自动记录”，可从“我今天中午吃了……”识别餐次、估算整餐营养并直接写入今天对应餐次，同时保留只计算不记录 | `setup.ps1`, `Fitness/server/src/aiNutrition.ts`, `routes.ts`, `Fitness/client/src/App.tsx`, `api.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Tools/拼豆 | 新增拼豆规格图工具：本地图片上传、豆数与颜色数量调节、颜色聚类、带坐标的逐格预览、色号用量统计及完整 PNG 图纸导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `Tools/client/src/App.tsx`, `Tools/client/src/components/layout/*`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Tools/拼豆精细化 | 将复杂图片默认精度提升至 128 横豆并开放 160 横豆与 48 色；采用 CIELAB 感知色差、边缘和高饱和颜色加权、三档细节增强，新增成品效果与施工图纸双视图 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `PROJECT.md` |
+| 2026-08-31 | Codex | Tools/拼豆成片预览 | 新增独立成片大图弹窗与无网格 PNG 下载，支持遮罩、关闭按钮和 Esc 退出，施工规格图继续单独导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `PROJECT.md` |
 
 ---
 
