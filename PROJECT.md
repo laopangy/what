@@ -1297,6 +1297,7 @@ Fitness API：
 | 2026-08-29 | Codex | Fitness/身体数据 | 移除基础资料及今日测量的手动保存按钮，改为防抖自动保存与状态提示；体重趋势增加历史记录编辑、日期唯一校验和确认删除功能 | `Fitness/client/src/App.tsx`, `api.ts`, `Fitness/server/src/routes.ts`, `PROJECT.md` |
 | 2026-08-31 | Codex | Fitness/今日测量 | 今日体重支持选择公斤、斤或磅录入并记住界面偏好，保存前统一换算为公斤，保持趋势计算和既有数据结构兼容 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
 | 2026-08-31 | Codex | Fitness/数字输入 | 统一清理体重、体脂、训练记录、运动结果和营养表单中整数前无意义的前导零，输入 `0` 后继续键入不再形成 `0165`，同时保留 `0.5` 等合法小数 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
+| 2026-08-31 | Codex | Fitness/身体数据单位 | 将体重单位改为身体数据页级统一设置，基础资料、今日测量、趋势图、历史列表及历史编辑同步使用公斤、斤或磅，存储与计算继续使用公斤 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/活动量分析 | 将日常活动量改为不可手动选择的计划分析结果；根据每周力量、有氧和主动恢复安排自动判定久坐/轻量/中等/高活动，并在计划增删改及重新生成后同步重算热量与营养目标 | `Fitness/client/src/App.tsx`, `api.ts`, `Fitness/server/src/profileCalculator.ts`, `routes.ts`, `storage.ts`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/大小周与加班 | 一周计划生成器新增大小周、已知大周周一、正常/最晚下班、加班频率和训练时段策略；大小周按具体日期生成连续14天，大周周六纳入工作日，并提供自动避开加班模式将不确定加班日的训练前移至上班前 | `Fitness/client/src/App.tsx`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `profileCalculator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/计划管理与恢复 | 将占宽的左侧计划栏改为顶部紧凑选择器，新增批量勾选、全选及一键删除；生成器增加久未运动恢复模式，按每天轻活动、首周2练、次周3练、单次最多40分钟与每动作最多2组递进，饮食先建立规律而非严格控卡 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `routes.ts`, `types.ts`, `PROJECT.md` |
