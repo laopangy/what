@@ -484,6 +484,19 @@ function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () 
 
 interface WeightDraft { id: string; date: string; weightKg: string; bodyFat: string; }
 type AutoSaveStatus = "idle" | "saving" | "saved";
+type WeightUnit = "kg" | "jin" | "lb";
+
+const weightUnitOptions: { value: WeightUnit; label: string }[] = [
+  { value: "kg", label: "公斤（kg）" },
+  { value: "jin", label: "斤" },
+  { value: "lb", label: "磅（lb）" },
+];
+
+function convertWeight(value: number, from: WeightUnit, to: WeightUnit) {
+  const kilograms = from === "kg" ? value : from === "jin" ? value / 2 : value / 2.2046226218;
+  const converted = to === "kg" ? kilograms : to === "jin" ? kilograms * 2 : kilograms * 2.2046226218;
+  return Number(converted.toFixed(2));
+}
 
 function SaveStatus({ status }: { status: AutoSaveStatus }) {
   return <span className={`text-[10px] flex items-center gap-1.5 ${status === "saving" ? "text-muted" : "text-accent-light"}`}><i className={`w-1.5 h-1.5 rounded-full ${status === "saving" ? "bg-muted animate-pulse" : "bg-accent"}`}/>{status === "saving" ? "保存中…" : status === "saved" ? "已自动保存" : "自动保存"}</span>;
@@ -492,7 +505,11 @@ function SaveStatus({ status }: { status: AutoSaveStatus }) {
 function BodyData({ data, refresh, notify }: { data: FitnessState; refresh: () => Promise<void>; notify: (message: string) => void }) {
   const todayEntry = data.weights.find((item) => item.date === today());
   const [profile, setProfile] = useState(data.profile);
-  const [weight, setWeight] = useState(String(todayEntry?.weightKg ?? data.weights[0]?.weightKg ?? data.profile.weightKg));
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>(() => {
+    const savedUnit = window.localStorage.getItem("fitness-weight-unit");
+    return savedUnit === "jin" || savedUnit === "lb" ? savedUnit : "kg";
+  });
+  const [weight, setWeight] = useState(() => String(convertWeight(todayEntry?.weightKg ?? data.weights[0]?.weightKg ?? data.profile.weightKg, "kg", weightUnit)));
   const [bodyFat, setBodyFat] = useState(todayEntry?.bodyFat ? String(todayEntry.bodyFat) : "");
   const [profileStatus, setProfileStatus] = useState<AutoSaveStatus>("idle");
   const [measurementStatus, setMeasurementStatus] = useState<AutoSaveStatus>("idle");
@@ -518,7 +535,7 @@ function BodyData({ data, refresh, notify }: { data: FitnessState; refresh: () =
 
   useEffect(() => {
     if (!measurementTouched) return;
-    const weightKg = Number(weight); const fat = bodyFat ? Number(bodyFat) : undefined;
+    const weightKg = convertWeight(Number(weight), weightUnit, "kg"); const fat = bodyFat ? Number(bodyFat) : undefined;
     if (weightKg < 30 || weightKg > 350 || (fat !== undefined && (fat < 1 || fat > 70))) return;
     setMeasurementStatus("saving");
     const id = window.setTimeout(async () => {
@@ -526,7 +543,14 @@ function BodyData({ data, refresh, notify }: { data: FitnessState; refresh: () =
       catch (error) { setMeasurementStatus("idle"); notify(error instanceof Error ? error.message : "今日测量保存失败"); }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [weight, bodyFat, measurementTouched]);
+  }, [weight, weightUnit, bodyFat, measurementTouched]);
+
+  const changeWeightUnit = (nextUnit: WeightUnit) => {
+    const currentWeight = Number(weight);
+    if (weight && Number.isFinite(currentWeight)) setWeight(String(convertWeight(currentWeight, weightUnit, nextUnit)));
+    setWeightUnit(nextUnit);
+    window.localStorage.setItem("fitness-weight-unit", nextUnit);
+  };
 
   useEffect(() => {
     if (!editingWeight) return;
@@ -569,7 +593,7 @@ function BodyData({ data, refresh, notify }: { data: FitnessState; refresh: () =
 
         <div className="space-y-4">
           <section className="panel rounded-xl p-5"><h2 className="font-semibold mb-4">当前每日目标</h2><div className="grid grid-cols-2 gap-3">{[["热量", `${data.profile.calorieTarget} kcal`], ["蛋白质", `${data.profile.proteinTarget} g`], ["碳水", `${data.profile.carbsTarget} g`], ["脂肪", `${data.profile.fatTarget} g`]].map(([label, value]) => <div key={label} className="bg-black/15 border border-border rounded-lg p-3"><p className="text-muted text-[10px]">{label}</p><p className="text-lg font-semibold mt-1">{value}</p></div>)}</div></section>
-          <section className="panel rounded-xl p-5"><div className="flex items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><TrendingUp size={16} className="text-sky"/><h2 className="font-semibold">今日测量</h2></div><SaveStatus status={measurementStatus}/></div><div className="grid grid-cols-2 gap-3"><label><span className="label">体重 kg</span><input className="field" type="number" step=".1" value={weight} onChange={(event) => { setWeight(event.target.value); setMeasurementTouched(true); }}/></label><label><span className="label">体脂 %（可选）</span><input className="field" type="number" step=".1" value={bodyFat} onChange={(event) => { setBodyFat(event.target.value); setMeasurementTouched(true); }}/></label></div><p className="text-muted text-[9px] mt-3">修改后自动写入今天的记录，并立即评估趋势；至少一周数据才会调整计划。</p>{data.planAdaptation && <div className={`mt-3 rounded-lg border p-3 ${data.planAdaptation.status === "adjusted" ? "border-accent/35 bg-accent/10" : "border-sky/25 bg-sky/10"}`}><div className="flex items-center justify-between gap-2 mb-1"><strong className="text-[10px]">{data.planAdaptation.status === "collecting" ? "正在建立体重基线" : data.planAdaptation.status === "adjusted" ? "计划已自动调整" : "本次保持不变"}</strong><span className="text-muted text-[9px]">热量修正 {data.planAdaptation.calorieAdjustment > 0 ? "+" : ""}{data.planAdaptation.calorieAdjustment} kcal</span></div><p className="text-muted text-[9px] leading-relaxed">{data.planAdaptation.message}</p></div>}</section>
+          <section className="panel rounded-xl p-5"><div className="flex items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><TrendingUp size={16} className="text-sky"/><h2 className="font-semibold">今日测量</h2></div><SaveStatus status={measurementStatus}/></div><div className="grid grid-cols-2 gap-3"><label><span className="label flex items-center justify-between gap-2">体重<select className="rounded border border-border bg-bg/60 px-1.5 py-0.5 text-[9px] text-text" aria-label="体重单位" value={weightUnit} onChange={(event) => changeWeightUnit(event.target.value as WeightUnit)}>{weightUnitOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></span><input className="field" type="number" min={convertWeight(30, "kg", weightUnit)} max={convertWeight(350, "kg", weightUnit)} step=".1" value={weight} onChange={(event) => { setWeight(event.target.value); setMeasurementTouched(true); }}/></label><label><span className="label">体脂 %（可选）</span><input className="field" type="number" step=".1" value={bodyFat} onChange={(event) => { setBodyFat(event.target.value); setMeasurementTouched(true); }}/></label></div><p className="text-muted text-[9px] mt-3">可用公斤、斤或磅录入；保存时统一换算为公斤，再立即评估趋势。至少一周数据才会调整计划。</p>{data.planAdaptation && <div className={`mt-3 rounded-lg border p-3 ${data.planAdaptation.status === "adjusted" ? "border-accent/35 bg-accent/10" : "border-sky/25 bg-sky/10"}`}><div className="flex items-center justify-between gap-2 mb-1"><strong className="text-[10px]">{data.planAdaptation.status === "collecting" ? "正在建立体重基线" : data.planAdaptation.status === "adjusted" ? "计划已自动调整" : "本次保持不变"}</strong><span className="text-muted text-[9px]">热量修正 {data.planAdaptation.calorieAdjustment > 0 ? "+" : ""}{data.planAdaptation.calorieAdjustment} kcal</span></div><p className="text-muted text-[9px] leading-relaxed">{data.planAdaptation.message}</p></div>}</section>
         </div>
       </div>
       <section className="panel rounded-xl p-5"><div className="flex justify-between items-center mb-5"><div><h2 className="font-semibold">体重趋势</h2><p className="text-muted text-[9px] mt-1">可编辑日期、体重和体脂，修改后自动保存。</p></div><span className="text-muted text-[11px]">最近 {weights.length} 次记录</span></div>{weights.length === 0 ? <p className="text-muted text-center py-8">修改今日测量后，这里会出现趋势</p> : <><div className="h-40 flex items-end gap-3 border-b border-border px-2">{weights.map((item) => { const height = 28 + ((item.weightKg - min) / Math.max(1, max - min)) * 82; return <div key={item.id} className="flex-1 h-full flex flex-col justify-end items-center gap-2"><span className="text-[10px] text-text">{item.weightKg}</span><div className="w-full max-w-12 rounded-t bg-gradient-to-t from-sky/45 to-sky" style={{ height }}/><span className="text-[9px] text-muted pb-2">{item.date.slice(5)}</span></div>; })}</div><div className="mt-4 space-y-2">{recentWeights.map((item) => <div key={item.id} className="rounded-lg border border-border/70 bg-black/10 p-3">{editingWeight?.id === item.id ? <div className="grid sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end"><label><span className="label">日期</span><input className="field" type="date" value={editingWeight.date} onChange={(event) => setEditingWeight({ ...editingWeight, date: event.target.value })}/></label><label><span className="label">体重 kg</span><input className="field" type="number" step=".1" value={editingWeight.weightKg} onChange={(event) => setEditingWeight({ ...editingWeight, weightKg: event.target.value })}/></label><label><span className="label">体脂 %</span><input className="field" type="number" step=".1" value={editingWeight.bodyFat} onChange={(event) => setEditingWeight({ ...editingWeight, bodyFat: event.target.value })}/></label><div className="flex items-center gap-2 pb-1"><SaveStatus status={editStatus}/><button className="btn-quiet !p-2" onClick={() => setEditingWeight(null)} aria-label="关闭编辑"><X size={14}/></button></div></div> : <div className="flex items-center gap-3"><div className="flex-1"><strong>{item.weightKg} kg</strong><span className="text-muted text-[10px] ml-3">{item.date}{item.bodyFat ? ` · 体脂 ${item.bodyFat}%` : ""}</span></div><button className="btn-quiet !p-2" onClick={() => { setEditStatus("idle"); setEditingWeight({ id: item.id, date: item.date, weightKg: String(item.weightKg), bodyFat: item.bodyFat ? String(item.bodyFat) : "" }); }} aria-label="编辑体重记录"><Pencil size={13}/></button><button className="text-muted hover:text-red-300 p-2 disabled:opacity-50" disabled={Boolean(deletingWeightId)} onClick={() => removeWeight(item)} aria-label="删除体重记录"><Trash2 size={13}/></button></div>}</div>)}</div></>}</section>
