@@ -98,24 +98,6 @@ async function callAi(query: string): Promise<string> {
     throw new Error("AI API Key 格式不正确：当前保存的是中文占位内容，请在安装器中粘贴平台生成的真实 Key");
   }
   const signal = AbortSignal.timeout(60_000);
-  if (nutritionAiConfig.provider === "openai") {
-    const response = await fetch(endpoint(nutritionAiConfig.baseUrl, "responses"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", Authorization: `Bearer ${nutritionAiConfig.apiKey}` },
-      body: Buffer.from(JSON.stringify({
-        model: nutritionAiConfig.model,
-        store: false,
-        instructions: systemPrompt,
-        input: `请估算这餐：${query}`,
-        max_output_tokens: 1800,
-      }), "utf-8"),
-      signal,
-    });
-    if (!response.ok) throw new Error(`AI 营养估算请求失败 (${response.status})`);
-    const data = await response.json() as { output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }> };
-    return data.output?.flatMap((item) => item.content || []).map((item) => item.text || "").join("").trim() || "";
-  }
-
   const response = await fetch(endpoint(nutritionAiConfig.baseUrl, "v1/messages"), {
     method: "POST",
     headers: {

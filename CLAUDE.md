@@ -308,7 +308,7 @@ workbench/client ──WebSocket────────────────
 
 ## Fitness 服务器配置项
 
-Fitness 与 Tools 共用根目录的加密数据仓库，服务重启后需再次输入密码解锁。饮食记录的 AI 营养估算复用 `workbench/server/.env` 中的 DeepSeek/OpenAI 配置，也允许在 `Fitness/server/.env` 中使用同名变量单独覆盖；未配置 AI 时，简单食物仍可使用本地食物库计算。
+Fitness 与 Tools 共用根目录的加密数据仓库，服务重启后需再次输入密码解锁。饮食记录的 AI 营养估算仅使用 DeepSeek，并复用 `workbench/server/.env` 中的配置；也允许在 `Fitness/server/.env` 中使用同名变量单独覆盖。未配置 AI 时，简单食物仍可使用本地食物库计算。
 
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|

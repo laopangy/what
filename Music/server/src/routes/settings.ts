@@ -34,7 +34,7 @@ settingsRouter.get("/status", async (_req, res, next) => {
       data: {
         ai: {
           configured: Boolean(activeAi.apiKey),
-          provider: activeAi.provider,
+          provider: "deepseek",
           baseUrl: activeAi.baseUrl,
           model: activeAi.model,
         },
@@ -48,29 +48,22 @@ settingsRouter.get("/status", async (_req, res, next) => {
 settingsRouter.post("/ai", (req, res, next) => {
   try {
     const body = z.object({
-      provider: z.enum(["deepseek", "openai"]),
       apiKey: z.string().trim().min(1),
       baseUrl: z.string().url().optional(),
       model: z.string().trim().min(1).optional(),
     }).parse(req.body);
-    const target = config.ai[body.provider];
-    const baseUrl = body.baseUrl || target.baseUrl;
-    const model = body.model || target.model;
-    const keys = body.provider === "openai"
-      ? { apiKey: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL", model: "OPENAI_MODEL" }
-      : { apiKey: "ANTHROPIC_AUTH_TOKEN", baseUrl: "ANTHROPIC_BASE_URL", model: "ANTHROPIC_MODEL" };
+    const baseUrl = body.baseUrl || config.ai.baseUrl;
+    const model = body.model || config.ai.model;
 
     for (const path of [musicEnvPath, workbenchEnvPath]) {
-      setEnvValue(path, "AI_PROVIDER", body.provider);
-      setEnvValue(path, keys.apiKey, body.apiKey);
-      setEnvValue(path, keys.baseUrl, baseUrl);
-      setEnvValue(path, keys.model, model);
+      setEnvValue(path, "ANTHROPIC_AUTH_TOKEN", body.apiKey);
+      setEnvValue(path, "ANTHROPIC_BASE_URL", baseUrl);
+      setEnvValue(path, "ANTHROPIC_MODEL", model);
     }
-    config.ai.provider = body.provider;
-    target.apiKey = body.apiKey;
-    target.baseUrl = baseUrl;
-    target.model = model;
-    res.json({ success: true, data: { configured: true, provider: body.provider, baseUrl, model } });
+    config.ai.apiKey = body.apiKey;
+    config.ai.baseUrl = baseUrl;
+    config.ai.model = model;
+    res.json({ success: true, data: { configured: true, provider: "deepseek", baseUrl, model } });
   } catch (error) { next(error); }
 });
 

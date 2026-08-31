@@ -1304,7 +1304,7 @@ Fitness API：
 | 2026-08-30 | Codex | Workbench/加密解锁 | 修复 Fitness 后端热更新重启后仓库重新上锁、工作台仍停留在模块内导致“重新连接”无反应的问题；工作台进入后定期并在窗口聚焦时检查两项数据服务，确认重新上锁后自动返回密码页 | `workbench/client/src/components/chat/PasswordGate.tsx`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-30 | Codex | Fitness/动作编辑 | 为训练详情的每个动作增加可见的“编辑”入口并自动定位到对应编辑卡片；移除固定动作库和默认新增内容，动作名称、部位、记录方式、组数、目标及休息时间均由用户自由填写，新动作从空白项开始 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
 | 2026-08-31 | Codex | Fitness/睡眠展示 | 将固定作息详情中的睡眠总分钟数改为小时与分钟，例如 450 分钟显示为 7 小时 30 分钟 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
-| 2026-08-31 | Codex | Fitness/AI 饮食估算 | 饮食记录采用本地食物库与 AI 混合估算：复杂整餐可识别套餐、额外食物及去皮/少油等跨项修饰，按常见份量拆分并返回热量、蛋白质、碳水、脂肪和估算依据；复用工作台 DeepSeek/OpenAI 配置，AI 失败时尽量回退本地计算 | `Fitness/server/src/aiConfig.ts`, `aiNutrition.ts`, `foodCalculator.ts`, `routes.ts`, `Fitness/client/src/App.tsx`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Fitness/AI 饮食估算 | 饮食记录采用本地食物库与 AI 混合估算：复杂整餐可识别套餐、额外食物及去皮/少油等跨项修饰，按常见份量拆分并返回热量、蛋白质、碳水、脂肪和估算依据；复用工作台 DeepSeek 配置，AI 失败时尽量回退本地计算 | `Fitness/server/src/aiConfig.ts`, `aiNutrition.ts`, `foodCalculator.ts`, `routes.ts`, `Fitness/client/src/App.tsx`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Fitness/自然语言饮食入账 | 修复中文占位 API Key 进入请求头引发 ByteString 异常：服务端及安装器提前校验并显示明确提示；新增“识别并自动记录”，可从“我今天中午吃了……”识别餐次、估算整餐营养并直接写入今天对应餐次，同时保留只计算不记录 | `setup.ps1`, `Fitness/server/src/aiNutrition.ts`, `routes.ts`, `Fitness/client/src/App.tsx`, `api.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | 全局数据安全 | 清理迁移后残留的 Fitness 明文数据；规定所有用户业务数据必须写入 `data/what.vault`，迁移成功后立即删除明文源，并在开发及构建前自动检查旧数据目录和加密信封结构 | `scripts/check-encrypted-data.js`, `package.json`, `Fitness/server/src/scripts/migrate-json.ts`, `Tools/server/src/scripts/migrate-json.ts`, `AGENTS.md`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Fitness/饮食估算超时 | 将复杂餐食 AI 等待时间从 20 秒提升到 60 秒；AI 超时时对常见鸡腿饭、额外鸡腿、去皮修饰和定量橙汁进行本地分项降级估算，并明确未实际食用的歧义食物不计入 | `Fitness/server/src/aiNutrition.ts`, `CLAUDE.md`, `PROJECT.md` |
@@ -1312,6 +1312,7 @@ Fitness API：
 | 2026-08-31 | Codex | Tools/拼豆精细化 | 将复杂图片默认精度提升至 128 横豆并开放 160 横豆与 48 色；采用 CIELAB 感知色差、边缘和高饱和颜色加权、三档细节增强，新增成品效果与施工图纸双视图 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `PROJECT.md` |
 | 2026-08-31 | Codex | Tools/拼豆成片预览 | 新增独立成片大图弹窗与无网格 PNG 下载，支持遮罩、关闭按钮和 Esc 退出，施工规格图继续单独导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `PROJECT.md` |
 | 2026-08-31 | Codex | Tools/拼豆自定义尺寸 | 新增横向与纵向豆数输入及原图比例锁，可在 8-240 范围内设置 64 × 36 等规格；实时检测比例偏差、提示拉伸风险并一键应用推荐尺寸，生成、预览与导出统一使用自定义尺寸 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `PROJECT.md` |
+| 2026-08-31 | Codex | 全局 AI 配置 | 将 Workbench、Music 与 Fitness 的 AI 运行时统一为 DeepSeek，移除其他提供商的请求分支、环境变量读取和设置入口，并清理本机旧配置 | `workbench/server/src/config.ts`, `services/aiClient.ts`, `services/chatService.ts`, `Music/server/src/config.ts`, `routes/settings.ts`, `services/aiClient.ts`, `Music/client/src/components/dashboard/SettingsPage.tsx`, `api/client.ts`, `Fitness/server/src/aiConfig.ts`, `aiNutrition.ts`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 

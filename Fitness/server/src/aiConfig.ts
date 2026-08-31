@@ -22,20 +22,8 @@ const projectRoot = path.resolve(import.meta.dirname, "..", "..", "..");
 loadEnvFile(path.resolve(import.meta.dirname, "..", ".env"));
 loadEnvFile(path.join(projectRoot, "workbench", "server", ".env"));
 
-export type AiProvider = "deepseek" | "openai";
-
-const provider: AiProvider = process.env.AI_PROVIDER?.toLowerCase() === "openai" ? "openai" : "deepseek";
-
-export const nutritionAiConfig = provider === "openai"
-  ? {
-      provider,
-      baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
-      apiKey: process.env.OPENAI_API_KEY || "",
-      model: process.env.OPENAI_MODEL || "gpt-5.6-terra",
-    }
-  : {
-      provider,
-      baseUrl: process.env.ANTHROPIC_BASE_URL || "https://api.deepseek.com/anthropic",
-      apiKey: process.env.ANTHROPIC_AUTH_TOKEN || "",
-      model: process.env.ANTHROPIC_MODEL || "deepseek-v4-pro",
-    };
+export const nutritionAiConfig = {
+  baseUrl: process.env.ANTHROPIC_BASE_URL || "https://api.deepseek.com/anthropic",
+  apiKey: process.env.ANTHROPIC_AUTH_TOKEN || "",
+  model: process.env.ANTHROPIC_MODEL || "deepseek-v4-pro",
+};

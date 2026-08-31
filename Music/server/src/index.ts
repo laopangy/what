@@ -60,7 +60,7 @@ setupWebSocket(server);
 server.listen(config.port, () => {
   console.log(`Server running on http://localhost:${config.port}`);
   const ai = getActiveAiConfig();
-  console.log(`AI provider: ${ai.provider}, model: ${ai.model}`);
+  console.log(`AI provider: DeepSeek, model: ${ai.model}`);
 });
 
 let shuttingDown = false;
