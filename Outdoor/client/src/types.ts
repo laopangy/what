@@ -3,6 +3,16 @@ export type Intensity = "relaxed" | "moderate" | "challenging";
 
 export interface OutdoorSettings { homeAddress: string }
 
+export interface PlannerAnalysisStep { title: string; detail: string }
+
+export interface PlannerAnalysis {
+  source: "local-rules" | "ai";
+  summary: string;
+  steps: PlannerAnalysisStep[];
+}
+
+export interface GenerateResult { plan: Itinerary; analysis: PlannerAnalysis }
+
 export interface TripIntent {
   query: string;
   origin: string;

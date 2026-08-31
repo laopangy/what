@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, Bike, Bookmark, CalendarDays, CarFront, ChevronRight, Clock3, CloudSun, Compass,
+  AlertTriangle, Bike, Bookmark, BrainCircuit, CalendarDays, CarFront, ChevronDown, ChevronRight, ChevronUp, Clock3, CloudSun, Compass,
   Check, Flag, Footprints, House, Image as ImageIcon, LoaderCircle, LockKeyhole, Map, MapPin, Mic, MicOff,
   Navigation, Pencil, RefreshCw, Route, Save, Sparkles, TrainFront, Trash2, Utensils, X,
 } from "lucide-react";
 import { api } from "./api";
-import type { Itinerary, ItineraryStop, OutdoorSettings, TransportMode, TripIntent } from "./types";
+import type { Itinerary, ItineraryStop, OutdoorSettings, PlannerAnalysis, TransportMode, TripIntent } from "./types";
 
 interface SpeechRecognitionEventLike { results: ArrayLike<{ 0: { transcript: string } }> }
 interface SpeechRecognitionInstance {
@@ -112,18 +112,35 @@ export default function App() {
   const [savingHome, setSavingHome] = useState(false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
+  const [analysis, setAnalysis] = useState<PlannerAnalysis | null>(null);
+  const [analysisVisible, setAnalysisVisible] = useState(true);
+  const [analysisStatus, setAnalysisStatus] = useState<"idle" | "running" | "success" | "error">("idle");
+  const [analysisElapsed, setAnalysisElapsed] = useState(0);
+  const [generationCount, setGenerationCount] = useState(0);
 
   const generate = async (mode?: TransportMode, overrides?: Partial<TripIntent>) => {
-    setLoading(true); setError("");
+    const startedAt = performance.now();
+    setLoading(true); setError(""); setAnalysisStatus("running"); setAnalysisVisible(true); setAnalysisElapsed(0);
+    setAnalysis({ source: "local-rules", summary: "正在理解你的出行要求", steps: [
+      { title: "读取行程描述", detail: "正在识别目的地、时间、交通方式和强度" },
+      { title: "构建闭环路线", detail: "等待规划结果" },
+    ] });
+    const elapsedTimer = window.setInterval(() => setAnalysisElapsed(Math.round(performance.now() - startedAt)), 100);
     try {
-      const next = await api.generate(query, mode, overrides);
+      const result = await api.generate(query, mode, overrides);
+      const next = result.plan;
       const lockedStops = plan?.stops.filter((stop) => stop.locked) || [];
       if (lockedStops.length) {
         next.stops = next.stops.map((stop) => lockedStops.find((locked) => locked.order === stop.order) || stop);
       }
-      setPlan(next); setSelectedStop(3); setView("planner");
-    } catch (generateError) { setError(generateError instanceof Error ? generateError.message : "暂时无法生成行程"); }
-    finally { setLoading(false); }
+      setPlan(next); setAnalysis(result.analysis); setAnalysisStatus("success"); setGenerationCount((count) => count + 1); setSelectedStop(3); setView("planner");
+    } catch (generateError) {
+      const message = generateError instanceof Error ? generateError.message : "暂时无法生成行程";
+      setError(message); setAnalysisStatus("error");
+      setAnalysis((current) => ({ source: current?.source || "local-rules", summary: "行程生成失败", steps: [...(current?.steps || []), { title: "生成中断", detail: message }] }));
+    } finally {
+      window.clearInterval(elapsedTimer); setAnalysisElapsed(Math.round(performance.now() - startedAt)); setLoading(false);
+    }
   };
 
   useEffect(() => { void generate(); }, []);
@@ -215,6 +232,18 @@ export default function App() {
                 <button className="outdoor-generate" type="button" disabled={loading || query.trim().length < 2} onClick={() => void generate()}>{loading ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />}生成完整行程</button>
               </div>
             </div>
+            {analysis && <section className={`outdoor-analysis ${analysisStatus === "error" ? "has-error" : ""}`} aria-label="行程分析过程">
+              <button type="button" className="outdoor-analysis-toggle" onClick={() => setAnalysisVisible((visible) => !visible)} aria-expanded={analysisVisible}>
+                <span className={`outdoor-analysis-icon ${analysisStatus}`}><BrainCircuit size={14} /></span>
+                <span><b>规划分析</b><small>{analysis.source === "ai" ? "AI 分析" : "本地规划"} · {analysisElapsed < 100 ? "<0.1" : (analysisElapsed / 1000).toFixed(1)} 秒{generationCount > 0 ? ` · 第 ${generationCount} 次生成` : ""}</small></span>
+                <em>{analysisStatus === "running" ? "分析中" : analysisStatus === "success" ? "已完成" : analysisStatus === "error" ? "失败" : ""}</em>
+                {analysisVisible ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+              {analysisVisible && <div className="outdoor-analysis-body">
+                <p>{analysis.summary}</p>
+                <ol>{analysis.steps.map((step, index) => { const isRunning = analysisStatus === "running" && index === 0; const isFailed = analysisStatus === "error" && index === analysis.steps.length - 1; return <li key={`${step.title}-${index}`} className={isRunning ? "is-active" : isFailed ? "is-failed" : ""}><span>{isRunning ? <LoaderCircle className="spin" size={11} /> : isFailed ? <X size={11} /> : <Check size={11} />}</span><div><b>{step.title}</b><small>{step.detail}</small></div></li>; })}</ol>
+              </div>}
+            </section>}
             {error && <div className="outdoor-error"><AlertTriangle size={15} /><span>{error}</span><button onClick={() => setError("")} aria-label="关闭"><X size={14} /></button></div>}
             {plan && <>
               <div className="outdoor-plan-heading"><div><span>完整行程</span><h2>{plan.title}</h2></div><span className="outdoor-quality">{plan.dataQuality === "live" ? "实时" : "估算"}</span></div>

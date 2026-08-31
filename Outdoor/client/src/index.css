@@ -65,6 +65,29 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .outdoor-generate:active, .outdoor-save:active { transform: scale(.985); }
 .outdoor-error { display: flex; align-items: flex-start; gap: 7px; margin-top: 10px; border: 1px solid rgb(252 165 165 / .2); border-radius: 8px; padding: 8px 9px; background: rgb(127 29 29 / .12); color: rgb(254 226 226 / .82); font-size: 9px; line-height: 1.5; }
 .outdoor-error > button { margin-left: auto; border: 0; background: transparent; color: inherit; }
+.outdoor-analysis { margin-top: 10px; overflow: hidden; border: 1px solid rgb(0 232 137 / .16); border-radius: 9px; background: rgb(31 48 55 / .42); }
+.outdoor-analysis.has-error { border-color: rgb(252 165 165 / .2); }
+.outdoor-analysis-toggle { display: flex; width: 100%; min-height: 43px; align-items: center; gap: 8px; border: 0; padding: 7px 8px; background: transparent; text-align: left; }
+.outdoor-analysis-icon { display: grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; border-radius: 7px; background: rgb(0 232 137 / .09); color: #55f0ac; }
+.outdoor-analysis-icon.running { box-shadow: inset 0 0 0 1px rgb(0 232 137 / .25); }
+.outdoor-analysis-icon.error { background: rgb(127 29 29 / .16); color: rgb(254 202 202 / .85); }
+.outdoor-analysis-toggle > span:nth-child(2) { display: grid; min-width: 0; flex: 1; gap: 2px; }
+.outdoor-analysis-toggle b { font-size: 9px; }
+.outdoor-analysis-toggle small { color: rgb(242 245 246 / .35); font-size: 7px; font-weight: 400; }
+.outdoor-analysis-toggle em { color: #55f0ac; font-size: 7px; font-style: normal; }
+.outdoor-analysis.has-error .outdoor-analysis-toggle em { color: rgb(254 202 202 / .8); }
+.outdoor-analysis-toggle > svg { color: rgb(242 245 246 / .32); }
+.outdoor-analysis-body { border-top: 1px solid rgb(255 255 255 / .06); padding: 8px 9px 9px 43px; }
+.outdoor-analysis-body > p { margin: 0 0 7px; color: rgb(242 245 246 / .55); font-size: 8px; }
+.outdoor-analysis-body ol { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.outdoor-analysis-body li { display: flex; gap: 7px; color: rgb(242 245 246 / .42); }
+.outdoor-analysis-body li > span { display: grid; width: 17px; height: 17px; flex: 0 0 auto; place-items: center; border-radius: 999px; background: rgb(0 232 137 / .08); color: #55f0ac; }
+.outdoor-analysis-body li > div { display: grid; min-width: 0; gap: 2px; }
+.outdoor-analysis-body li b { color: rgb(242 245 246 / .7); font-size: 8px; }
+.outdoor-analysis-body li small { overflow-wrap: anywhere; color: rgb(242 245 246 / .36); font-size: 7px; line-height: 1.45; }
+.outdoor-analysis-body li.is-active b { color: #55f0ac; }
+.outdoor-analysis-body li.is-failed > span { background: rgb(127 29 29 / .16); color: rgb(254 202 202 / .85); }
+.outdoor-analysis-body li.is-failed b { color: rgb(254 202 202 / .85); }
 .outdoor-plan-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 16px 0 10px; }
 .outdoor-plan-heading span, .outdoor-section-heading span { color: #55f0ac; font-size: 8px; font-weight: 700; letter-spacing: .13em; }
 .outdoor-plan-heading h2 { margin: 4px 0 0; font-size: 17px; line-height: 1.25; letter-spacing: -.035em; }

@@ -1164,13 +1164,14 @@ Fitness API：
 - 交通对比：在同一条件下切换自驾、高铁和骑行并重新计算时间、费用和限制警告；当前版本明确标记为估算路线
 - 行程管理：完整计划可保存、更新、查看和删除，全部写入根目录 `data/what.vault` 的 `outdoor` 分区，不产生模块明文数据文件
 - 家庭地址：户外页顶栏可直接设置和修改“家”，加密保存到 `data/what.vault`；行程描述未明确写出发地时自动作为闭环路线的起终点
+- 生成反馈：点击生成后立即显示可展开/收起的分析过程、耗时、状态和实际规划步骤；当前明确标注为“本地规划”，失败时保留中断阶段与错误原因
 - Workbench 集成：`/outdoor` 通过 `OutdoorEmbed` webview 加载 `http://localhost:5177`；旧 `/cycling` 与 `/travel` 路由兼容跳转
 
 Outdoor API：
 
 | 方法 | 路由 | 用途 |
 |------|------|------|
-| POST | `/api/outdoor/generate` | 解析自然语言并生成完整行程草案，可指定交通方式和条件覆盖 |
+| POST | `/api/outdoor/generate` | 解析自然语言并生成完整行程草案与规划分析摘要，可指定交通方式和条件覆盖 |
 | GET / PUT | `/api/outdoor/settings` | 获取或保存家庭地址设置 |
 | GET | `/api/outdoor/plans` | 获取已保存的行程 |
 | POST | `/api/outdoor/plans` | 保存新行程 |
@@ -1353,6 +1354,7 @@ Outdoor API：
 | 2026-08-31 | Codex | Workbench/AI 对话 | 将 AI 主身份调整为通用助手；仅在明确音乐需求或连续音乐操作时注入音乐提示及工具定义，普通问答不再携带音乐上下文，也不追加听歌引导或音乐建议 | `workbench/server/src/services/chatService.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Outdoor/户外行程 | 新增独立户外模块并合并原骑行与旅行入口：支持文字/系统语音描述、中文时长解析、自驾/高铁/骑行对比、八节点完整闭环行程、地图式路线与时间轴/图片联动、估算风险提示及加密计划管理；仅新增 Outdoor 局部样式，不修改现有模块视觉 | `Outdoor/**`, `workbench/client/src/App.tsx`, `components/chat/OutdoorEmbed.tsx`, `components/chat/PasswordGate.tsx`, `components/layout/WorkbenchLayout.tsx`, `package.json`, `electron/main.js`, `scripts/clean-ports.js`, `setup.ps1`, `index.html`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Outdoor/家庭地址 | 户外页顶栏新增“家”的地址设置，地址写入加密仓库；自然语言未明确指定出发地时自动从家出发并回家，地图同步显示实际起点 | `Outdoor/server/src/types.ts`, `storage.ts`, `routes.ts`, `planner.ts`, `Outdoor/client/src/types.ts`, `api.ts`, `App.tsx`, `index.css`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Outdoor/生成反馈 | 修复重复生成缺少可感知反馈的问题：新增可展开/收起的规划分析过程，持续显示来源、耗时、生成次数、完成或失败状态与实际步骤；后端生成接口同步返回结构化分析摘要，当前如实标注为本地规划而非 AI | `Outdoor/server/src/types.ts`, `routes.ts`, `Outdoor/client/src/types.ts`, `api.ts`, `App.tsx`, `index.css`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 
