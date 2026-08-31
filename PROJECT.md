@@ -762,8 +762,10 @@ Workbench、Music 与 Tools 使用从参考插画提炼的统一“暗室琥珀�
 
 - **职责**：处理 AI 对话，管理 tool calling 循环
 - **System Prompt 要点**：
-  - 角色定位：阿潘阿潘潘工具栈的 AI 助手
-  - 可用模块：音乐（网易云音乐控制）
+  - 角色定位：阿潘阿潘潘工具栈的通用 AI 助手，优先直接处理当前问题
+  - 普通问答与音乐能力解耦：只有明确的音乐需求或音乐操作续问才注入音乐说明及工具定义
+  - 数学、知识问答、写作和闲聊等非音乐请求不得追加听歌引导或无关的音乐建议
+  - 可按需调用的模块：音乐（网易云音乐控制）
   - 操作指引：先搜索再播放、搜索无结果时重试、多版本时让用户选择
   - 🆕 登录处理：工具返回 needLogin 时引导用户扫码登录
   - 语气要求：中文回复，友好活泼
@@ -1313,6 +1315,7 @@ Fitness API：
 | 2026-08-31 | Codex | Tools/拼豆成片预览 | 新增独立成片大图弹窗与无网格 PNG 下载，支持遮罩、关闭按钮和 Esc 退出，施工规格图继续单独导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `PROJECT.md` |
 | 2026-08-31 | Codex | Tools/拼豆自定义尺寸 | 新增横向与纵向豆数输入及原图比例锁，可在 8-240 范围内设置 64 × 36 等规格；实时检测比例偏差、提示拉伸风险并一键应用推荐尺寸，生成、预览与导出统一使用自定义尺寸 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `PROJECT.md` |
 | 2026-08-31 | Codex | 全局 AI 配置 | 将 Workbench、Music 与 Fitness 的 AI 运行时统一为 DeepSeek，移除其他提供商的请求分支、环境变量读取和设置入口，并清理本机旧配置 | `workbench/server/src/config.ts`, `services/aiClient.ts`, `services/chatService.ts`, `Music/server/src/config.ts`, `routes/settings.ts`, `services/aiClient.ts`, `Music/client/src/components/dashboard/SettingsPage.tsx`, `api/client.ts`, `Fitness/server/src/aiConfig.ts`, `aiNutrition.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Workbench/AI 对话 | 将 AI 主身份调整为通用助手；仅在明确音乐需求或连续音乐操作时注入音乐提示及工具定义，普通问答不再携带音乐上下文，也不追加听歌引导或音乐建议 | `workbench/server/src/services/chatService.ts`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 
