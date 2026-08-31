@@ -82,7 +82,7 @@ function resolveTemplate(query: string, destination: string): DestinationTemplat
   };
 }
 
-export function parseIntent(query: string): TripIntent {
+export function parseIntent(query: string, homeAddress?: string): TripIntent {
   const normalized = query.trim();
   const originMatch = normalized.match(/从([^，。,.\s]{2,12}?)(?:出发|去|到)/);
   const knownDestination = destinationTemplates.find((template) => template.aliases.some((alias) => normalized.includes(alias)));
@@ -96,7 +96,7 @@ export function parseIntent(query: string): TripIntent {
   const intensity: Intensity = /挑战|强度高|特种兵/.test(normalized) ? "challenging" : /不累|轻松|休闲/.test(normalized) ? "relaxed" : "moderate";
   return {
     query: normalized,
-    origin: originMatch?.[1] || knownDestination?.origin || "上海",
+    origin: originMatch?.[1] || homeAddress || knownDestination?.origin || "上海",
     destination: knownDestination?.name || destinationMatch?.[1]?.trim() || "莫干山",
     dayLabel: /今天/.test(normalized) ? "今天" : /明天/.test(normalized) ? "明天" : /周日|星期日/.test(normalized) ? "周日" : "周六",
     startTime: normalized.match(/(\d{1,2}):?(\d{2})?\s*(?:出发|走)/)?.slice(1, 3).filter(Boolean).join(":") || "07:30",

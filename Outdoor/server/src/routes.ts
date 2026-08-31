@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { deletePlan, readState, savePlan } from "./storage.js";
+import { deletePlan, readState, savePlan, saveSettings } from "./storage.js";
 import { generateItinerary, parseIntent } from "./planner.js";
 import type { Itinerary, TransportMode, TripIntent } from "./types.js";
 
@@ -18,14 +18,26 @@ const generateSchema = z.object({
     intensity: z.enum(["relaxed", "moderate", "challenging"]).optional(),
   }).optional(),
 });
+const settingsSchema = z.object({
+  homeAddress: z.string().trim().min(2, "请输入完整的家庭地址").max(120),
+});
 
 outdoorRouter.post("/generate", async (req, res, next) => {
   try {
     const input = generateSchema.parse(req.body);
-    const parsed = parseIntent(input.query);
+    const state = await readState();
+    const parsed = parseIntent(input.query, state.settings.homeAddress || undefined);
     const intent = { ...parsed, ...(input.overrides || {}) } as TripIntent;
     res.json(generateItinerary(intent, input.mode as TransportMode | undefined));
   } catch (error) { next(error); }
+});
+
+outdoorRouter.get("/settings", async (_req, res, next) => {
+  try { res.json((await readState()).settings); } catch (error) { next(error); }
+});
+
+outdoorRouter.put("/settings", async (req, res, next) => {
+  try { res.json(await saveSettings(settingsSchema.parse(req.body))); } catch (error) { next(error); }
 });
 
 outdoorRouter.get("/plans", async (_req, res, next) => {

@@ -56,4 +56,9 @@ export interface Itinerary {
 
 export interface OutdoorState {
   plans: Itinerary[];
+  settings: OutdoorSettings;
+}
+
+export interface OutdoorSettings {
+  homeAddress: string;
 }

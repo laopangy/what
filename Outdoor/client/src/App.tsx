@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Bike, Bookmark, CalendarDays, CarFront, ChevronRight, Clock3, CloudSun, Compass,
-  Flag, Footprints, Image as ImageIcon, LoaderCircle, LockKeyhole, Map, MapPin, Mic, MicOff,
-  Navigation, RefreshCw, Route, Save, Sparkles, TrainFront, Trash2, Utensils, X,
+  Check, Flag, Footprints, House, Image as ImageIcon, LoaderCircle, LockKeyhole, Map, MapPin, Mic, MicOff,
+  Navigation, Pencil, RefreshCw, Route, Save, Sparkles, TrainFront, Trash2, Utensils, X,
 } from "lucide-react";
 import { api } from "./api";
-import type { Itinerary, ItineraryStop, TransportMode, TripIntent } from "./types";
+import type { Itinerary, ItineraryStop, OutdoorSettings, TransportMode, TripIntent } from "./types";
 
 interface SpeechRecognitionEventLike { results: ArrayLike<{ 0: { transcript: string } }> }
 interface SpeechRecognitionInstance {
@@ -20,7 +20,7 @@ interface SpeechRecognitionInstance {
 }
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
 
-const defaultQuery = "周六从上海出发去莫干山，一天来回，单程两小时以内，自驾或者高铁都行，不想太累";
+const defaultQuery = "周六去莫干山，一天来回，单程两小时以内，自驾或者高铁都行，不想太累";
 const modeMeta: Record<TransportMode, { label: string; icon: typeof CarFront }> = {
   driving: { label: "自驾", icon: CarFront }, rail: { label: "高铁", icon: TrainFront }, cycling: { label: "骑行", icon: Bike },
 };
@@ -43,7 +43,7 @@ function RouteMap({ plan, selectedStop, onSelect }: { plan: Itinerary; selectedS
         <span><CloudSun size={14} /> 16°C · 多云</span>
         <span className="outdoor-data-status"><span />{plan.dataQuality === "live" ? "实时路线" : "路线估算"}</span>
       </div>
-      <div className="outdoor-map-label outdoor-map-label-home">上海市</div>
+      <div className="outdoor-map-label outdoor-map-label-home">{plan.intent.origin}</div>
       <div className="outdoor-map-label outdoor-map-label-destination">{plan.intent.destination}</div>
       <svg className="outdoor-route-svg" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={`${plan.title}闭环路线`}>
         <defs>
@@ -102,10 +102,14 @@ export default function App() {
   const [query, setQuery] = useState(defaultQuery);
   const [plan, setPlan] = useState<Itinerary | null>(null);
   const [savedPlans, setSavedPlans] = useState<Itinerary[]>([]);
+  const [settings, setSettings] = useState<OutdoorSettings>({ homeAddress: "" });
+  const [homeDraft, setHomeDraft] = useState("");
+  const [editingHome, setEditingHome] = useState(false);
   const [view, setView] = useState<"planner" | "saved">("planner");
   const [selectedStop, setSelectedStop] = useState(3);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingHome, setSavingHome] = useState(false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
 
@@ -123,7 +127,21 @@ export default function App() {
   };
 
   useEffect(() => { void generate(); }, []);
-  useEffect(() => { api.plans().then(setSavedPlans).catch(() => undefined); }, []);
+  useEffect(() => {
+    api.plans().then(setSavedPlans).catch(() => undefined);
+    api.settings().then((next) => { setSettings(next); setHomeDraft(next.homeAddress); }).catch(() => undefined);
+  }, []);
+
+  const saveHome = async () => {
+    if (homeDraft.trim().length < 2) { setError("请输入完整的家庭地址"); return; }
+    setSavingHome(true); setError("");
+    try {
+      const next = await api.saveSettings({ homeAddress: homeDraft.trim() });
+      setSettings(next); setHomeDraft(next.homeAddress); setEditingHome(false);
+      await generate();
+    } catch (settingsError) { setError(settingsError instanceof Error ? settingsError.message : "家庭地址保存失败"); }
+    finally { setSavingHome(false); }
+  };
 
   const startVoice = () => {
     const scope = window as typeof window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor };
@@ -161,10 +179,22 @@ export default function App() {
     <main className="outdoor-root">
       <header className="outdoor-local-header">
         <div><span className="outdoor-eyebrow">OUTDOOR</span><h1>户外</h1><p>一句话生成从出发到回家的完整路线</p></div>
-        <nav aria-label="户外模块导航">
-          <button className={view === "planner" ? "is-active" : ""} onClick={() => setView("planner")}><Route size={15} />行程规划</button>
-          <button className={view === "saved" ? "is-active" : ""} onClick={() => setView("saved")}><Bookmark size={15} />我的计划 <span>{savedPlans.length}</span></button>
-        </nav>
+        <div className="outdoor-header-actions">
+          <div className={`outdoor-home-setting ${editingHome ? "is-editing" : ""}`}>
+            {editingHome ? <>
+              <House size={14} />
+              <input autoFocus value={homeDraft} onChange={(event) => setHomeDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void saveHome(); if (event.key === "Escape") { setHomeDraft(settings.homeAddress); setEditingHome(false); } }} placeholder="输入小区、街道或完整地址" aria-label="家庭地址" />
+              <button type="button" onClick={() => void saveHome()} disabled={savingHome} aria-label="保存家庭地址">{savingHome ? <LoaderCircle className="spin" size={14} /> : <Check size={14} />}</button>
+              <button type="button" onClick={() => { setHomeDraft(settings.homeAddress); setEditingHome(false); }} aria-label="取消编辑"><X size={14} /></button>
+            </> : <button type="button" className="outdoor-home-trigger" onClick={() => setEditingHome(true)} title={settings.homeAddress || "设置家庭地址"}>
+              <House size={14} /><span><small>家</small>{settings.homeAddress || "设置地址"}</span><Pencil size={12} />
+            </button>}
+          </div>
+          <nav aria-label="户外模块导航">
+            <button className={view === "planner" ? "is-active" : ""} onClick={() => setView("planner")}><Route size={15} />行程规划</button>
+            <button className={view === "saved" ? "is-active" : ""} onClick={() => setView("saved")}><Bookmark size={15} />我的计划 <span>{savedPlans.length}</span></button>
+          </nav>
+        </div>
       </header>
 
       {view === "saved" ? (

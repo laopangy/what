@@ -1,6 +1,8 @@
 export type TransportMode = "driving" | "rail" | "cycling";
 export type Intensity = "relaxed" | "moderate" | "challenging";
 
+export interface OutdoorSettings { homeAddress: string }
+
 export interface TripIntent {
   query: string;
   origin: string;

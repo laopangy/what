@@ -283,6 +283,7 @@ workbench/client ──WebSocket────────────────
 | 路由 | 用途 |
 |------|------|
 | `/api/outdoor/generate` (POST) | 从自然语言解析出发地、目的地、时间限制、交通方式和强度，生成去程、活动、用餐、休息、返程与到家的完整闭环行程 |
+| `/api/outdoor/settings` (GET/PUT) | 获取或保存加密的家庭地址；描述未指定出发地时作为默认起终点 |
 | `/api/outdoor/plans` | 获取或保存加密行程计划 |
 | `/api/outdoor/plans/:id` (PUT) | 更新已有行程计划 |
 | `/api/outdoor/plans/:id` (DELETE) | 删除已有行程计划 |
