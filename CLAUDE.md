@@ -124,6 +124,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\setup.ps1 -ForceS
 - 首次进入工作台需输入数据密码。密码只用于运行时验证和密钥派生，不写入仓库文件或项目文档
 - 解锁页采用与工作台一致的灰蓝玻璃与 QQ 绿设计：双栏说明数据保护方式，提供连接中、解锁中和内联错误状态；Electron 锁屏时仍显示最小化、最大化和关闭按钮。进入工作台后会定期检查 Tools 与 Fitness 的解锁状态，任一服务重启并重新上锁时自动返回密码页
 - 定时器、执行历史、日记和 Fitness 数据统一保存在根目录 `data/what.vault`。文件使用随机盐、PBKDF2-SHA256 和 AES-256-GCM 加密，Git 会忽略该文件
+- 所有用户生成的业务数据必须进入加密仓库，禁止在模块 `server/data/` 中保留明文 JSON；开发和构建前会运行 `npm run check:data-security` 检查旧明文文件及加密信封结构，迁移脚本写入成功后会立即删除明文源文件
 
 ### 手动安装备用流程
 
@@ -260,7 +261,7 @@ workbench/client ──WebSocket────────────────
 |------|------|
 | `/api/fitness/state` | 获取个人资料、训练计划、训练/饮食/体重记录 |
 | `/api/fitness/foods` | 获取内置常见食物名称 |
-| `/api/fitness/foods/calculate` (POST) | 简单食物使用本地食物库；套餐、额外加菜、去皮/少油等复杂自然语言调用 AI 拆分并估算热量与三大营养素；AI 不可用时尽量回退本地估算；也支持营养标签换算 |
+| `/api/fitness/foods/calculate` (POST) | 简单食物使用本地食物库；套餐、额外加菜、去皮/少油等复杂自然语言调用 AI 拆分并估算热量与三大营养素；AI 最多等待 60 秒，常见鸡腿饭、额外鸡腿和果汁在超时后使用可见假设进行本地降级估算；也支持营养标签换算 |
 | `/api/fitness/routine` (PUT) | 保存全局固定起床和睡觉时间 |
 | `/api/fitness/sessions` (POST) | 新增每日计划；单个计划可包含多条活动和可动态配置的训练动作，四餐文本自动估算并保存热量与三大营养素 |
 | `/api/fitness/sessions/:id` (PUT) | 编辑已有每日计划、嵌套活动、训练动作及四餐营养估算 |

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, unlinkSync } from "fs";
 import path from "path";
 import { unlockVault, updateVault } from "../vault.js";
 import type { FitnessState } from "../types.js";
@@ -14,7 +14,8 @@ async function migrate(): Promise<void> {
   await unlockVault(password);
   const state = JSON.parse(readFileSync(filePath, "utf8")) as FitnessState;
   await updateVault((data) => { data.fitness = state; });
-  console.log("Fitness 数据迁移完成");
+  unlinkSync(filePath);
+  console.log("Fitness 数据迁移完成，旧明文文件已删除");
 }
 
 migrate()
