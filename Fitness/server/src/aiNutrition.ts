@@ -43,6 +43,9 @@ function extractJson(text: string): unknown {
 
 async function callAi(query: string): Promise<string> {
   if (!nutritionAiConfig.apiKey) throw new Error("AI 营养估算未配置，请先在安装器中保存 AI API Key");
+  if (!/^[\x20-\x7e]+$/.test(nutritionAiConfig.apiKey)) {
+    throw new Error("AI API Key 格式不正确：当前保存的是中文占位内容，请在安装器中粘贴平台生成的真实 Key");
+  }
   const signal = AbortSignal.timeout(20_000);
   if (nutritionAiConfig.provider === "openai") {
     const response = await fetch(endpoint(nutritionAiConfig.baseUrl, "responses"), {

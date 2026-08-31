@@ -86,6 +86,7 @@ what/
 - 安装期间可点击“取消安装”；关闭窗口也会先终止本次 Worker 及其 npm 子进程，避免残留安装相互占用目录
 - 自动创建 `Music/server/.env`、`workbench/server/.env`，并写入本机 ncm-cli 路径
 - 提供隐藏输入框保存 DeepSeek API Key，并同时写入两份 `.env`；密钥不会显示或进入安装日志
+- API Key 会校验为平台生成的英文字符密钥，中文占位文字不会再被误判为已配置
 - 提供“申请密钥”入口；未配置时启动前会明确提醒 AI 功能不可用
 - 已有 `.env` 内容会保留，不覆盖 API Key、端口等用户配置
 
@@ -266,6 +267,7 @@ workbench/client ──WebSocket────────────────
 | `/api/fitness/sessions/:id` (DELETE) | 删除每日计划（包括内置计划，历史运动记录保留） |
 | `/api/fitness/profile` (PUT) | 保存资料并重新计算热量和营养目标 |
 | `/api/fitness/meals` (POST) | 添加饮食记录 |
+| `/api/fitness/meals/from-text` (POST) | 从“我今天中午吃了……”等自然语言识别餐次，AI 估算营养后直接写入今天对应的早餐、午餐、晚餐或加餐 |
 | `/api/fitness/meals/:id` (DELETE) | 删除饮食记录 |
 | `/api/fitness/workouts` (POST) | 保存逐组训练记录，支持重量＋次数、仅次数及按秒计时动作 |
 | `/api/fitness/weights` (POST) | 新增或覆盖当天身体数据 |
