@@ -23,6 +23,7 @@
    - 5.3 [后端架构](#53-后端架构)
    - 5.4 [核心数据流](#54-核心数据流)
    - 5.5 [工具插件系统](#55-工具插件系统)
+   - 5.6 [Tools 模块](#56-tools-模块)
 6. [Electron 桌面客户端](#6-electron-桌面客户端)
 7. [待开发模块](#7-待开发模块)
 8. [端口与代理配置](#8-端口与代理配置)
@@ -923,6 +924,22 @@ toolRegistry.ts
 2. 在 `index.ts` 中 `registerPlugin(newPlugin)`
 3. 更新 `chatService.ts` 中的 System Prompt
 
+### 5.6 Tools 模块
+
+Tools 前端使用 React 19、React Router 7 与 Tailwind CSS 4，端口为 `5175`。侧栏按任务工具与图像工具分组，目前提供定时器、执行历史、日记和拼豆规格图。
+
+#### 拼豆规格图
+
+路由：`/beads`
+
+- 支持拖拽或选择 PNG、JPG、WebP 图片，单文件上限 20 MB
+- 图片仅在浏览器本地处理，不传到服务器
+- 横向豆数可选 16、24、32、40、48、64，纵向豆数按原图比例自动计算
+- 最大颜色数可在 4-24 之间调整；使用确定性的颜色聚类生成色板，并按使用量排序为 `P01`、`P02` 等内部色号
+- 规格预览包含逐格数字、每 5 格坐标、成品尺寸、总豆数、实际用色数和颜色用量清单
+- 透明像素保留为空格且不计入豆数；导出 PNG 会同时包含完整图纸和颜色图例
+- 首版使用图片近似色，不绑定具体拼豆品牌色卡，后续可在现有色板数据结构上增加品牌色号映射
+
 ---
 
 ## 6. Electron 桌面客户端
@@ -1285,6 +1302,7 @@ Fitness API：
 | 2026-08-30 | Codex | Fitness/动作编辑 | 为训练详情的每个动作增加可见的“编辑”入口并自动定位到对应编辑卡片；移除固定动作库和默认新增内容，动作名称、部位、记录方式、组数、目标及休息时间均由用户自由填写，新动作从空白项开始 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
 | 2026-08-31 | Codex | Fitness/睡眠展示 | 将固定作息详情中的睡眠总分钟数改为小时与分钟，例如 450 分钟显示为 7 小时 30 分钟 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
 | 2026-08-31 | Codex | Fitness/AI 饮食估算 | 饮食记录采用本地食物库与 AI 混合估算：复杂整餐可识别套餐、额外食物及去皮/少油等跨项修饰，按常见份量拆分并返回热量、蛋白质、碳水、脂肪和估算依据；复用工作台 DeepSeek/OpenAI 配置，AI 失败时尽量回退本地计算 | `Fitness/server/src/aiConfig.ts`, `aiNutrition.ts`, `foodCalculator.ts`, `routes.ts`, `Fitness/client/src/App.tsx`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Tools/拼豆 | 新增拼豆规格图工具：本地图片上传、豆数与颜色数量调节、颜色聚类、带坐标的逐格预览、色号用量统计及完整 PNG 图纸导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `Tools/client/src/App.tsx`, `Tools/client/src/components/layout/*`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 

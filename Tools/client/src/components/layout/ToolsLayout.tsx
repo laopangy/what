@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import { Wrench, Clock, History } from "lucide-react";
+import { Wrench, Clock, Grid3X3, History } from "lucide-react";
 
 export default function ToolsLayout({ children }: { children: ReactNode }) {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -11,7 +11,7 @@ export default function ToolsLayout({ children }: { children: ReactNode }) {
     }`;
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 relative">
+    <div className="relative flex min-h-[100dvh] bg-slate-950 text-slate-100">
       {/* Sidebar */}
       <aside className="w-52 border-r border-slate-800 bg-slate-900/90 flex flex-col p-3 shadow-[12px_0_30px_rgb(0_0_0_/_0.18)]">
         {/* Header */}
@@ -39,14 +39,16 @@ export default function ToolsLayout({ children }: { children: ReactNode }) {
           </nav>
         </div>
 
-        {/* Future tools placeholder */}
         <div className="mb-4">
-          <p className="px-3 text-xs font-medium text-slate-600 uppercase tracking-wider mb-2">
-            更多工具
+          <p className="px-3 text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+            图像工具
           </p>
-          <div className="px-3 py-2 text-xs text-slate-600 italic">
-            即将推出...
-          </div>
+          <nav className="flex flex-col gap-1">
+            <NavLink to="/beads" className={linkClass}>
+              <Grid3X3 className="w-4 h-4" />
+              拼豆规格图
+            </NavLink>
+          </nav>
         </div>
 
       </aside>

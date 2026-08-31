@@ -22,7 +22,7 @@ what/
 │   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
 │   ├── server/             # Express 5 + TypeScript（node-cron 调度等）
 │   └── server/             # 定时器、执行历史和日记写入根目录加密仓库
-│   └── 子工具: 定时器 ⏰
+│   └── 子工具: 定时器 ⏰、拼豆规格图
 ├── Cycling/                # 🚴 骑行模块（开发中，仅占位 package.json）
 ├── Fitness/                # 💪 肌肉大（训练、饮食与身体数据管理，已上线）
 │   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
@@ -169,7 +169,7 @@ npm run dev:web
 - 门户页面：用浏览器打开 `what/index.html`
 - AI 工作台：http://localhost:5174
 - 音乐播放器：http://localhost:5173
-- 定时器：http://localhost:5175（工具模块首页）
+- 工具模块：http://localhost:5175（定时器、拼豆规格图）
 
 ## 启动验证清单
 

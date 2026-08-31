@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Clock, ArrowRight, Wrench } from "lucide-react";
+import { Clock, ArrowRight, Grid3X3, Wrench } from "lucide-react";
 
 const tools = [
   {
@@ -11,7 +11,15 @@ const tools = [
     path: "/timer",
     active: true,
   },
-  // Future tools can be added here
+  {
+    id: "beads",
+    name: "拼豆规格图",
+    description: "上传图片，生成带格号、色号和用量统计的拼豆图纸",
+    icon: Grid3X3,
+    color: "bg-indigo-500/15 text-indigo-400",
+    path: "/beads",
+    active: true,
+  },
 ];
 
 export default function ToolsHome() {
@@ -50,14 +58,6 @@ export default function ToolsHome() {
           </button>
         ))}
 
-        {/* Placeholder for future tools */}
-        <div className="bg-slate-900/50 border border-dashed border-slate-800 rounded-xl p-6 flex flex-col items-center justify-center text-center opacity-50">
-          <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center mb-4">
-            <Wrench className="w-6 h-6 text-slate-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-slate-500 mb-1">更多工具</h3>
-          <p className="text-sm text-slate-600">即将推出更多实用工具</p>
-        </div>
       </div>
     </div>
   );
