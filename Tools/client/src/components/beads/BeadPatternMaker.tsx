@@ -6,10 +6,12 @@ import {
   ImagePlus,
   Info,
   LayoutGrid,
+  Link2,
   Maximize2,
   Palette,
   RotateCcw,
   Sparkles,
+  Unlink2,
   Upload,
   X,
 } from "lucide-react";
@@ -21,7 +23,12 @@ import {
 } from "../../utils/beadPattern";
 
 const GRID_SIZES = [48, 64, 80, 96, 128, 160];
+const MIN_GRID_SIZE = 8;
+const MAX_GRID_SIZE = 240;
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
+
+const clampGridSize = (value: number) =>
+  Math.max(MIN_GRID_SIZE, Math.min(MAX_GRID_SIZE, Math.round(value)));
 
 interface LoadedImage {
   element: HTMLImageElement;
@@ -38,6 +45,8 @@ export default function BeadPatternMaker() {
   const [image, setImage] = useState<LoadedImage | null>(null);
   const [pattern, setPattern] = useState<BeadPattern | null>(null);
   const [gridWidth, setGridWidth] = useState(128);
+  const [gridHeight, setGridHeight] = useState(72);
+  const [aspectLocked, setAspectLocked] = useState(true);
   const [colorCount, setColorCount] = useState(32);
   const [detailMode, setDetailMode] = useState<DetailMode>("balanced");
   const [viewMode, setViewMode] = useState<"beads" | "chart">("beads");
@@ -62,6 +71,7 @@ export default function BeadPatternMaker() {
       try {
         setPattern(createBeadPattern(image.element, image.width, image.height, {
           gridWidth,
+          gridHeight,
           requestedColors: colorCount,
           detailMode,
         }));
@@ -74,7 +84,7 @@ export default function BeadPatternMaker() {
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [colorCount, detailMode, gridWidth, image]);
+  }, [colorCount, detailMode, gridHeight, gridWidth, image]);
 
   useEffect(() => {
     if (!pattern || !canvasRef.current) return;
@@ -116,11 +126,15 @@ export default function BeadPatternMaker() {
     const previewUrl = URL.createObjectURL(file);
     const element = new Image();
     element.onload = () => {
+      const nextGridWidth = element.naturalWidth >= 1600 ? 128 : 80;
+      setGridWidth(nextGridWidth);
+      setGridHeight(
+        clampGridSize((nextGridWidth * element.naturalHeight) / element.naturalWidth),
+      );
+      setAspectLocked(true);
       if (element.naturalWidth >= 1600) {
-        setGridWidth(128);
         setColorCount(32);
       } else {
-        setGridWidth(80);
         setColorCount(24);
       }
       setImage((current) => {
@@ -140,6 +154,40 @@ export default function BeadPatternMaker() {
       setError("无法读取这张图片，请换一个文件重试");
     };
     element.src = previewUrl;
+  };
+
+  const proportionalHeight = (width: number) =>
+    clampGridSize(width * (image ? image.height / image.width : 9 / 16));
+
+  const proportionalWidth = (height: number) =>
+    clampGridSize(height * (image ? image.width / image.height : 16 / 9));
+
+  const updateGridWidth = (value: number) => {
+    const nextWidth = clampGridSize(value);
+    setGridWidth(nextWidth);
+    if (aspectLocked) setGridHeight(proportionalHeight(nextWidth));
+  };
+
+  const updateGridHeight = (value: number) => {
+    const nextHeight = clampGridSize(value);
+    setGridHeight(nextHeight);
+    if (aspectLocked) setGridWidth(proportionalWidth(nextHeight));
+  };
+
+  const toggleAspectLock = () => {
+    setAspectLocked((locked) => {
+      if (!locked) setGridHeight(proportionalHeight(gridWidth));
+      return !locked;
+    });
+  };
+
+  const recommendedGridHeight = proportionalHeight(gridWidth);
+  const sourceAspectRatio = image ? image.width / image.height : 16 / 9;
+  const ratioDeviation = Math.abs(gridWidth / gridHeight - sourceAspectRatio) / sourceAspectRatio;
+  const ratioMatches = ratioDeviation <= 0.015;
+
+  const applyRecommendedRatio = () => {
+    setGridHeight(recommendedGridHeight);
   };
 
   const reset = () => {
@@ -291,13 +339,13 @@ export default function BeadPatternMaker() {
             </div>
 
             <fieldset>
-              <legend className="mb-2 text-xs font-medium text-slate-400">横向豆数</legend>
+              <legend className="mb-2 text-xs font-medium text-slate-400">常用横向豆数</legend>
               <div className="grid grid-cols-3 gap-2">
                 {GRID_SIZES.map((size) => (
                   <button
                     key={size}
                     type="button"
-                    onClick={() => setGridWidth(size)}
+                    onClick={() => updateGridWidth(size)}
                     className={`rounded-lg border px-2 py-2 text-sm font-semibold transition-colors ${
                       gridWidth === size
                         ? "border-indigo-500 bg-indigo-500 text-[#172027]"
@@ -308,6 +356,108 @@ export default function BeadPatternMaker() {
                   </button>
                 ))}
               </div>
+
+              <div className="mt-3 grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2">
+                <label className="min-w-0 text-[11px] font-medium text-slate-500">
+                  横向
+                  <input
+                    type="number"
+                    min={MIN_GRID_SIZE}
+                    max={MAX_GRID_SIZE}
+                    value={gridWidth}
+                    onChange={(event) => {
+                      if (Number.isFinite(event.target.valueAsNumber)) {
+                        updateGridWidth(event.target.valueAsNumber);
+                      }
+                    }}
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/50 px-2.5 py-2 font-mono text-sm font-semibold text-slate-100 outline-none transition-colors focus:border-indigo-500"
+                    aria-label="横向豆数"
+                  />
+                </label>
+                <span className="pb-2.5 text-xs text-slate-600">×</span>
+                <label className="min-w-0 text-[11px] font-medium text-slate-500">
+                  纵向
+                  <input
+                    type="number"
+                    min={MIN_GRID_SIZE}
+                    max={MAX_GRID_SIZE}
+                    value={gridHeight}
+                    onChange={(event) => {
+                      if (Number.isFinite(event.target.valueAsNumber)) {
+                        updateGridHeight(event.target.valueAsNumber);
+                      }
+                    }}
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/50 px-2.5 py-2 font-mono text-sm font-semibold text-slate-100 outline-none transition-colors focus:border-indigo-500"
+                    aria-label="纵向豆数"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={toggleAspectLock}
+                  className={`mb-px inline-flex h-[38px] w-[38px] items-center justify-center rounded-lg border transition-colors ${
+                    aspectLocked
+                      ? "border-indigo-500/70 bg-indigo-500/15 text-indigo-300"
+                      : "border-slate-700 bg-slate-950/50 text-slate-500 hover:text-slate-300"
+                  }`}
+                  aria-label={aspectLocked ? "解除原图比例锁定" : "锁定为原图比例"}
+                  title={aspectLocked ? "已锁定原图比例" : "自由设置宽高"}
+                >
+                  {aspectLocked ? (
+                    <Link2 className="h-4 w-4" strokeWidth={1.8} />
+                  ) : (
+                    <Unlink2 className="h-4 w-4" strokeWidth={1.8} />
+                  )}
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-600">
+                {aspectLocked
+                  ? "已按原图比例联动，修改任一边都会自动计算另一边。"
+                  : `宽高可独立设置，范围 ${MIN_GRID_SIZE}–${MAX_GRID_SIZE}。`}
+              </p>
+
+              {image && (
+                <div
+                  className={`mt-3 rounded-lg border px-3 py-2.5 ${
+                    ratioMatches
+                      ? "border-emerald-500/25 bg-emerald-500/8"
+                      : "border-amber-500/35 bg-amber-500/10"
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <Info
+                      className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
+                        ratioMatches ? "text-emerald-400" : "text-amber-400"
+                      }`}
+                      strokeWidth={1.8}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`text-xs font-semibold ${
+                          ratioMatches ? "text-emerald-300" : "text-amber-300"
+                        }`}
+                      >
+                        {ratioMatches ? "当前比例与原图匹配" : "当前比例可能拉伸画面"}
+                      </p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                        按当前横向豆数，推荐规格为
+                        <span className="ml-1 font-mono font-semibold text-slate-300">
+                          {gridWidth} × {recommendedGridHeight}
+                        </span>
+                        {!ratioMatches && `，当前偏差约 ${Math.round(ratioDeviation * 100)}%`}
+                      </p>
+                    </div>
+                    {!ratioMatches && (
+                      <button
+                        type="button"
+                        onClick={applyRecommendedRatio}
+                        className="shrink-0 rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-300 transition-colors hover:bg-amber-500/20"
+                      >
+                        使用推荐
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </fieldset>
 
             <div className="mt-5">

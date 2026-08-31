@@ -934,7 +934,7 @@ Tools 前端使用 React 19、React Router 7 与 Tailwind CSS 4，端口为 `517
 
 - 支持拖拽或选择 PNG、JPG、WebP 图片，单文件上限 20 MB
 - 图片仅在浏览器本地处理，不传到服务器
-- 横向豆数可选 48、64、80、96、128、160，纵向豆数按原图比例自动计算；大于 1600px 的复杂图片默认使用 128 横豆
+- 横向豆数可选 48、64、80、96、128、160，也可在 8-240 范围内自定义横向与纵向豆数；比例锁开启时宽高按原图联动，关闭后可自由设置如 64 × 36；系统会实时检测与原图的比例偏差、提示拉伸风险并提供一键推荐尺寸；大于 1600px 的复杂图片默认使用 128 横豆
 - 最大颜色数可在 8-48 之间调整；颜色聚类改用 CIELAB 感知色差，并提高轮廓与高饱和小面积颜色的采样权重，减少肤色、发色被大面积背景色吞并的问题
 - 提供柔和、均衡、锐利三档细节处理；均衡和锐利模式在缩图后进行局部反差与饱和度增强
 - 预览可在无格线的“成品效果”和带逐格数字、每 5 格坐标的“施工图纸”之间切换
@@ -1311,6 +1311,7 @@ Fitness API：
 | 2026-08-31 | Codex | Tools/拼豆 | 新增拼豆规格图工具：本地图片上传、豆数与颜色数量调节、颜色聚类、带坐标的逐格预览、色号用量统计及完整 PNG 图纸导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `Tools/client/src/App.tsx`, `Tools/client/src/components/layout/*`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Tools/拼豆精细化 | 将复杂图片默认精度提升至 128 横豆并开放 160 横豆与 48 色；采用 CIELAB 感知色差、边缘和高饱和颜色加权、三档细节增强，新增成品效果与施工图纸双视图 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `PROJECT.md` |
 | 2026-08-31 | Codex | Tools/拼豆成片预览 | 新增独立成片大图弹窗与无网格 PNG 下载，支持遮罩、关闭按钮和 Esc 退出，施工规格图继续单独导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `PROJECT.md` |
+| 2026-08-31 | Codex | Tools/拼豆自定义尺寸 | 新增横向与纵向豆数输入及原图比例锁，可在 8-240 范围内设置 64 × 36 等规格；实时检测比例偏差、提示拉伸风险并一键应用推荐尺寸，生成、预览与导出统一使用自定义尺寸 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `PROJECT.md` |
 
 ---
 

@@ -36,6 +36,7 @@ export type DetailMode = "soft" | "balanced" | "sharp";
 
 interface CreatePatternOptions {
   gridWidth: number;
+  gridHeight?: number;
   requestedColors: number;
   detailMode?: DetailMode;
 }
@@ -192,9 +193,15 @@ export function createBeadPattern(
   image: CanvasImageSource,
   naturalWidth: number,
   naturalHeight: number,
-  { gridWidth, requestedColors, detailMode = "balanced" }: CreatePatternOptions,
+  { gridWidth, gridHeight: requestedGridHeight, requestedColors, detailMode = "balanced" }: CreatePatternOptions,
 ): BeadPattern {
-  const gridHeight = Math.max(1, Math.min(240, Math.round((gridWidth * naturalHeight) / naturalWidth)));
+  const gridHeight = Math.max(
+    1,
+    Math.min(
+      240,
+      Math.round(requestedGridHeight ?? (gridWidth * naturalHeight) / naturalWidth),
+    ),
+  );
   const canvas = document.createElement("canvas");
   canvas.width = gridWidth;
   canvas.height = gridHeight;
