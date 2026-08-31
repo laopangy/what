@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, unlinkSync } from "fs";
 import path from "path";
 import { unlockVault, updateVault } from "../vault.js";
 import type { JournalEntry } from "../types/journal.js";
@@ -24,7 +24,11 @@ async function migrate(): Promise<void> {
     data.history = history;
     data.journals = journals;
   });
-  console.log(`迁移完成：${timers.length} 个定时器、${history.length} 条执行记录、${journals.length} 篇日记`);
+  for (const fileName of ["timers.json", "history.json", "journal.json"]) {
+    const filePath = path.resolve(import.meta.dirname, "..", "..", "data", fileName);
+    if (existsSync(filePath)) unlinkSync(filePath);
+  }
+  console.log(`迁移完成并删除旧明文文件：${timers.length} 个定时器、${history.length} 条执行记录、${journals.length} 篇日记`);
 }
 
 migrate()

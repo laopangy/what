@@ -23,6 +23,7 @@
    - 5.3 [后端架构](#53-后端架构)
    - 5.4 [核心数据流](#54-核心数据流)
    - 5.5 [工具插件系统](#55-工具插件系统)
+   - 5.6 [Tools 模块](#56-tools-模块)
 6. [Electron 桌面客户端](#6-electron-桌面客户端)
 7. [待开发模块](#7-待开发模块)
 8. [端口与代理配置](#8-端口与代理配置)
@@ -761,8 +762,10 @@ Workbench、Music 与 Tools 使用从参考插画提炼的统一“暗室琥珀�
 
 - **职责**：处理 AI 对话，管理 tool calling 循环
 - **System Prompt 要点**：
-  - 角色定位：阿潘阿潘潘工具栈的 AI 助手
-  - 可用模块：音乐（网易云音乐控制）
+  - 角色定位：阿潘阿潘潘工具栈的通用 AI 助手，优先直接处理当前问题
+  - 普通问答与音乐能力解耦：只有明确的音乐需求或音乐操作续问才注入音乐说明及工具定义
+  - 数学、知识问答、写作和闲聊等非音乐请求不得追加听歌引导或无关的音乐建议
+  - 可按需调用的模块：音乐（网易云音乐控制）
   - 操作指引：先搜索再播放、搜索无结果时重试、多版本时让用户选择
   - 🆕 登录处理：工具返回 needLogin 时引导用户扫码登录
   - 语气要求：中文回复，友好活泼
@@ -922,6 +925,25 @@ toolRegistry.ts
 1. 创建新的 plugin 文件（实现 `ModuleToolPlugin` 接口）
 2. 在 `index.ts` 中 `registerPlugin(newPlugin)`
 3. 更新 `chatService.ts` 中的 System Prompt
+
+### 5.6 Tools 模块
+
+Tools 前端使用 React 19、React Router 7 与 Tailwind CSS 4，端口为 `5175`。侧栏按任务工具与图像工具分组，目前提供定时器、执行历史、日记和拼豆规格图。
+
+#### 拼豆规格图
+
+路由：`/beads`
+
+- 支持拖拽或选择 PNG、JPG、WebP 图片，单文件上限 20 MB
+- 图片仅在浏览器本地处理，不传到服务器
+- 横向豆数可选 48、64、80、96、128、160，也可在 8-240 范围内自定义横向与纵向豆数；比例锁开启时宽高按原图联动，关闭后可自由设置如 64 × 36；系统会实时检测与原图的比例偏差、提示拉伸风险并提供一键推荐尺寸；大于 1600px 的复杂图片默认使用 128 横豆
+- 最大颜色数可在 8-48 之间调整；颜色聚类改用 CIELAB 感知色差，并提高轮廓与高饱和小面积颜色的采样权重，减少肤色、发色被大面积背景色吞并的问题
+- 提供柔和、均衡、锐利三档细节处理；均衡和锐利模式在缩图后进行局部反差与饱和度增强
+- 预览可在无格线的“成品效果”和带逐格数字、每 5 格坐标的“施工图纸”之间切换
+- 成片预览支持独立大图弹窗，可按 `Esc`、关闭按钮或点击遮罩退出，并可单独下载无网格成片 PNG
+- 规格统计包含成品尺寸、总豆数、实际用色数和颜色用量清单
+- 透明像素保留为空格且不计入豆数；导出 PNG 会同时包含完整图纸和颜色图例
+- 首版使用图片近似色，不绑定具体拼豆品牌色卡，后续可在现有色板数据结构上增加品牌色号映射
 
 ---
 
@@ -1096,9 +1118,9 @@ npm run build
 
 - 今日总览：当天热量与三大营养素、近七天训练、最近体重和今日计划；计划按当天具体日期优先、星期计划兜底自动匹配，日常计划直接展示作息、四餐和当天事项
 - 每日计划：起床和睡觉时间作为全局固定作息只需设置一次，并使用整块可点击的小时/分钟分段选择器，变更后防抖自动保存并显示状态；固定作息按睡觉至次日起床自动计算预计睡眠小时和分钟。计划可选择每周重复或绑定具体年月日；每个星期只能有一份重复计划，每个具体日期也只能有一份日期计划。可以安排早餐、午餐、晚餐和加餐，四餐输入会自动防抖估算 kcal、蛋白质、碳水和脂肪并随计划持久化。每个日计划下可新增多项活动，每项分别设置开始时间、类型、名称、时长和备注，例如早上骑车、下午跑步、晚上打麻将；活动在详情中按时间排序。支持从“身体数据”读取性别、年龄、身高、体重、目标热量与蛋白质，结合训练经验、器械、伤病、大小周、正常及最晚下班、加班频率、通勤、可训练日和每日餐饮生成计划；所有自动计划均从生成当天开始，大小周模式使用任意一个已知大周周一判断轮换并生成连续 14 天，大周周六自动设为工作日。训练可选择自动避开加班、只在休息日、固定上班前或按最晚下班时间安排；旧生成条件自动迁移到避开加班模式。“很久没运动”恢复模式每天安排短时轻活动，第一周 2 次、第二周 3 次力量训练，每次最多 40 分钟且每动作最多 2 组；饮食先强调规律、蛋白质、蔬菜和七八分饱，不要求立即称重控卡。生成时保留手动指定日期计划，替换重复计划及上次自动生成的日期计划。计划导航使用顶部紧凑选择器，不再占用左侧栏；批量选择模式支持勾选、全选及一键删除，既有运动记录不受影响
-- 力量训练：内置训练模板仅作为生成时的初始内容；训练详情中的每个动作都提供“编辑”入口，可直接跳转到对应编辑卡片。动作不受预设库限制，名称、部位、组数、目标、休息时间、可选预计分钟数及重量＋次数、仅次数、按时长三种记录方式均由用户自由填写，也可删除任意生成动作或添加完全空白的新动作；预计用时会显示在训练详情中，完成一组后自动启动休息倒计时
+- 力量训练：内置训练模板仅作为生成时的初始内容；训练详情中的每个动作都提供“编辑”入口，可直接跳转到对应编辑卡片。动作不受预设库限制，名称、部位、组数、目标、休息时间及重量＋次数、仅次数、按时长三种记录方式均由用户自由填写，也可删除任意生成动作或添加完全空白的新动作；完成一组后自动启动休息倒计时
 - 运动历史：统一保存运动日期、类型、时长、距离、爬升、感受和力量训练完成组；下次力量训练自动带出上次重量与次数
-- 饮食记录：输入“鸡胸肉 200克”“米饭 1碗”等自然分量，从内置常见食物库自动换算热量、蛋白质、碳水和脂肪；整餐可用 `/` 分隔多项食物；也支持“每100克/每百毫升 674kJ，吃了300毫升”等营养标签输入，自动完成 kJ → kcal 和实际分量换算。标签未提供三大营养素时不进行虚构，并在界面明确提示
+- 饮食记录：输入“鸡胸肉 200克”“米饭 1碗”等简单分量时优先从本地食物库快速换算；输入“沙县鸡腿饭 + 一个鸭腿，鸡腿鸭腿都去皮”等套餐、额外加菜、去皮、少饭或少油描述时，由 AI 理解跨食物修饰、按中国常见成品份量拆分食物，并估算热量、蛋白质、碳水和脂肪。可以直接说“我今天中午吃了……”，系统会识别餐次并将结果直接记录到今天的午餐；早餐、晚餐和加餐同样支持，不写餐次时根据当前时间归类。界面逐项展示营养数据、份量假设和 AI/本地来源，也保留只计算不记录及手动调整流程。AI Key 会拒绝中文占位内容并给出明确配置提示，AI 不可用时尽量回退本地食物库。也支持营养标签输入，自动完成 kJ → kcal 和实际分量换算
 - 身体数据：基础资料与目标修改后防抖自动保存并实时重算营养目标；“日常活动量”不可手动选择，系统根据每周计划中的力量/有氧训练日和有时长的恢复活动自动分析，计划增删改或重新生成后同步更新热量目标。今日体重和可选体脂同样自动写入，并以最新晨重同步当前体重。每天称重后立即评估，但至少积累连续 7 天才根据近期均重趋势以每次 100 kcal、最高 ±400 kcal 的幅度调整饮食目标，调整后冷却 7 天，避免单日水分变化造成频繁改计划；评估结果同步展示在身体页和自动生成计划中。展示最近八次体重趋势，并支持直接修改历史记录的日期、体重与体脂或确认后删除
 - 目标计算：根据性别、年龄、身高、体重、活动量和增肌/减脂/保持目标，使用 Mifflin-St Jeor 公式估算每日热量，并计算蛋白质、碳水、脂肪和饮水目标
 - Workbench 集成：`/fitness` 通过 `FitnessEmbed` webview 加载 `http://localhost:5176`
@@ -1269,7 +1291,7 @@ Fitness API：
 | 2026-08-29 | Codex | Fitness/作息保存 | 移除固定作息的手动保存按钮，小时或分钟变更后自动防抖保存，并展示“保存中/已自动保存”状态；浏览器验证刷新后数据保持且恢复测试值 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/计划饮食 | 将现有食物分量解析接入每日计划四餐：输入后自动防抖显示热量、蛋白质、碳水和脂肪估算；新增或编辑计划时由后端重新计算并持久化，旧计划读取时兼容补算 | `Fitness/client/src/App.tsx`, `types.ts`, `Fitness/server/src/routes.ts`, `storage.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/计划活动 | 为每日计划增加嵌套活动列表：可添加、编辑、删除多项活动，并分别设置开始时间、类型、名称、时长和备注；计划详情按时间排序展示，旧运动计划自动迁移为一条兼容活动 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/routes.ts`, `storage.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
-| 2026-08-29 | Codex | Fitness/睡眠时长 | 固定作息根据睡觉时间到次日起床时间实时计算预计睡眠小时与分钟，并展示总分钟数；覆盖跨午夜时间计算 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
+| 2026-08-29 | Codex | Fitness/睡眠时长 | 固定作息根据睡觉时间到次日起床时间实时计算预计睡眠小时与分钟，并统一使用小时/分钟展示；覆盖跨午夜时间计算 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/计划日期 | 每日计划支持“每周重复”和“指定日期”两种时间绑定；今日总览优先匹配当天日期计划并回退到对应星期计划，服务端约束每个星期及每个日期只能创建一份计划 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/一周计划生成 | 新增个性化一周计划生成器：自动读取已保存身体资料，收集训练经验、器械、伤病、上下班与通勤、可训练日及每日饮食，按目标生成 7 天训练/恢复、餐饮和生活安排；生成条件持久化，具体日期计划不被覆盖 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `PROJECT.md` |
 | 2026-08-29 | Codex | Fitness/身体数据 | 移除基础资料及今日测量的手动保存按钮，改为防抖自动保存与状态提示；体重趋势增加历史记录编辑、日期唯一校验和确认删除功能 | `Fitness/client/src/App.tsx`, `api.ts`, `Fitness/server/src/routes.ts`, `PROJECT.md` |
@@ -1283,9 +1305,19 @@ Fitness API：
 | 2026-08-30 | Codex | Fitness/计划生成与动作 | 修复自动计划从已知大周周一而非当天开始的问题，大小周参考日期仅用于判断轮换；计划动作支持新增、编辑、删除及重量次数、仅次数、按时长三种记录方式，可直接添加跳绳等自定义动作 | `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `Fitness/server/src/planGenerator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-30 | Codex | Workbench/加密解锁 | 修复 Fitness 后端热更新重启后仓库重新上锁、工作台仍停留在模块内导致“重新连接”无反应的问题；工作台进入后定期并在窗口聚焦时检查两项数据服务，确认重新上锁后自动返回密码页 | `workbench/client/src/components/chat/PasswordGate.tsx`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-30 | Codex | Fitness/动作编辑 | 为训练详情的每个动作增加可见的“编辑”入口并自动定位到对应编辑卡片；移除固定动作库和默认新增内容，动作名称、部位、记录方式、组数、目标及休息时间均由用户自由填写，新动作从空白项开始 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
-| 2026-08-30 | Codex | Fitness/动作时间 | 为每个训练动作增加可选的“预计时间（分钟）”，可在计划编辑器中自由填写，并在训练详情中与目标和休息时间一起展示 | `Fitness/client/src/App.tsx`, `types.ts`, `Fitness/server/src/routes.ts`, `types.ts`, `PROJECT.md` |
+| 2026-08-31 | Codex | Fitness/睡眠展示 | 将固定作息详情中的睡眠总分钟数改为小时与分钟，例如 450 分钟显示为 7 小时 30 分钟 | `Fitness/client/src/App.tsx`, `PROJECT.md` |
+| 2026-08-31 | Codex | Fitness/AI 饮食估算 | 饮食记录采用本地食物库与 AI 混合估算：复杂整餐可识别套餐、额外食物及去皮/少油等跨项修饰，按常见份量拆分并返回热量、蛋白质、碳水、脂肪和估算依据；复用工作台 DeepSeek 配置，AI 失败时尽量回退本地计算 | `Fitness/server/src/aiConfig.ts`, `aiNutrition.ts`, `foodCalculator.ts`, `routes.ts`, `Fitness/client/src/App.tsx`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Fitness/自然语言饮食入账 | 修复中文占位 API Key 进入请求头引发 ByteString 异常：服务端及安装器提前校验并显示明确提示；新增“识别并自动记录”，可从“我今天中午吃了……”识别餐次、估算整餐营养并直接写入今天对应餐次，同时保留只计算不记录 | `setup.ps1`, `Fitness/server/src/aiNutrition.ts`, `routes.ts`, `Fitness/client/src/App.tsx`, `api.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | 全局数据安全 | 清理迁移后残留的 Fitness 明文数据；规定所有用户业务数据必须写入 `data/what.vault`，迁移成功后立即删除明文源，并在开发及构建前自动检查旧数据目录和加密信封结构 | `scripts/check-encrypted-data.js`, `package.json`, `Fitness/server/src/scripts/migrate-json.ts`, `Tools/server/src/scripts/migrate-json.ts`, `AGENTS.md`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Fitness/饮食估算超时 | 将复杂餐食 AI 等待时间从 20 秒提升到 60 秒；AI 超时时对常见鸡腿饭、额外鸡腿、去皮修饰和定量橙汁进行本地分项降级估算，并明确未实际食用的歧义食物不计入 | `Fitness/server/src/aiNutrition.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Tools/拼豆 | 新增拼豆规格图工具：本地图片上传、豆数与颜色数量调节、颜色聚类、带坐标的逐格预览、色号用量统计及完整 PNG 图纸导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `Tools/client/src/App.tsx`, `Tools/client/src/components/layout/*`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Tools/拼豆精细化 | 将复杂图片默认精度提升至 128 横豆并开放 160 横豆与 48 色；采用 CIELAB 感知色差、边缘和高饱和颜色加权、三档细节增强，新增成品效果与施工图纸双视图 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `PROJECT.md` |
+| 2026-08-31 | Codex | Tools/拼豆成片预览 | 新增独立成片大图弹窗与无网格 PNG 下载，支持遮罩、关闭按钮和 Esc 退出，施工规格图继续单独导出 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `PROJECT.md` |
+| 2026-08-31 | Codex | Tools/拼豆自定义尺寸 | 新增横向与纵向豆数输入及原图比例锁，可在 8-240 范围内设置 64 × 36 等规格；实时检测比例偏差、提示拉伸风险并一键应用推荐尺寸，生成、预览与导出统一使用自定义尺寸 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `PROJECT.md` |
+| 2026-08-31 | Codex | 全局 AI 配置 | 将 Workbench、Music 与 Fitness 的 AI 运行时统一为 DeepSeek，移除其他提供商的请求分支、环境变量读取和设置入口，并清理本机旧配置 | `workbench/server/src/config.ts`, `services/aiClient.ts`, `services/chatService.ts`, `Music/server/src/config.ts`, `routes/settings.ts`, `services/aiClient.ts`, `Music/client/src/components/dashboard/SettingsPage.tsx`, `api/client.ts`, `Fitness/server/src/aiConfig.ts`, `aiNutrition.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Workbench/AI 对话 | 将 AI 主身份调整为通用助手；仅在明确音乐需求或连续音乐操作时注入音乐提示及工具定义，普通问答不再携带音乐上下文，也不追加听歌引导或音乐建议 | `workbench/server/src/services/chatService.ts`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 
 > **文档维护者**：潘高远  
-> **最后更新**：2026-08-30
+> **最后更新**：2026-08-31

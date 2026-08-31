@@ -1,11 +1,5 @@
 import { getActiveAiConfig } from "../config.js";
 import { getAllTools, executeTool } from "../tools/toolRegistry.js";
-import {
-  callOpenAiResponse,
-  type OpenAiFunctionCall,
-  type OpenAiMessageOutput,
-  type OpenAiOutputItem,
-} from "./aiClient.js";
 import type {
   ChatMessage,
   ChatResponse,
@@ -15,9 +9,17 @@ import type {
   ToolCall,
 } from "../types/chat.js";
 
-const SYSTEM_PROMPT = `你是阿潘阿潘潘工具栈的 AI 助手，帮助用户通过语音或文字操控多个模块。
+const GENERAL_SYSTEM_PROMPT = `你是阿潘阿潘潘工具栈中的通用 AI 助手。你的首要职责是理解并直接回答用户当前的问题，也可以在用户需要时通过工具操控应用模块。
 
-目前可用模块：音乐（网易云音乐控制）。
+对话边界（必须遵守）：
+- 只围绕用户当前的问题作答，不要因为你拥有某项工具，就主动把无关话题引向该工具或模块。
+- 只有用户明确提出音乐需求，或当前消息明显是在延续上一轮音乐操作时，才可以提及音乐、推荐歌曲或调用音乐工具。
+- 对数学、知识问答、写作、闲聊等非音乐请求，像通用助手一样直接回答；不要在结尾询问用户是否想听歌，也不要附加音乐相关建议。
+- 回答完成后不要机械地追加“还需要什么帮助”之类与当前问题无关的引导。
+
+请用中文回复，语气自然友好。`;
+
+const MUSIC_SYSTEM_PROMPT = `当前请求可以按需调用音乐模块（网易云音乐控制）。
 
 音乐模块当前支持的操作：
 - 搜索：搜索歌曲（search_songs）、搜索歌单（search_playlists）
@@ -43,25 +45,43 @@ const SYSTEM_PROMPT = `你是阿潘阿潘潘工具栈的 AI 助手，帮助用�
 - 此时你应该友好地告知用户需要登录，并提供 qrCodeUrl 链接让用户扫码。
 - 回复格式示例："要播放音乐需要先登录网易云音乐哦！请用网易云音乐 APP 扫描这个二维码登录：[qrCodeUrl]"
 - 用户扫码登录后，可以让他们再次尝试操作。
-- 如果用户明确要求登录（比如"帮我登录"、"登录网易云"），调用 get_login_qr 工具。
+- 如果用户明确要求登录（比如"帮我登录"、"登录网易云"），调用 get_login_qr 工具。`;
 
-请用中文回复，语气友好活泼。`;
+const MUSIC_INTENT_PATTERN = /音乐|歌曲|歌单|歌手|专辑|歌词|网易云|播放|暂停|继续播放|停止播放|下一首|上一首|切歌|音量|队列|单曲|点歌|听歌|想听|好听/;
+const MUSIC_FOLLOW_UP_PATTERN = /^(?:第?[一二三四五六七八九十\d]+个|这(?:个|首)|那(?:个|首)|换一个|换一首|就它|就这首|可以|好的?|是的|不是|重试|再试一次)[。！!？?]?$/;
+
+export function shouldEnableMusicTools(messages: ChatMessage[]): boolean {
+  let lastUserIndex = -1;
+  for (let index = messages.length - 1; index >= 0; index--) {
+    if (messages[index].role === "user") {
+      lastUserIndex = index;
+      break;
+    }
+  }
+  if (lastUserIndex < 0) return false;
+
+  const currentMessage = messages[lastUserIndex].content.trim();
+  if (MUSIC_INTENT_PATTERN.test(currentMessage)) return true;
+  if (!MUSIC_FOLLOW_UP_PATTERN.test(currentMessage)) return false;
+
+  return messages
+    .slice(Math.max(0, lastUserIndex - 3), lastUserIndex)
+    .some((message) => MUSIC_INTENT_PATTERN.test(message.content));
+}
 
 const MAX_LOOPS = 5;
 
 async function callDeepSeek(
   messages: DeepSeekMessage[],
-  tools: unknown[]
+  tools: unknown[],
+  systemPrompt: string,
 ): Promise<DeepSeekResponse> {
   const active = getActiveAiConfig();
-  if (active.provider !== "deepseek") {
-    throw new Error("当前 AI 提供商不是 DeepSeek");
-  }
   const url = `${active.baseUrl.replace(/\/$/, "")}/v1/messages`;
   const body: Record<string, unknown> = {
     model: active.model,
     max_tokens: 4096,
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     messages,
   };
   if (tools.length > 0) {
@@ -95,90 +115,14 @@ async function callDeepSeek(
   return res.json() as Promise<DeepSeekResponse>;
 }
 
-function openAiTools(tools: ReturnType<typeof getAllTools>) {
-  return tools.map((tool) => ({
-    type: "function" as const,
-    name: tool.name,
-    description: tool.description,
-    parameters: tool.input_schema,
-  }));
-}
-
-function parseToolArguments(call: OpenAiFunctionCall): Record<string, unknown> {
-  try {
-    const parsed: unknown = JSON.parse(call.arguments || "{}");
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-  } catch {
-    // A malformed tool call is reported to the model as a tool result below.
-  }
-  return {};
-}
-
-async function handleOpenAiChat(
-  messages: ChatMessage[],
-  tools: ReturnType<typeof getAllTools>,
-): Promise<ChatResponse> {
-  const toolCalls: ToolCall[] = [];
-  let input: unknown[] = messages.map((message) => ({
-    role: message.role,
-    content: message.content,
-  }));
-
-  for (let i = 0; i < MAX_LOOPS; i++) {
-    const response = await callOpenAiResponse({
-      instructions: SYSTEM_PROMPT,
-      input,
-      tools: openAiTools(tools),
-      tool_choice: "auto",
-      max_output_tokens: 4096,
-      reasoning: { effort: "low" },
-    });
-
-    const text = response.output
-      .filter((item): item is OpenAiMessageOutput => item.type === "message")
-      .flatMap((item) => item.content ?? [])
-      .map((item) => item.text)
-      .join("");
-    const functionCalls = response.output.filter(
-      (item): item is OpenAiFunctionCall => item.type === "function_call",
-    );
-
-    if (functionCalls.length === 0) {
-      if (!text && response.status === "incomplete") {
-        throw new Error(`OpenAI 响应未完成：${response.incomplete_details?.reason || "未知原因"}`);
-      }
-      return { content: text, toolCalls };
-    }
-
-    const outputs: Array<{ type: "function_call_output"; call_id: string; output: string }> = [];
-    for (const call of functionCalls) {
-      const args = parseToolArguments(call);
-      const result = await executeTool(call.name, args);
-      toolCalls.push({ name: call.name, args, result });
-      outputs.push({
-        type: "function_call_output",
-        call_id: call.call_id,
-        output: JSON.stringify(result),
-      });
-    }
-
-    // Stateless Responses API continuation: replay all output items (including
-    // encrypted reasoning items) followed by the local function results.
-    input = [...input, ...(response.output as OpenAiOutputItem[]), ...outputs];
-  }
-
-  return { content: "操作已完成", toolCalls };
-}
-
 export async function handleChat(
   messages: ChatMessage[]
 ): Promise<ChatResponse> {
-  const tools = getAllTools();
-  if (getActiveAiConfig().provider === "openai") {
-    return handleOpenAiChat(messages, tools);
-  }
+  const musicEnabled = shouldEnableMusicTools(messages);
+  const tools = musicEnabled ? getAllTools() : [];
+  const systemPrompt = musicEnabled
+    ? `${GENERAL_SYSTEM_PROMPT}\n\n${MUSIC_SYSTEM_PROMPT}`
+    : GENERAL_SYSTEM_PROMPT;
   const toolCalls: ToolCall[] = [];
 
   const deepseekMessages: DeepSeekMessage[] = messages.map(
@@ -189,7 +133,7 @@ export async function handleChat(
   );
 
   for (let i = 0; i < MAX_LOOPS; i++) {
-    const response = await callDeepSeek(deepseekMessages, tools);
+    const response = await callDeepSeek(deepseekMessages, tools, systemPrompt);
 
     const textBlocks = response.content.filter((b) => b.type === "text");
     const toolBlocks = response.content.filter((b) => b.type === "tool_use");

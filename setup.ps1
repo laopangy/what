@@ -93,6 +93,12 @@ function Get-EnvFileValue {
     return ($line -replace "^$escapedKey=", "").Trim()
 }
 
+function Test-ApiKeyValue {
+    param([AllowEmptyString()][string]$Value)
+    if ([string]::IsNullOrWhiteSpace($Value) -or $Value.Length -lt 10) { return $false }
+    return $Value -cmatch '^[\x20-\x7E]+$'
+}
+
 function Test-ProjectDependencies {
     $projectDirectories = @("", "Music", "workbench", "Tools", "Fitness")
     $staleProjects = New-Object 'System.Collections.Generic.List[string]'
@@ -227,8 +233,7 @@ function Get-EnvironmentState {
     $envReady = (Test-Path -LiteralPath $musicEnv) -and (Test-Path -LiteralPath $workbenchEnv)
     $musicApiKey = Get-EnvFileValue -Path $musicEnv -Key "ANTHROPIC_AUTH_TOKEN"
     $workbenchApiKey = Get-EnvFileValue -Path $workbenchEnv -Key "ANTHROPIC_AUTH_TOKEN"
-    $apiKeyReady = (-not [string]::IsNullOrWhiteSpace($musicApiKey)) -and
-        (-not [string]::IsNullOrWhiteSpace($workbenchApiKey))
+    $apiKeyReady = (Test-ApiKeyValue $musicApiKey) -and (Test-ApiKeyValue $workbenchApiKey)
 
     return [ordered]@{
         Node = [ordered]@{
@@ -1093,6 +1098,12 @@ function Save-ApiKey {
     if ([string]::IsNullOrWhiteSpace($value)) {
         if (-not $Silent) {
             [Windows.Forms.MessageBox]::Show("请先输入 DeepSeek API Key。", "密钥为空", "OK", "Information") | Out-Null
+        }
+        return $false
+    }
+    if (-not (Test-ApiKeyValue $value)) {
+        if (-not $Silent) {
+            [Windows.Forms.MessageBox]::Show("API Key 格式不正确。请粘贴平台生成的英文字符密钥，不要填写【你的 API Key】等中文占位文字。", "密钥格式错误", "OK", "Warning") | Out-Null
         }
         return $false
     }

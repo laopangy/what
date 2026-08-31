@@ -22,7 +22,7 @@ what/
 │   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
 │   ├── server/             # Express 5 + TypeScript（node-cron 调度等）
 │   └── server/             # 定时器、执行历史和日记写入根目录加密仓库
-│   └── 子工具: 定时器 ⏰
+│   └── 子工具: 定时器 ⏰、拼豆规格图
 ├── Cycling/                # 🚴 骑行模块（开发中，仅占位 package.json）
 ├── Fitness/                # 💪 肌肉大（训练、饮食与身体数据管理，已上线）
 │   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
@@ -86,6 +86,7 @@ what/
 - 安装期间可点击“取消安装”；关闭窗口也会先终止本次 Worker 及其 npm 子进程，避免残留安装相互占用目录
 - 自动创建 `Music/server/.env`、`workbench/server/.env`，并写入本机 ncm-cli 路径
 - 提供隐藏输入框保存 DeepSeek API Key，并同时写入两份 `.env`；密钥不会显示或进入安装日志
+- API Key 会校验为平台生成的英文字符密钥，中文占位文字不会再被误判为已配置
 - 提供“申请密钥”入口；未配置时启动前会明确提醒 AI 功能不可用
 - 已有 `.env` 内容会保留，不覆盖 API Key、端口等用户配置
 
@@ -123,6 +124,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\setup.ps1 -ForceS
 - 首次进入工作台需输入数据密码。密码只用于运行时验证和密钥派生，不写入仓库文件或项目文档
 - 解锁页采用与工作台一致的灰蓝玻璃与 QQ 绿设计：双栏说明数据保护方式，提供连接中、解锁中和内联错误状态；Electron 锁屏时仍显示最小化、最大化和关闭按钮。进入工作台后会定期检查 Tools 与 Fitness 的解锁状态，任一服务重启并重新上锁时自动返回密码页
 - 定时器、执行历史、日记和 Fitness 数据统一保存在根目录 `data/what.vault`。文件使用随机盐、PBKDF2-SHA256 和 AES-256-GCM 加密，Git 会忽略该文件
+- 所有用户生成的业务数据必须进入加密仓库，禁止在模块 `server/data/` 中保留明文 JSON；开发和构建前会运行 `npm run check:data-security` 检查旧明文文件及加密信封结构，迁移脚本写入成功后会立即删除明文源文件
 
 ### 手动安装备用流程
 
@@ -169,7 +171,7 @@ npm run dev:web
 - 门户页面：用浏览器打开 `what/index.html`
 - AI 工作台：http://localhost:5174
 - 音乐播放器：http://localhost:5173
-- 定时器：http://localhost:5175（工具模块首页）
+- 工具模块：http://localhost:5175（定时器、拼豆规格图）
 
 ## 启动验证清单
 
@@ -259,13 +261,14 @@ workbench/client ──WebSocket────────────────
 |------|------|
 | `/api/fitness/state` | 获取个人资料、训练计划、训练/饮食/体重记录 |
 | `/api/fitness/foods` | 获取内置常见食物名称 |
-| `/api/fitness/foods/calculate` (POST) | 解析食物分量、`/` 分隔整餐和中文数量词；也支持每100克/每百毫升的 kJ/kcal 营养标签与实际摄入量换算 |
+| `/api/fitness/foods/calculate` (POST) | 简单食物使用本地食物库；套餐、额外加菜、去皮/少油等复杂自然语言调用 AI 拆分并估算热量与三大营养素；AI 最多等待 60 秒，常见鸡腿饭、额外鸡腿和果汁在超时后使用可见假设进行本地降级估算；也支持营养标签换算 |
 | `/api/fitness/routine` (PUT) | 保存全局固定起床和睡觉时间 |
 | `/api/fitness/sessions` (POST) | 新增每日计划；单个计划可包含多条活动和可动态配置的训练动作，四餐文本自动估算并保存热量与三大营养素 |
 | `/api/fitness/sessions/:id` (PUT) | 编辑已有每日计划、嵌套活动、训练动作及四餐营养估算 |
 | `/api/fitness/sessions/:id` (DELETE) | 删除每日计划（包括内置计划，历史运动记录保留） |
 | `/api/fitness/profile` (PUT) | 保存资料并重新计算热量和营养目标 |
 | `/api/fitness/meals` (POST) | 添加饮食记录 |
+| `/api/fitness/meals/from-text` (POST) | 从“我今天中午吃了……”等自然语言识别餐次，AI 估算营养后直接写入今天对应的早餐、午餐、晚餐或加餐 |
 | `/api/fitness/meals/:id` (DELETE) | 删除饮食记录 |
 | `/api/fitness/workouts` (POST) | 保存逐组训练记录，支持重量＋次数、仅次数及按秒计时动作 |
 | `/api/fitness/weights` (POST) | 新增或覆盖当天身体数据 |
@@ -305,7 +308,7 @@ workbench/client ──WebSocket────────────────
 
 ## Fitness 服务器配置项
 
-Fitness 与 Tools 共用根目录的加密数据仓库，服务重启后需再次输入密码解锁。
+Fitness 与 Tools 共用根目录的加密数据仓库，服务重启后需再次输入密码解锁。饮食记录的 AI 营养估算仅使用 DeepSeek，并复用 `workbench/server/.env` 中的配置；也允许在 `Fitness/server/.env` 中使用同名变量单独覆盖。未配置 AI 时，简单食物仍可使用本地食物库计算。
 
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
@@ -329,6 +332,8 @@ Fitness 与 Tools 共用根目录的加密数据仓库，服务重启后需再�
 | `QQ_MUSIC_COOKIE` | (空) | QQ 音乐 Cookie；会员/版权受限歌曲播放时需要 |
 
 ## Workbench 服务器配置项
+
+Workbench AI 对话以通用问答为主，音乐控制是按需工具能力。只有用户明确提出音乐需求，或当前消息明显延续上一轮音乐操作时，服务端才会向模型注入音乐提示及工具定义；数学、知识问答、写作和闲聊等请求不携带音乐上下文，也不会追加听歌引导。
 
 配置通过 `workbench/server/src/config.ts` 从环境变量读取：
 

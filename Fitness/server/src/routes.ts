@@ -3,6 +3,7 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { readState, writeState } from "./storage.js";
 import { calculateFood, foodCatalog } from "./foodCalculator.js";
+import { calculateFoodWithAi } from "./aiNutrition.js";
 import { generateWeeklyPlan } from "./planGenerator.js";
 import { calculateProfileTargets } from "./profileCalculator.js";
 import { evaluateWeightTrend } from "./weightAdapter.js";
@@ -64,6 +65,21 @@ const sessionSchema = z.object({
   activities: z.array(plannedActivitySchema).max(30).default([]), exercises: z.array(exerciseSchema).max(30).default([]),
 });
 const planMealKeys = ["breakfast", "lunch", "dinner", "snack"] as const;
+const localDate = () => {
+  const value = new Date();
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+};
+const mealFromText = (query: string) => {
+  const mealType = /早餐|早饭|早上|早晨/.test(query) ? "breakfast"
+    : /午餐|午饭|中餐|中午/.test(query) ? "lunch"
+      : /晚餐|晚饭|晚上/.test(query) ? "dinner"
+        : /加餐|夜宵|宵夜/.test(query) ? "snack"
+          : new Date().getHours() < 10 ? "breakfast" : new Date().getHours() < 15 ? "lunch" : new Date().getHours() < 21 ? "dinner" : "snack";
+  const foodQuery = query
+    .replace(/^(我)?\s*(今天)?\s*(早上|早晨|早餐|早饭|中午|午餐|午饭|中餐|晚上|晚餐|晚饭|夜宵|宵夜|加餐)?\s*(我)?\s*(吃了|吃的是|吃了点|喝了|喝的是)?\s*/u, "")
+    .trim();
+  return { mealType, foodQuery: foodQuery || query } as const;
+};
 const hasScheduleConflict = (sessions: FitnessState["plan"]["sessions"], candidate: z.infer<typeof sessionSchema>, excludedId?: string) => sessions.some((session) => {
   if (session.id === excludedId) return false;
   return candidate.scheduledDate
@@ -91,12 +107,15 @@ fitnessRouter.put("/routine", async (req, res) => {
   return res.json(state.routine);
 });
 
-fitnessRouter.post("/foods/calculate", (req, res) => {
-  const parsed = z.object({ query: z.string().trim().min(1).max(100) }).safeParse(req.body);
+fitnessRouter.post("/foods/calculate", async (req, res) => {
+  const parsed = z.object({ query: z.string().trim().min(1).max(500) }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: "请输入食物名称和分量" });
-  const result = calculateFood(parsed.data.query);
-  if (!result) return res.status(404).json({ success: false, error: "暂时没有找到这种食物，可手动填写营养数据" });
-  return res.json(result);
+  try {
+    return res.json(await calculateFoodWithAi(parsed.data.query));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "AI 营养估算失败";
+    return res.status(503).json({ success: false, error: message });
+  }
 });
 
 fitnessRouter.post("/sessions/generate-week", async (req, res) => {
@@ -183,6 +202,26 @@ fitnessRouter.post("/meals", async (req, res) => {
   const meal = { id: uuid(), ...parsed.data, createdAt: new Date().toISOString() };
   state.meals.unshift(meal); await writeState(state);
   return res.status(201).json(meal);
+});
+
+fitnessRouter.post("/meals/from-text", async (req, res) => {
+  const parsed = z.object({ query: z.string().trim().min(1).max(500) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ success: false, error: "请描述今天吃了什么" });
+  try {
+    const { mealType, foodQuery } = mealFromText(parsed.data.query);
+    const calculation = await calculateFoodWithAi(foodQuery);
+    const state = await readState();
+    const meal = {
+      id: uuid(), date: localDate(), mealType, name: calculation.name, amount: calculation.amount,
+      calories: calculation.calories, protein: calculation.protein, carbs: calculation.carbs, fat: calculation.fat,
+      createdAt: new Date().toISOString(),
+    };
+    state.meals.unshift(meal); await writeState(state);
+    return res.status(201).json({ meal, calculation });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "AI 饮食记录失败";
+    return res.status(503).json({ success: false, error: message });
+  }
 });
 
 fitnessRouter.delete("/meals/:id", async (req, res) => {

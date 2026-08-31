@@ -19,6 +19,7 @@ export const api = {
   deleteSessions: (ids: string[]) => request<{ success: boolean; deleted: number }>("/api/fitness/sessions/bulk-delete", json("POST", { ids })),
   profile: (data: Pick<Profile, "name" | "sex" | "age" | "heightCm" | "weightKg" | "goal">) => request<Profile>("/api/fitness/profile", json("PUT", data)),
   addMeal: (data: Omit<MealEntry, "id" | "createdAt">) => request<MealEntry>("/api/fitness/meals", json("POST", data)),
+  addMealFromText: (query: string) => request<{ meal: MealEntry; calculation: FoodCalculation }>("/api/fitness/meals/from-text", json("POST", { query })),
   deleteMeal: (id: string) => request<{ success: boolean }>(`/api/fitness/meals/${id}`, { method: "DELETE" }),
   addWorkout: (data: Omit<WorkoutLog, "id" | "sessionName" | "activityType">) => request<WorkoutLog>("/api/fitness/workouts", json("POST", data)),
   addWeight: (data: Omit<WeightEntry, "id">) => request<WeightEntry>("/api/fitness/weights", json("POST", data)),

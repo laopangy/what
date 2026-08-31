@@ -161,17 +161,17 @@ export const userApi = {
 };
 
 export interface SettingsStatus {
-  ai: { configured: boolean; provider: "deepseek" | "openai"; baseUrl: string; model: string };
+  ai: { configured: boolean; provider: "deepseek"; baseUrl: string; model: string };
   netease: { loggedIn: boolean; nickname?: string };
   qq: { loggedIn: boolean; uin?: string };
 }
 
 export const settingsApi = {
   status: () => api.get<SettingsStatus>("/settings/status"),
-  saveAi: (provider: "deepseek" | "openai", apiKey: string, baseUrl: string, model: string) =>
-    api.post<{ configured: boolean; provider: "deepseek" | "openai"; baseUrl: string; model: string }>(
+  saveAi: (apiKey: string, baseUrl: string, model: string) =>
+    api.post<{ configured: boolean; provider: "deepseek"; baseUrl: string; model: string }>(
       "/settings/ai",
-      { provider, apiKey, baseUrl, model },
+      { apiKey, baseUrl, model },
     ),
   qqLoginQr: () => api.post<{ qrKey: string; qrimg: string; message: string; alreadyLoggedIn?: boolean }>("/settings/qq/login-qr"),
   qqLoginCheck: (qrKey: string) => api.post<{

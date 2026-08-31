@@ -4,7 +4,7 @@ import { createRequire } from "module";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
-import { getActiveAiConfig } from "../config.js";
+import { config, getActiveAiConfig } from "../config.js";
 import { callAiText } from "../services/aiClient.js";
 import { broadcastEvent } from "../services/wsManager.js";
 
