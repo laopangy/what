@@ -1,15 +1,14 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { ArrowLeft, Bike, BookOpen, ChevronRight, Dumbbell, Home, Music, Plane, Radio, RefreshCw, Search, Settings, Sparkles, Wrench } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronRight, Dumbbell, Home, Mountain, Music, Radio, RefreshCw, Search, Settings, Sparkles, Wrench } from "lucide-react";
 import WindowTitleBar from "./WindowTitleBar";
 
 const modules = [
   { name: "AI 对话", icon: Home, path: "/" },
   { name: "音乐", icon: Radio, path: "/music" },
   { name: "随手记", icon: BookOpen, path: "/journal" },
-  { name: "骑行", icon: Bike, path: "/cycling" },
+  { name: "户外", icon: Mountain, path: "/outdoor" },
   { name: "肌肉大", icon: Dumbbell, path: "/fitness" },
-  { name: "放肆一百次", icon: Plane, path: "/travel" },
   { name: "工具", icon: Wrench, path: "/tools" },
 ];
 

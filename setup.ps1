@@ -100,7 +100,7 @@ function Test-ApiKeyValue {
 }
 
 function Test-ProjectDependencies {
-    $projectDirectories = @("", "Music", "workbench", "Tools", "Fitness")
+    $projectDirectories = @("", "Music", "workbench", "Tools", "Fitness", "Outdoor")
     $staleProjects = New-Object 'System.Collections.Generic.List[string]'
     $missingPackages = New-Object 'System.Collections.Generic.List[string]'
 
@@ -755,7 +755,7 @@ $definitions = [ordered]@{
     Git = @{ Name = "Git for Windows（可选）"; Description = "版本管理、提交代码并上传 GitHub"; Icon = "G"; Optional = $true }
     Mpv = @{ Name = "mpv 播放器"; Description = "Music 模块的本地音频播放引擎"; Icon = "▶"; Optional = $false }
     Ncm = @{ Name = "ncm-cli"; Description = "网易云音乐命令行与登录能力"; Icon = "♫"; Optional = $false }
-    Dependencies = @{ Name = "项目依赖"; Description = "Electron、Music、Workbench、Tools 与 Fitness"; Icon = "▣"; Optional = $false }
+    Dependencies = @{ Name = "项目依赖"; Description = "Electron、Music、Workbench、Tools、Fitness 与 Outdoor"; Icon = "▣"; Optional = $false }
     Environment = @{ Name = "环境配置"; Description = "创建 .env，并配置本机 ncm-cli 路径"; Icon = "⚙"; Optional = $false }
 }
 $rows = @{}

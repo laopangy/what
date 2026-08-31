@@ -12,7 +12,7 @@ const MUSIC_PORT = 3001;
 const MUSIC_CLIENT_PORT = 5173;
 const WORKBENCH_PORT = 3000;
 const WORKBENCH_CLIENT_PORT = 5174;
-const SERVICE_PORTS = [3000, 3001, 3002, 3003, 5173, 5174, 5175, 5176];
+const SERVICE_PORTS = [3000, 3001, 3002, 3003, 3004, 5173, 5174, 5175, 5176, 5177];
 const MPV_PID_FILE = path.join(os.tmpdir(), "what-music-mpv.pid");
 
 const isDev = !app.isPackaged;

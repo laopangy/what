@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ArrowRight, Database, Eye, EyeOff, Fingerprint, FolderLock, KeyRound, LoaderCircle } from "lucide-react";
 import WindowTitleBar from "../layout/WindowTitleBar";
 
-const STORAGE_SERVICES = ["http://localhost:3002", "http://localhost:3003"];
+const STORAGE_SERVICES = ["http://localhost:3002", "http://localhost:3003", "http://localhost:3004"];
 const readStorageStates = () => Promise.all(STORAGE_SERVICES.map(async (base) => {
   const response = await fetch(`${base}/api/health`);
   if (!response.ok) throw new Error("数据服务健康检查失败");
@@ -108,7 +108,7 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
                 你的数据，<br />只在解锁后出现
               </h1>
               <p className="mt-5 max-w-[28rem] text-[12px] leading-6 text-white/55 text-pretty">
-                日记、训练计划和定时任务统一保存在项目内的加密仓库。离开工作台后，磁盘上仍然只有密文。
+                日记、训练计划、户外行程和定时任务统一保存在项目内的加密仓库。离开工作台后，磁盘上仍然只有密文。
               </p>
             </div>
 

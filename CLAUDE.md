@@ -23,12 +23,13 @@ what/
 │   ├── server/             # Express 5 + TypeScript（node-cron 调度等）
 │   └── server/             # 定时器、执行历史和日记写入根目录加密仓库
 │   └── 子工具: 定时器 ⏰、拼豆规格图
-├── Cycling/                # 🚴 骑行模块（开发中，仅占位 package.json）
 ├── Fitness/                # 💪 肌肉大（训练、饮食与身体数据管理，已上线）
 │   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
 │   ├── server/             # Express 5 + TypeScript + Zod
 │   └── server/             # 健身状态写入同一个加密仓库
-└── Travel/                 # ✈️ 旅游模块（开发中，仅占位 package.json）
+└── Outdoor/                # ⛰️ 户外模块（骑行、旅行与完整行程规划）
+    ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
+    └── server/             # Express 5 + Zod + 加密行程存储
 ```
 
 ## 技术栈
@@ -56,11 +57,13 @@ what/
 | Workbench | 5174 | 3000 |
 | Tools | 5175 | 3002 |
 | Fitness | 5176 | 3003 |
+| Outdoor | 5177 | 3004 |
 
 ### Vite 代理配置
 - Music client 的 `/api` → `http://localhost:3001`，`/ws` → `ws://localhost:3001`
 - Workbench client 的 `/api` → `http://localhost:3000`
 - Fitness client 的 `/api` → `http://localhost:3003`
+- Outdoor client 的 `/api` → `http://localhost:3004`
 
 ## 新电脑完整配置流程
 
@@ -123,7 +126,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\setup.ps1 -ForceS
 - `.env` 格式可参考 `Music/server/.env.example` 和 `workbench/server/.env.example`
 - 首次进入工作台需输入数据密码。密码只用于运行时验证和密钥派生，不写入仓库文件或项目文档
 - 解锁页采用与工作台一致的灰蓝玻璃与 QQ 绿设计：双栏说明数据保护方式，提供连接中、解锁中和内联错误状态；Electron 锁屏时仍显示最小化、最大化和关闭按钮。进入工作台后会定期检查 Tools 与 Fitness 的解锁状态，任一服务重启并重新上锁时自动返回密码页
-- 定时器、执行历史、日记和 Fitness 数据统一保存在根目录 `data/what.vault`。文件使用随机盐、PBKDF2-SHA256 和 AES-256-GCM 加密，Git 会忽略该文件
+- 定时器、执行历史、日记、Fitness 数据和户外行程统一保存在根目录 `data/what.vault`。文件使用随机盐、PBKDF2-SHA256 和 AES-256-GCM 加密，Git 会忽略该文件
 - 所有用户生成的业务数据必须进入加密仓库，禁止在模块 `server/data/` 中保留明文 JSON；开发和构建前会运行 `npm run check:data-security` 检查旧明文文件及加密信封结构，迁移脚本写入成功后会立即删除明文源文件
 
 ### 手动安装备用流程
@@ -141,7 +144,7 @@ winget install --id shinchiro.mpv -e
 # 网易云 CLI
 npm install -g @music163/ncm-cli
 
-# 根目录执行一次即可；postinstall 会安装三个子模块
+# 根目录执行一次即可；postinstall 会安装全部子模块
 npm install
 ```
 
@@ -172,6 +175,7 @@ npm run dev:web
 - AI 工作台：http://localhost:5174
 - 音乐播放器：http://localhost:5173
 - 工具模块：http://localhost:5175（定时器、拼豆规格图）
+- 户外模块：http://localhost:5177（完整行程规划、骑行、自驾与高铁方案）
 
 ## 启动验证清单
 
@@ -274,6 +278,18 @@ workbench/client ──WebSocket────────────────
 | `/api/fitness/weights` (POST) | 新增或覆盖当天身体数据 |
 | `/api/health` | 健康检查 |
 
+## Outdoor 服务器 API 端点（户外）
+
+| 路由 | 用途 |
+|------|------|
+| `/api/outdoor/generate` (POST) | 从自然语言解析出发地、目的地、时间限制、交通方式和强度，生成去程、活动、用餐、休息、返程与到家的完整闭环行程 |
+| `/api/outdoor/plans` | 获取或保存加密行程计划 |
+| `/api/outdoor/plans/:id` (PUT) | 更新已有行程计划 |
+| `/api/outdoor/plans/:id` (DELETE) | 删除已有行程计划 |
+| `/api/health` | Outdoor 健康检查及加密仓库解锁状态 |
+
+当前路线时间和费用为可编辑估算，并在界面中明确标记；后续接入地图服务后可替换为实时道路与公共交通数据。客户端支持系统语音识别，识别结果只作为行程描述提交，不保存录音。
+
 ### 定时器数据模型
 
 ```json
@@ -314,6 +330,15 @@ Fitness 与 Tools 共用根目录的加密数据仓库，服务重启后需再�
 |----------|--------|------|
 | `PORT` | `3003` | 服务器端口 |
 | `vaultFile` | `data/what.vault` | 与 Tools 共用的 AES-256-GCM 加密文件 |
+
+## Outdoor 服务器配置项
+
+Outdoor 与 Tools、Fitness 共用根目录加密仓库，工作台统一密码页会同时解锁三个数据服务。
+
+| 环境变量 | 默认值 | 说明 |
+|----------|--------|------|
+| `PORT` | `3004` | 服务器端口 |
+| `VAULT_FILE` | `data/what.vault` | 与其他业务模块共用的 AES-256-GCM 加密文件 |
 
 ## Music 服务器配置项
 

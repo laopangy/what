@@ -25,7 +25,7 @@
    - 5.5 [工具插件系统](#55-工具插件系统)
    - 5.6 [Tools 模块](#56-tools-模块)
 6. [Electron 桌面客户端](#6-electron-桌面客户端)
-7. [待开发模块](#7-待开发模块)
+7. [生活与运动模块](#7-生活与运动模块)
 8. [端口与代理配置](#8-端口与代理配置)
 9. [配置项参考](#9-配置项参考)
 10. [技术栈汇总](#10-技术栈汇总)
@@ -47,9 +47,8 @@
 | Music | ✅ 已上线 | 网易云音乐播放器（Web 控制面板 + Electron 客户端） |
 | Workbench | ✅ 已上线 | AI 对话助手（可语音/文字操控各模块） |
 | Electron | ✅ 已上线 | 桌面客户端（主进程 + 托盘 + 打包） |
-| Cycling | 🚧 占位 | 仅 `package.json` |
 | Fitness（肌肉大） | ✅ 已上线 | 训练计划、逐组打卡、饮食记录、营养目标和身体趋势 |
-| Travel | 🚧 占位 | 仅 `package.json` |
+| Outdoor（户外） | ✅ 已上线 | 自然语言生成骑行、自驾和高铁完整闭环行程 |
 
 **仓库地址**：`https://github.com/laopangy/what`
 
@@ -139,7 +138,7 @@ what/                          # 仓库根目录（Electron 入口）
 - 展示 4 张导航卡片 + 1 个主推卡片
 - 主推卡片（Workbench）带有视觉强调样式，链接到 `http://localhost:5174`
 - Music 卡片链接到 `Music/client/dist/index.html`（构建产物）
-- Fitness 卡片链接到 `http://localhost:5176`；Cycling / Travel 仍为禁用状态
+- Fitness 卡片链接到 `http://localhost:5176`；户外卡片链接到 `http://localhost:5177`，原 Cycling / Travel 能力合并到户外模块
 - 深色主题、渐变背景、hover 动效
 
 **逻辑要点**：
@@ -684,9 +683,10 @@ authHelper.getLoginQr()
 | `/music` | `MusicEmbed` | 🆕 嵌入 Music 应用（Electron webview） |
 | `/journal` | `JournalEmbed` | 嵌入随手记 |
 | `/tools` | `ToolsEmbed` | 嵌入工具模块 |
-| `/cycling` | `PlaceholderPage` | 骑行模块占位页 |
+| `/outdoor` | `OutdoorEmbed` | 嵌入户外完整行程应用（Electron webview） |
+| `/cycling` | `Navigate` | 兼容旧入口并跳转到 `/outdoor` |
 | `/fitness` | `FitnessEmbed` | 嵌入肌肉大应用（Electron webview） |
-| `/travel` | `PasswordGate` + `PlaceholderPage` | 密码保护的旅行模块占位页 |
+| `/travel` | `Navigate` | 兼容旧入口并跳转到 `/outdoor` |
 
 #### 组件树
 
@@ -694,7 +694,7 @@ authHelper.getLoginQr()
 App
 └── WorkbenchLayout
     ├── Sidebar
-    │   ├── 模块链接（AI 对话/音乐/骑行/健身/旅游）
+    │   ├── 模块链接（AI 对话/音乐/随手记/户外/健身/工具）
     │   └── 状态指示器
     ├── <Routes>
     │   ├── ChatPanel
@@ -1102,7 +1102,7 @@ npm run build
 
 ---
 
-## 7. 待开发模块
+## 7. 生活与运动模块
 
 ### 7.1 Fitness（肌肉大）
 
@@ -1112,7 +1112,7 @@ npm run build
 
 **后端**：Express 5 + TypeScript + Zod，端口 `3003`
 
-**数据存储**：与 Tools 共用根目录 `data/what.vault`。仓库通过 PBKDF2-SHA256 派生密钥并使用 AES-256-GCM 加密，启动后输入密码才能解锁；磁盘上不再保留明文 JSON。工作台会持续检查 Tools 与 Fitness 的解锁状态，开发热更新或服务重启导致任一后端重新上锁时，会自动返回统一密码页重新解锁。
+**数据存储**：与 Tools、Outdoor 共用根目录 `data/what.vault`。仓库通过 PBKDF2-SHA256 派生密钥并使用 AES-256-GCM 加密，启动后输入密码才能解锁；磁盘上不再保留明文 JSON。工作台会持续检查 Tools、Fitness 与 Outdoor 的解锁状态，开发热更新或服务重启导致任一后端重新上锁时，会自动返回统一密码页重新解锁。
 
 核心闭环：
 
@@ -1146,11 +1146,35 @@ Fitness API：
 | DELETE | `/api/fitness/weights/:id` | 删除体重/体脂记录 |
 | GET | `/api/health` | Fitness 健康检查 |
 
-| 模块 | 目录 | 状态 | 说明 |
-|------|------|------|------|
-| Cycling | `Cycling/` | 占位 | `package.json` 仅含基本信息 |
-| Fitness | `Fitness/` | 已上线 | 训练、饮食与身体数据一体化管理 |
-| Travel | `Travel/` | 占位 | `package.json` 仅含基本信息 |
+### 7.2 Outdoor（户外）
+
+**目录**：`Outdoor/`
+
+**前端**：React 19 + Vite 6 + Tailwind CSS 4，端口 `5177`
+
+**后端**：Express 5 + TypeScript + Zod，端口 `3004`
+
+**定位**：合并原骑行与旅行入口，通过文字或系统语音识别接收“想去哪里、可接受单程时间、交通方式和游玩强度”，生成从出发到到家的完整闭环行程，而非只给目的地推荐。
+
+核心能力：
+
+- 自然语言条件解析：识别出发地、目的地、日期、单程分钟/小时限制、自驾/高铁/骑行和轻松/标准/挑战强度；支持阿拉伯数字及常见中文数字时长
+- 完整行程生成：按时间预算生成出发、停车场或接驳点、主要活动、午餐、第二景点、休息、开始返程和到家八类连续节点，并反向校验返程时间
+- 联动呈现：户外内容区独立使用现有灰蓝表面与 QQ 绿令牌，地图式闭环路线、横向时间轴、节点图片和详情同步选中；不修改 Workbench 或其他模块样式
+- 交通对比：在同一条件下切换自驾、高铁和骑行并重新计算时间、费用和限制警告；当前版本明确标记为估算路线
+- 行程管理：完整计划可保存、更新、查看和删除，全部写入根目录 `data/what.vault` 的 `outdoor` 分区，不产生模块明文数据文件
+- Workbench 集成：`/outdoor` 通过 `OutdoorEmbed` webview 加载 `http://localhost:5177`；旧 `/cycling` 与 `/travel` 路由兼容跳转
+
+Outdoor API：
+
+| 方法 | 路由 | 用途 |
+|------|------|------|
+| POST | `/api/outdoor/generate` | 解析自然语言并生成完整行程草案，可指定交通方式和条件覆盖 |
+| GET | `/api/outdoor/plans` | 获取已保存的行程 |
+| POST | `/api/outdoor/plans` | 保存新行程 |
+| PUT | `/api/outdoor/plans/:id` | 更新已有行程 |
+| DELETE | `/api/outdoor/plans/:id` | 删除行程 |
+| GET | `/api/health` | Outdoor 服务和加密仓库状态 |
 
 ---
 
@@ -1160,6 +1184,9 @@ Fitness API：
 |------|---------|---------|-----------|
 | Music | 5173 | 3001 | `/api` → `http://localhost:3001`<br>`/ws` → `ws://localhost:3001` |
 | Workbench | 5174 | 3000 | `/api` → `http://localhost:3000`<br>`/api/music` → `http://localhost:3001` 🆕 |
+| Tools | 5175 | 3002 | `/api` → `http://localhost:3002` |
+| Fitness | 5176 | 3003 | `/api` → `http://localhost:3003` |
+| Outdoor | 5177 | 3004 | `/api` → `http://localhost:3004` |
 
 **WebSocket 连接**：
 - Music client → `ws://localhost:5173/ws`（经 Vite 代理到 `:3001`）
@@ -1322,6 +1349,7 @@ Fitness API：
 | 2026-08-31 | Codex | Tools/拼豆自定义尺寸 | 新增横向与纵向豆数输入及原图比例锁，可在 8-240 范围内设置 64 × 36 等规格；实时检测比例偏差、提示拉伸风险并一键应用推荐尺寸，生成、预览与导出统一使用自定义尺寸 | `Tools/client/src/components/beads/BeadPatternMaker.tsx`, `Tools/client/src/utils/beadPattern.ts`, `PROJECT.md` |
 | 2026-08-31 | Codex | 全局 AI 配置 | 将 Workbench、Music 与 Fitness 的 AI 运行时统一为 DeepSeek，移除其他提供商的请求分支、环境变量读取和设置入口，并清理本机旧配置 | `workbench/server/src/config.ts`, `services/aiClient.ts`, `services/chatService.ts`, `Music/server/src/config.ts`, `routes/settings.ts`, `services/aiClient.ts`, `Music/client/src/components/dashboard/SettingsPage.tsx`, `api/client.ts`, `Fitness/server/src/aiConfig.ts`, `aiNutrition.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Workbench/AI 对话 | 将 AI 主身份调整为通用助手；仅在明确音乐需求或连续音乐操作时注入音乐提示及工具定义，普通问答不再携带音乐上下文，也不追加听歌引导或音乐建议 | `workbench/server/src/services/chatService.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-08-31 | Codex | Outdoor/户外行程 | 新增独立户外模块并合并原骑行与旅行入口：支持文字/系统语音描述、中文时长解析、自驾/高铁/骑行对比、八节点完整闭环行程、地图式路线与时间轴/图片联动、估算风险提示及加密计划管理；仅新增 Outdoor 局部样式，不修改现有模块视觉 | `Outdoor/**`, `workbench/client/src/App.tsx`, `components/chat/OutdoorEmbed.tsx`, `components/chat/PasswordGate.tsx`, `components/layout/WorkbenchLayout.tsx`, `package.json`, `electron/main.js`, `scripts/clean-ports.js`, `setup.ps1`, `index.html`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 

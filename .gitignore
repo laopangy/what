@@ -3,6 +3,7 @@ node_modules/
 dist/
 out/
 *.log
+*.tsbuildinfo
 .DS_Store
 Thumbs.db
 
@@ -11,3 +12,4 @@ data/*.vault
 data/*.lock
 Tools/server/data/
 Fitness/server/data/
+Outdoor/server/data/

@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #44515b;
+  --color-surface: #52616c;
+  --color-panel: #63727d;
+  --color-border: #71808a;
+  --color-text: #f2f5f6;
+  --color-muted: #c0c9ce;
+  --color-accent: #00e889;
+  --color-accent-light: #55f0ac;
+}
+
+* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: #71808a transparent; }
+html, body, #root { width: 100%; height: 100%; margin: 0; }
+body { overflow: hidden; color: #f2f5f6; background: #44515b; font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+button, input, textarea { font: inherit; }
+button { color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 1px solid #55f0ac; outline-offset: 2px; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+
+.outdoor-root { --outdoor-accent: #00e889; --outdoor-surface: rgb(69 83 93 / .78); position: relative; height: 100%; min-height: 600px; overflow: hidden; background: radial-gradient(ellipse 65% 45% at 68% -10%, rgb(173 197 211 / .16), transparent 68%), linear-gradient(140deg, #4b5963, #3f4d56); }
+.outdoor-root::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .28; background-image: linear-gradient(rgb(255 255 255 / .02) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .02) 1px, transparent 1px); background-size: 38px 38px; }
+.outdoor-local-header { position: relative; z-index: 4; height: 74px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 0 24px; border-bottom: 1px solid rgb(255 255 255 / .075); background: rgb(65 79 89 / .56); backdrop-filter: blur(18px); }
+.outdoor-local-header > div { display: flex; align-items: baseline; gap: 11px; min-width: 0; }
+.outdoor-eyebrow { color: #00e889; font-size: 8px; font-weight: 700; letter-spacing: .18em; }
+.outdoor-local-header h1 { margin: 0; font-size: 20px; letter-spacing: -.04em; }
+.outdoor-local-header p { margin: 0; color: rgb(242 245 246 / .48); font-size: 10px; }
+.outdoor-local-header nav { align-self: stretch; display: flex; gap: 4px; }
+.outdoor-local-header nav button { position: relative; display: flex; align-items: center; gap: 7px; border: 0; padding: 0 13px; background: transparent; color: rgb(242 245 246 / .52); font-size: 10px; transition: .2s ease; }
+.outdoor-local-header nav button:hover { color: #fff; }
+.outdoor-local-header nav button.is-active { color: #fff; }
+.outdoor-local-header nav button.is-active::after { content: ""; position: absolute; inset: auto 12px 0; height: 2px; background: #00e889; }
+.outdoor-local-header nav button span { display: grid; min-width: 17px; height: 17px; place-items: center; border-radius: 999px; background: rgb(255 255 255 / .08); font-size: 8px; }
+
+.outdoor-workspace { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(280px, 318px) minmax(0, 1fr); gap: 10px; height: calc(100% - 74px); padding: 10px; }
+.outdoor-planner-panel, .outdoor-result-panel { min-height: 0; border: 1px solid rgb(255 255 255 / .09); border-radius: 12px; background: rgb(61 75 85 / .82); box-shadow: 0 18px 42px rgb(27 43 53 / .22); }
+.outdoor-planner-panel { display: flex; flex-direction: column; overflow-y: auto; padding: 16px; }
+.outdoor-prompt-block { padding-bottom: 16px; border-bottom: 1px solid rgb(255 255 255 / .08); }
+.outdoor-prompt-block > label { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; color: rgb(242 245 246 / .72); font-size: 10px; font-weight: 600; }
+.outdoor-prompt-block > label svg { color: #00e889; }
+.outdoor-prompt-block textarea { width: 100%; min-height: 88px; resize: vertical; border: 1px solid rgb(255 255 255 / .10); border-radius: 10px; padding: 11px 12px; outline: none; background: rgb(35 49 58 / .58); color: #f2f5f6; font-size: 11px; line-height: 1.7; transition: .2s ease; }
+.outdoor-prompt-block textarea:focus { border-color: rgb(0 232 137 / .48); background: rgb(35 49 58 / .76); }
+.outdoor-prompt-block textarea::placeholder { color: rgb(242 245 246 / .28); }
+.outdoor-prompt-actions { display: grid; grid-template-columns: .86fr 1.14fr; gap: 7px; margin-top: 8px; }
+.outdoor-prompt-actions button, .outdoor-panel-footer button, .outdoor-secondary { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; border-radius: 8px; font-size: 10px; font-weight: 600; transition: .18s ease; }
+.outdoor-voice, .outdoor-secondary { border: 1px solid rgb(255 255 255 / .12); background: rgb(255 255 255 / .045); color: rgb(242 245 246 / .68); }
+.outdoor-voice:hover, .outdoor-secondary:hover { border-color: rgb(255 255 255 / .22); color: #fff; background: rgb(255 255 255 / .08); }
+.outdoor-voice.is-listening { border-color: rgb(0 232 137 / .45); color: #55f0ac; }
+.outdoor-generate, .outdoor-save { border: 1px solid #00e889; background: #00e889; color: #123a2b; box-shadow: 0 10px 24px rgb(0 232 137 / .11); }
+.outdoor-generate:hover, .outdoor-save:hover { background: #55f0ac; border-color: #55f0ac; transform: translateY(-1px); }
+.outdoor-generate:active, .outdoor-save:active { transform: scale(.985); }
+.outdoor-error { display: flex; align-items: flex-start; gap: 7px; margin-top: 10px; border: 1px solid rgb(252 165 165 / .2); border-radius: 8px; padding: 8px 9px; background: rgb(127 29 29 / .12); color: rgb(254 226 226 / .82); font-size: 9px; line-height: 1.5; }
+.outdoor-error > button { margin-left: auto; border: 0; background: transparent; color: inherit; }
+.outdoor-plan-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 16px 0 10px; }
+.outdoor-plan-heading span, .outdoor-section-heading span { color: #55f0ac; font-size: 8px; font-weight: 700; letter-spacing: .13em; }
+.outdoor-plan-heading h2 { margin: 4px 0 0; font-size: 17px; line-height: 1.25; letter-spacing: -.035em; }
+.outdoor-plan-heading .outdoor-quality { border: 1px solid rgb(255 255 255 / .10); border-radius: 5px; padding: 4px 6px; color: rgb(242 245 246 / .45); letter-spacing: .05em; }
+.outdoor-intent-list { display: grid; gap: 2px; border-block: 1px solid rgb(255 255 255 / .07); padding: 7px 0; }
+.outdoor-intent-list label { display: flex; align-items: center; gap: 10px; min-height: 43px; border-radius: 8px; padding: 4px 8px; transition: .18s ease; }
+.outdoor-intent-list label:hover { background: rgb(255 255 255 / .035); }
+.outdoor-intent-list label > svg { flex: 0 0 auto; color: rgb(242 245 246 / .38); }
+.outdoor-intent-list label > span { display: grid; min-width: 0; flex: 1; gap: 2px; }
+.outdoor-intent-list small { color: rgb(242 245 246 / .36); font-size: 8px; }
+.outdoor-intent-list input { min-width: 0; border: 0; padding: 0; outline: 0; background: transparent; color: rgb(242 245 246 / .86); font-size: 10px; }
+.outdoor-mode-switch { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; margin-top: 11px; padding: 3px; border-radius: 9px; background: rgb(34 48 57 / .5); }
+.outdoor-mode-switch button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: rgb(242 245 246 / .48); font-size: 9px; }
+.outdoor-mode-switch button.is-active { border-color: rgb(0 232 137 / .28); background: rgb(0 232 137 / .08); color: #55f0ac; }
+.outdoor-summary { display: grid; grid-template-columns: repeat(3, 1fr); margin: 12px 0; }
+.outdoor-summary > div { padding: 0 8px; border-right: 1px solid rgb(255 255 255 / .07); }
+.outdoor-summary > div:first-child { padding-left: 0; }
+.outdoor-summary > div:last-child { border: 0; padding-right: 0; }
+.outdoor-summary dt { color: rgb(242 245 246 / .35); font-size: 8px; }
+.outdoor-summary dd { margin: 4px 0 0; font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.outdoor-summary dd small { color: rgb(242 245 246 / .42); font-size: 8px; font-weight: 500; }
+.outdoor-panel-footer { display: grid; grid-template-columns: .8fr 1.2fr; gap: 7px; margin-top: auto; padding-top: 8px; }
+.outdoor-secondary { padding: 0 10px; }
+
+.outdoor-result-panel { position: relative; display: grid; grid-template-rows: minmax(270px, 1.4fr) auto minmax(140px, .7fr) auto auto; gap: 8px; overflow: auto; padding: 8px; }
+.outdoor-map { position: relative; min-height: 270px; overflow: hidden; border-radius: 9px; background-color: #243640; background-image: radial-gradient(ellipse 28% 42% at 25% 45%, rgb(41 73 56 / .9), transparent 70%), radial-gradient(ellipse 24% 38% at 35% 72%, rgb(31 72 57 / .72), transparent 72%), linear-gradient(28deg, transparent 48%, rgb(255 255 255 / .035) 49% 50%, transparent 51%), linear-gradient(112deg, transparent 48%, rgb(255 255 255 / .026) 49% 50%, transparent 51%), repeating-linear-gradient(18deg, transparent 0 35px, rgb(255 255 255 / .024) 36px 37px, transparent 38px 68px), radial-gradient(ellipse at 82% 22%, #314853, #20333d 60%, #1c2d36); background-size: auto, auto, 110px 110px, 145px 145px, auto, auto; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .055); }
+.outdoor-map::before { content: ""; position: absolute; inset: 0; opacity: .25; background-image: linear-gradient(rgb(255 255 255 / .04) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .04) 1px, transparent 1px); background-size: 70px 70px; mask-image: linear-gradient(90deg, black, transparent 70%); }
+.outdoor-map-toolbar { position: absolute; z-index: 4; inset: 11px 11px auto auto; display: flex; gap: 7px; }
+.outdoor-map-toolbar > span { display: flex; align-items: center; gap: 5px; min-height: 28px; border: 1px solid rgb(255 255 255 / .08); border-radius: 8px; padding: 0 9px; background: rgb(21 37 46 / .76); color: rgb(242 245 246 / .74); font-size: 9px; backdrop-filter: blur(12px); }
+.outdoor-data-status span { width: 5px; height: 5px; border-radius: 999px; background: #00e889; box-shadow: 0 0 8px #00e889; }
+.outdoor-map-label { position: absolute; z-index: 1; color: rgb(242 245 246 / .18); font-size: clamp(16px, 2.2vw, 28px); font-weight: 650; letter-spacing: .08em; }
+.outdoor-map-label-home { right: 9%; top: 27%; }
+.outdoor-map-label-destination { left: 17%; top: 45%; }
+.outdoor-route-svg { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.outdoor-route-shadow, .outdoor-route-line { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.outdoor-route-shadow { stroke: rgb(5 19 15 / .68); stroke-width: 8; }
+.outdoor-route-line { stroke: #00e889; stroke-width: 3.4; }
+.outdoor-map-stop { position: absolute; z-index: 3; display: flex; align-items: center; border: 0; padding: 0; background: transparent; transform: translate(-50%, -50%); }
+.outdoor-map-pin { display: grid; width: 25px; height: 25px; flex: 0 0 auto; place-items: center; border: 2px solid #00e889; border-radius: 999px; background: #223b37; color: #55f0ac; box-shadow: 0 5px 18px rgb(0 0 0 / .28); transition: .18s ease; }
+.outdoor-map-stop-copy { display: flex; align-items: center; gap: 4px; max-width: 110px; margin-left: 4px; border-radius: 5px; padding: 4px 6px; overflow: hidden; background: rgb(22 39 48 / .74); color: rgb(242 245 246 / .78); font-size: 8px; white-space: nowrap; text-overflow: ellipsis; backdrop-filter: blur(8px); }
+.outdoor-map-stop-copy b { color: #55f0ac; }
+.outdoor-map-stop:hover .outdoor-map-pin, .outdoor-map-stop.is-active .outdoor-map-pin { transform: scale(1.15); background: #00e889; color: #123a2b; }
+.outdoor-map-stop.is-active .outdoor-map-stop-copy { color: #fff; background: rgb(24 55 49 / .9); }
+.outdoor-map-scale { position: absolute; z-index: 3; right: 12px; bottom: 10px; color: rgb(242 245 246 / .36); font-size: 7px; }
+.outdoor-map-scale span { display: block; width: 38px; margin-bottom: 3px; border-top: 1px solid rgb(242 245 246 / .42); }
+
+.outdoor-timeline { display: flex; min-width: 720px; overflow-x: auto; border-radius: 9px; padding: 10px 10px 8px; background: rgb(35 49 58 / .55); }
+.outdoor-timeline-item { position: relative; display: flex; min-width: 93px; flex: 1; align-items: center; }
+.outdoor-timeline-item > button { position: relative; z-index: 2; display: flex; align-items: flex-start; gap: 6px; min-width: 0; border: 0; padding: 0; background: transparent; text-align: left; }
+.outdoor-timeline-dot { display: grid; width: 25px; height: 25px; flex: 0 0 auto; place-items: center; border: 1px solid rgb(0 232 137 / .58); border-radius: 999px; background: rgb(0 232 137 / .08); color: #55f0ac; }
+.outdoor-timeline-item b { display: block; color: rgb(242 245 246 / .88); font-size: 9px; font-variant-numeric: tabular-nums; }
+.outdoor-timeline-item small { display: block; max-width: 70px; margin-top: 3px; overflow: hidden; color: rgb(242 245 246 / .4); font-size: 7px; white-space: nowrap; text-overflow: ellipsis; }
+.outdoor-timeline-item.is-active .outdoor-timeline-dot { background: #00e889; color: #173a2d; }
+.outdoor-travel-segment { position: absolute; z-index: 1; right: calc(100% - 3px); top: 12px; width: calc(100% - 31px); border-top: 1px dashed rgb(0 232 137 / .34); }
+.outdoor-travel-segment span { position: absolute; left: 50%; top: -11px; color: rgb(242 245 246 / .26); font-size: 6px; transform: translateX(-50%); }
+
+.outdoor-photo-story { display: grid; min-height: 140px; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 6px; overflow-x: auto; }
+.outdoor-photo-story button { position: relative; min-width: 150px; min-height: 140px; overflow: hidden; border: 1px solid transparent; border-radius: 9px; padding: 0; background: radial-gradient(circle at 70% 20%, rgb(86 119 102 / .45), transparent 40%), linear-gradient(145deg, #324b4a, #2a3c46); text-align: left; }
+.outdoor-photo-story img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease, filter .35s ease; }
+.outdoor-photo-story button::after { content: ""; position: absolute; inset: 35% 0 0; background: linear-gradient(transparent, rgb(16 28 35 / .9)); }
+.outdoor-photo-story button:hover img { transform: scale(1.035); }
+.outdoor-photo-story button.is-active { border-color: rgb(0 232 137 / .7); }
+.outdoor-photo-story button > span { position: absolute; z-index: 2; inset: auto 9px 8px; display: grid; grid-template-columns: auto 1fr; gap: 2px 6px; }
+.outdoor-photo-story button b { grid-row: span 2; display: grid; width: 19px; height: 19px; place-items: center; border-radius: 999px; background: #00e889; color: #173a2d; font-size: 8px; }
+.outdoor-photo-story button strong { overflow: hidden; color: white; font-size: 9px; white-space: nowrap; text-overflow: ellipsis; }
+.outdoor-photo-story button small { color: rgb(255 255 255 / .48); font-size: 7px; }
+.outdoor-selected-detail { display: flex; align-items: center; gap: 9px; min-height: 54px; border-top: 1px solid rgb(255 255 255 / .07); padding: 7px 4px 0; }
+.outdoor-selected-order { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 999px; background: rgb(0 232 137 / .1); color: #55f0ac; font-size: 10px; font-weight: 700; }
+.outdoor-selected-detail > div { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.outdoor-selected-detail small { color: #55f0ac; font-size: 7px; }
+.outdoor-selected-detail strong { font-size: 10px; }
+.outdoor-selected-detail p { margin: 0; color: rgb(242 245 246 / .4); font-size: 8px; }
+.outdoor-selected-detail button { display: flex; align-items: center; gap: 5px; border: 1px solid rgb(255 255 255 / .1); border-radius: 7px; padding: 7px 9px; background: transparent; color: rgb(242 245 246 / .55); font-size: 8px; }
+.outdoor-selected-detail button.is-locked { border-color: rgb(0 232 137 / .34); background: rgb(0 232 137 / .08); color: #55f0ac; }
+.outdoor-route-note { display: flex; align-items: center; gap: 6px; min-height: 23px; color: rgb(242 245 246 / .34); font-size: 7px; }
+.outdoor-route-note svg { color: rgb(245 214 124 / .66); }
+
+.outdoor-loading { display: grid; min-height: 100%; place-items: center; gap: 12px; color: rgb(242 245 246 / .45); font-size: 10px; }
+.outdoor-loading-map { width: min(70%, 620px); height: 45%; border-radius: 10px; background: linear-gradient(100deg, rgb(255 255 255 / .03), rgb(255 255 255 / .09), rgb(255 255 255 / .03)); background-size: 220% 100%; animation: outdoor-shimmer 1.8s infinite; }
+.outdoor-loading-line { width: min(60%, 520px); height: 8px; border-radius: 99px; background: rgb(0 232 137 / .14); }
+.spin { animation: outdoor-spin .8s linear infinite; }
+@keyframes outdoor-spin { to { transform: rotate(360deg); } }
+@keyframes outdoor-shimmer { to { background-position: -220% 0; } }
+
+.outdoor-saved-view { position: relative; z-index: 2; height: calc(100% - 74px); overflow-y: auto; padding: 24px; }
+.outdoor-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; max-width: 980px; margin: 0 auto 18px; }
+.outdoor-section-heading h2 { margin: 4px 0 0; font-size: 23px; letter-spacing: -.04em; }
+.outdoor-section-heading button { min-height: 34px; border-radius: 8px; }
+.outdoor-empty { display: grid; max-width: 580px; min-height: 310px; place-items: center; align-content: center; gap: 9px; margin: 30px auto; border: 1px solid rgb(255 255 255 / .08); border-radius: 13px; background: rgb(61 75 85 / .6); color: rgb(242 245 246 / .35); text-align: center; }
+.outdoor-empty h3 { margin: 4px 0 0; color: rgb(242 245 246 / .78); font-size: 14px; }
+.outdoor-empty p { max-width: 330px; margin: 0; font-size: 9px; line-height: 1.7; }
+.outdoor-saved-list { display: grid; max-width: 980px; gap: 7px; margin: 0 auto; }
+.outdoor-saved-list article { display: grid; grid-template-columns: 112px 1fr auto auto; align-items: center; gap: 13px; min-height: 82px; border: 1px solid rgb(255 255 255 / .08); border-radius: 11px; padding: 7px; background: rgb(61 75 85 / .7); }
+.outdoor-saved-photo { height: 68px; border-radius: 7px; background-position: center; background-size: cover; }
+.outdoor-saved-list article span { color: #55f0ac; font-size: 8px; }
+.outdoor-saved-list article h3 { margin: 4px 0; font-size: 13px; }
+.outdoor-saved-list article p { margin: 0; color: rgb(242 245 246 / .4); font-size: 8px; }
+.outdoor-saved-list article > button { display: flex; align-items: center; gap: 6px; border: 1px solid rgb(255 255 255 / .1); border-radius: 7px; padding: 8px 10px; background: transparent; color: rgb(242 245 246 / .62); font-size: 8px; }
+.outdoor-icon-button { display: grid !important; width: 31px; height: 31px; place-items: center; padding: 0 !important; }
+.outdoor-icon-button.danger:hover { border-color: rgb(252 165 165 / .35); color: rgb(254 202 202 / .85); }
+
+@media (max-width: 980px) {
+  .outdoor-workspace { grid-template-columns: 270px minmax(640px, 1fr); overflow-x: auto; }
+  .outdoor-local-header p { display: none; }
+}
+@media (max-height: 720px) {
+  .outdoor-local-header { height: 62px; }
+  .outdoor-workspace, .outdoor-saved-view { height: calc(100% - 62px); }
+  .outdoor-result-panel { grid-template-rows: minmax(240px, 1.2fr) auto minmax(120px, .6fr) auto auto; }
+  .outdoor-planner-panel { padding: 12px; }
+  .outdoor-prompt-block textarea { min-height: 64px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .outdoor-root *, .outdoor-root *::before, .outdoor-root *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

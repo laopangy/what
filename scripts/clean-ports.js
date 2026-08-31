@@ -4,7 +4,7 @@
  */
 const { execSync } = require("child_process");
 
-const PORTS = [3000, 3001, 3002, 3003, 5173, 5174, 5175, 5176];
+const PORTS = [3000, 3001, 3002, 3003, 3004, 5173, 5174, 5175, 5176, 5177];
 
 for (const port of PORTS) {
   try {

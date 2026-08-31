@@ -7,18 +7,19 @@
   "scripts": {
     "start": "npm run dev",
     "predev": "npm run check:data-security && node scripts/clean-ports.js",
-    "dev": "concurrently -n tools,fitness,music,workbench,electron -c yellow,cyan,blue,green,magenta \"cd Tools && npm run dev\" \"cd Fitness && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\" \"wait-on http-get://localhost:5174 && electron .\"",
+    "dev": "concurrently -n tools,fitness,outdoor,music,workbench,electron -c yellow,cyan,white,blue,green,magenta \"cd Tools && npm run dev\" \"cd Fitness && npm run dev\" \"cd Outdoor && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\" \"wait-on http-get://localhost:5174 && electron .\"",
     "dev:electron": "electron .",
-    "dev:web": "concurrently -n tools,fitness,music,workbench -c yellow,cyan,blue,green \"cd Tools && npm run dev\" \"cd Fitness && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\"",
+    "dev:web": "concurrently -n tools,fitness,outdoor,music,workbench -c yellow,cyan,white,blue,green \"cd Tools && npm run dev\" \"cd Fitness && npm run dev\" \"cd Outdoor && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\"",
     "login": "cd Music && npx tsx server/src/scripts/login.ts",
     "build:music": "cd Music/client && npm run build",
     "build:workbench": "cd workbench/client && npm run build",
     "build:tools": "cd Tools/client && npm run build",
     "build:fitness": "cd Fitness && npm run build",
+    "build:outdoor": "cd Outdoor && npm run build",
     "prebuild": "npm run check:data-security",
-    "build": "npm run build:music && npm run build:workbench && npm run build:tools && npm run build:fitness && electron-builder --win",
+    "build": "npm run build:music && npm run build:workbench && npm run build:tools && npm run build:fitness && npm run build:outdoor && electron-builder --win",
     "check:data-security": "node scripts/check-encrypted-data.js",
-    "postinstall": "cd Music && npm install && cd ../workbench && npm install && cd ../Tools && npm install && cd ../Fitness && npm install"
+    "postinstall": "cd Music && npm install && cd ../workbench && npm install && cd ../Tools && npm install && cd ../Fitness && npm install && cd ../Outdoor && npm install"
   },
   "build": {
     "appId": "com.laopangy.what",
@@ -42,7 +43,10 @@
       "Tools/server/tsconfig.json",
       "Fitness/client/dist/**/*",
       "Fitness/server/dist/**/*",
-      "Fitness/server/package.json"
+      "Fitness/server/package.json",
+      "Outdoor/client/dist/**/*",
+      "Outdoor/server/dist/**/*",
+      "Outdoor/server/package.json"
     ],
     "extraResources": [
       {
@@ -60,6 +64,10 @@
       {
         "from": "Fitness/server",
         "to": "fitness-server"
+      },
+      {
+        "from": "Outdoor/server",
+        "to": "outdoor-server"
       }
     ],
     "win": {
