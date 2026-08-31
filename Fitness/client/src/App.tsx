@@ -30,6 +30,11 @@ const goalNames = { gain: "增肌", lose: "减脂", maintain: "保持" } as cons
 const mealNames = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "加餐" } as const;
 const activityNames: Record<ActivityType, string> = { daily: "日常安排", strength: "力量训练", cycling: "骑行", running: "跑步", hiking: "爬山", other: "其他活动" };
 const activityIcons: Record<ActivityType, LucideIcon> = { daily: CalendarDays, strength: Dumbbell, cycling: Bike, running: Footprints, hiking: Mountain, other: Activity };
+const roundNutrition = (value: number) => Math.round((value + Number.EPSILON) * 10) / 10;
+const sumMealNutrition = (meals: MealEntry[]) => {
+  const totals = meals.reduce((sum, item) => ({ calories: sum.calories + item.calories, protein: sum.protein + item.protein, carbs: sum.carbs + item.carbs, fat: sum.fat + item.fat }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  return { calories: roundNutrition(totals.calories), protein: roundNutrition(totals.protein), carbs: roundNutrition(totals.carbs), fat: roundNutrition(totals.fat) };
+};
 const sleepDuration = (wakeTime: string, sleepTime: string) => {
   const [wakeHour, wakeMinute] = wakeTime.split(":").map(Number);
   const [sleepHour, sleepMinute] = sleepTime.split(":").map(Number);
@@ -118,7 +123,7 @@ function RoutineSummary({ session, routine, compact = false }: { session: Workou
 function Dashboard({ data, go }: { data: FitnessState; go: (tab: Tab) => void }) {
   const date = today();
   const meals = data.meals.filter((meal) => meal.date === date);
-  const nutrition = meals.reduce((sum, item) => ({ calories: sum.calories + item.calories, protein: sum.protein + item.protein, carbs: sum.carbs + item.carbs, fat: sum.fat + item.fat }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const nutrition = sumMealNutrition(meals);
   const todaySession = planForDate(data.plan.sessions, date);
   const thisWeek = data.workoutLogs.filter((log) => Date.now() - new Date(`${log.date}T12:00:00`).getTime() < 7 * 86400000);
   const lastWeight = data.weights[0]?.weightKg ?? data.profile.weightKg;
@@ -461,7 +466,7 @@ function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () 
   const [processOpen, setProcessOpen] = useState(false);
   const [processElapsedMs, setProcessElapsedMs] = useState(0);
   const meals = data.meals.filter((meal) => meal.date === today());
-  const totals = meals.reduce((sum, item) => ({ calories: sum.calories + item.calories, protein: sum.protein + item.protein, carbs: sum.carbs + item.carbs, fat: sum.fat + item.fat }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const totals = sumMealNutrition(meals);
   const nutrientCards: { label: string; value: number; target: number; unit: string; icon: LucideIcon; color: string }[] = [
     { label: "热量", value: totals.calories, target: data.profile.calorieTarget, unit: "kcal", icon: Flame, color: "#d99a16" },
     { label: "蛋白质", value: totals.protein, target: data.profile.proteinTarget, unit: "g", icon: Beef, color: "#a4514d" },
