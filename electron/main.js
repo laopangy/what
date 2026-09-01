@@ -14,6 +14,8 @@ const WORKBENCH_PORT = 3000;
 const WORKBENCH_CLIENT_PORT = 5174;
 const SERVICE_PORTS = [3000, 3001, 3002, 3003, 3004, 5173, 5174, 5175, 5176, 5177];
 const MPV_PID_FILE = path.join(os.tmpdir(), "what-music-mpv.pid");
+const PROJECT_ROOT = path.resolve(__dirname, "..");
+const VAULT_RELATIVE_PATH = "data/what.vault";
 
 const isDev = !app.isPackaged;
 
@@ -22,6 +24,7 @@ let mainWindow = null;
 let tray = null;
 let cleanupComplete = false;
 let shutdownPromise = null;
+let quitCheckPromise = null;
 let ownsInstanceLock = true;
 
 function isMainWindowEvent(event) {
@@ -137,6 +140,40 @@ function execFileSafe(file, args, timeout = 4000) {
   });
 }
 
+async function getVaultGitState() {
+  if (!isDev) return null;
+  const status = await execFileSafe("git", ["-C", PROJECT_ROOT, "status", "--porcelain", "--", VAULT_RELATIVE_PATH]);
+  if (status.error) return null;
+
+  const counts = await execFileSafe("git", ["-C", PROJECT_ROOT, "rev-list", "--left-right", "--count", "HEAD...@{upstream}"]);
+  const [ahead = 0, behind = 0] = counts.error
+    ? [0, 0]
+    : counts.stdout.trim().split(/\s+/).map(Number);
+
+  return {
+    dirty: Boolean(status.stdout.trim()),
+    ahead: Number.isFinite(ahead) ? ahead : 0,
+    behind: Number.isFinite(behind) ? behind : 0,
+  };
+}
+
+async function showVaultStartupReminder() {
+  const state = await getVaultGitState();
+  if (!state || (!state.dirty && state.ahead === 0 && state.behind === 0)) return;
+
+  const messages = [];
+  if (state.dirty) messages.push("加密数据有尚未提交的更新");
+  if (state.behind > 0) messages.push(`远端有 ${state.behind} 个未拉取提交`);
+  if (state.ahead > 0) messages.push(`本地有 ${state.ahead} 个未推送提交`);
+  await dialog.showMessageBox(mainWindow, {
+    type: "warning",
+    title: "数据同步提醒",
+    message: messages.join("；"),
+    detail: "继续使用前请确认当前电脑已执行 git pull。换到另一台电脑前，请提交 data/what.vault 并执行 git push。",
+    buttons: ["知道了"],
+  });
+}
+
 async function stopProjectServices() {
   if (process.platform !== "win32") return;
   const { stdout } = await execFileSafe("netstat.exe", ["-ano", "-p", "tcp"]);
@@ -181,14 +218,35 @@ async function shutdownRelatedProcesses() {
 }
 
 function requestQuit() {
-  if (shutdownPromise) return;
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
-  shutdownPromise = shutdownRelatedProcesses()
-    .catch(() => {})
-    .finally(() => {
-      cleanupComplete = true;
-      app.quit();
-    });
+  if (shutdownPromise || quitCheckPromise) return;
+  quitCheckPromise = (async () => {
+    const state = await getVaultGitState();
+    if (state?.dirty && mainWindow && !mainWindow.isDestroyed()) {
+      const result = await dialog.showMessageBox(mainWindow, {
+        type: "warning",
+        title: "加密数据尚未同步",
+        message: "本次使用产生的数据还没有提交到项目仓库。",
+        detail: "如果准备换到另一台电脑，请退出后提交 data/what.vault 并执行 git push；另一台电脑打开前先执行 git pull。",
+        buttons: ["仍然退出", "返回应用"],
+        defaultId: 1,
+        cancelId: 1,
+      });
+      if (result.response === 1) {
+        quitCheckPromise = null;
+        mainWindow.show();
+        mainWindow.focus();
+        return;
+      }
+    }
+
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
+    shutdownPromise = shutdownRelatedProcesses()
+      .catch(() => {})
+      .finally(() => {
+        cleanupComplete = true;
+        app.quit();
+      });
+  })();
 }
 
 // ── Tray ─────────────────────────────────────────────────────────────────────
@@ -313,6 +371,7 @@ app.whenReady().then(async () => {
 
   createTray();
   await createMainWindow();
+  await showVaultStartupReminder();
 });
 
 app.on("before-quit", (event) => {

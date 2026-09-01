@@ -1112,7 +1112,7 @@ npm run build
 
 **后端**：Express 5 + TypeScript + Zod，端口 `3003`
 
-**数据存储**：与 Tools、Outdoor 共用根目录 `data/what.vault`。仓库通过 PBKDF2-SHA256 派生密钥并使用 AES-256-GCM 加密，启动后输入密码才能解锁；磁盘上不再保留明文 JSON。工作台会持续检查 Tools、Fitness 与 Outdoor 的解锁状态，开发热更新或服务重启导致任一后端重新上锁时，会自动返回统一密码页重新解锁。
+**数据存储与多电脑同步**：与 Tools、Outdoor 共用根目录 `data/what.vault`。仓库通过 PBKDF2-SHA256 派生密钥并使用 AES-256-GCM 加密，启动后输入密码才能解锁；磁盘上不再保留明文 JSON。该密文文件作为二进制文件纳入 Git，使 A/B 电脑通过同一个项目远端交换数据；锁文件和原子写入临时文件不提交。启动脚本会检查未提交、领先和落后状态，Electron 在启动及退出时提示同步。由于密文不能合并，必须遵循“当前电脑提交并推送 → 另一台电脑先拉取再打开”，不得两台电脑同时修改。工作台会持续检查 Tools、Fitness 与 Outdoor 的解锁状态，开发热更新或服务重启导致任一后端重新上锁时，会自动返回统一密码页重新解锁。
 
 核心闭环：
 
@@ -1355,6 +1355,7 @@ Outdoor API：
 | 2026-08-31 | Codex | Outdoor/户外行程 | 新增独立户外模块并合并原骑行与旅行入口：支持文字/系统语音描述、中文时长解析、自驾/高铁/骑行对比、八节点完整闭环行程、地图式路线与时间轴/图片联动、估算风险提示及加密计划管理；仅新增 Outdoor 局部样式，不修改现有模块视觉 | `Outdoor/**`, `workbench/client/src/App.tsx`, `components/chat/OutdoorEmbed.tsx`, `components/chat/PasswordGate.tsx`, `components/layout/WorkbenchLayout.tsx`, `package.json`, `electron/main.js`, `scripts/clean-ports.js`, `setup.ps1`, `index.html`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Outdoor/家庭地址 | 户外页顶栏新增“家”的地址设置，地址写入加密仓库；自然语言未明确指定出发地时自动从家出发并回家，地图同步显示实际起点 | `Outdoor/server/src/types.ts`, `storage.ts`, `routes.ts`, `planner.ts`, `Outdoor/client/src/types.ts`, `api.ts`, `App.tsx`, `index.css`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-08-31 | Codex | Outdoor/生成反馈 | 修复重复生成缺少可感知反馈的问题：新增可展开/收起的规划分析过程，持续显示来源、耗时、生成次数、完成或失败状态与实际步骤；后端生成接口同步返回结构化分析摘要，当前如实标注为本地规划而非 AI | `Outdoor/server/src/types.ts`, `routes.ts`, `Outdoor/client/src/types.ts`, `api.ts`, `App.tsx`, `index.css`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-09-01 | Codex | 全局数据同步 | 将 AES-256-GCM 加密仓库 `data/what.vault` 纳入 Git，使 A/B 电脑通过项目远端共用数据；锁与临时文件继续忽略，启动检查 Git 同步状态，Electron 启动及退出提示未提交、未推送或未拉取数据，并禁止将密文当作文本合并 | `.gitignore`, `.gitattributes`, `data/what.vault`, `scripts/check-vault-sync.js`, `package.json`, `electron/main.js`, `AGENTS.md`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 

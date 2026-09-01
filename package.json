@@ -6,7 +6,7 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "npm run dev",
-    "predev": "npm run check:data-security && node scripts/clean-ports.js",
+    "predev": "npm run check:data-security && npm run check:data-sync && node scripts/clean-ports.js",
     "dev": "concurrently -n tools,fitness,outdoor,music,workbench,electron -c yellow,cyan,white,blue,green,magenta \"cd Tools && npm run dev\" \"cd Fitness && npm run dev\" \"cd Outdoor && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\" \"wait-on http-get://localhost:5174 && electron .\"",
     "dev:electron": "electron .",
     "dev:web": "concurrently -n tools,fitness,outdoor,music,workbench -c yellow,cyan,white,blue,green \"cd Tools && npm run dev\" \"cd Fitness && npm run dev\" \"cd Outdoor && npm run dev\" \"cd Music && npm run dev\" \"cd workbench && npm run dev\"",
@@ -19,6 +19,7 @@
     "prebuild": "npm run check:data-security",
     "build": "npm run build:music && npm run build:workbench && npm run build:tools && npm run build:fitness && npm run build:outdoor && electron-builder --win",
     "check:data-security": "node scripts/check-encrypted-data.js",
+    "check:data-sync": "node scripts/check-vault-sync.js",
     "postinstall": "cd Music && npm install && cd ../workbench && npm install && cd ../Tools && npm install && cd ../Fitness && npm install && cd ../Outdoor && npm install"
   },
   "build": {

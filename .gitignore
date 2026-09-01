@@ -7,9 +7,11 @@ out/
 .DS_Store
 Thumbs.db
 
-# 业务数据只保存在本机加密仓库，不提交 Git。
+# 加密业务仓库随项目同步；运行期锁与临时写入文件不提交。
 data/*.vault
+!data/what.vault
 data/*.lock
+data/*.vault.*.tmp
 Tools/server/data/
 Fitness/server/data/
 Outdoor/server/data/
