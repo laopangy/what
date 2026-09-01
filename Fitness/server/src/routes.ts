@@ -2,8 +2,7 @@ import { Router } from "express";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { readState, writeState } from "./storage.js";
-import { calculateFood, foodCatalog } from "./foodCalculator.js";
-import { calculateFoodWithAi } from "./aiNutrition.js";
+import { calculateFoodWithAi, type FoodCalculation } from "./aiNutrition.js";
 import { generateWeeklyPlan } from "./planGenerator.js";
 import { calculateProfileTargets } from "./profileCalculator.js";
 import { evaluateWeightTrend } from "./weightAdapter.js";
@@ -89,16 +88,29 @@ const hasScheduleConflict = (sessions: FitnessState["plan"]["sessions"], candida
 const scheduleConflictMessage = (session: z.infer<typeof sessionSchema>) => session.scheduledDate
   ? `${session.scheduledDate} 已有计划，请编辑原计划`
   : `该星期已有计划，请编辑原计划`;
-const estimatePlanMeals = (session: Partial<Record<(typeof planMealKeys)[number], string>>) => Object.fromEntries(planMealKeys.flatMap((key) => {
-  const query = session[key]?.trim();
-  if (!query) return [];
-  const result = calculateFood(query);
-  return result ? [[key, { calories: result.calories, protein: result.protein, carbs: result.carbs, fat: result.fat }]] : [];
-}));
+type PlanMealNutritionEntry = readonly [
+  (typeof planMealKeys)[number],
+  { calories: number; protein: number; carbs: number; fat: number },
+];
+const estimatePlanMeals = async (
+  session: Partial<Record<(typeof planMealKeys)[number], string>>,
+  cache = new Map<string, Promise<FoodCalculation>>(),
+) => {
+  const entries = await Promise.all(planMealKeys.map(async (key): Promise<PlanMealNutritionEntry | null> => {
+    const query = session[key]?.trim();
+    if (!query) return null;
+    let calculation = cache.get(query);
+    if (!calculation) {
+      calculation = calculateFoodWithAi(query);
+      cache.set(query, calculation);
+    }
+    const result = await calculation;
+    return [key, { calories: result.calories, protein: result.protein, carbs: result.carbs, fat: result.fat }];
+  }));
+  return Object.fromEntries(entries.filter((entry): entry is PlanMealNutritionEntry => entry !== null));
+};
 
 fitnessRouter.get("/state", async (_req, res) => res.json(await readState()));
-
-fitnessRouter.get("/foods", (_req, res) => res.json(foodCatalog.map((food) => food.name)));
 
 fitnessRouter.put("/routine", async (req, res) => {
   const parsed = z.object({ wakeTime: time, sleepTime: time }).safeParse(req.body);
@@ -122,9 +134,10 @@ fitnessRouter.post("/sessions/generate-week", async (req, res) => {
   const parsed = planPreferencesSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "生成条件不完整" });
   const state = await readState();
-  const sessions = generateWeeklyPlan(state.profile, parsed.data).map((session) => ({
-    id: uuid(), ...session, adaptationNote: state.planAdaptation?.message, mealNutrition: estimatePlanMeals(session),
-  }));
+  const mealCache = new Map<string, Promise<FoodCalculation>>();
+  const sessions = await Promise.all(generateWeeklyPlan(state.profile, parsed.data).map(async (session) => ({
+    id: uuid(), ...session, adaptationNote: state.planAdaptation?.message, mealNutrition: await estimatePlanMeals(session, mealCache),
+  })));
   state.planPreferences = parsed.data;
   state.plan.name = `${state.profile.name}的个性化一周计划`;
   state.plan.sessions = [...state.plan.sessions.filter((session) => Boolean(session.scheduledDate) && !session.generated), ...sessions];
@@ -138,7 +151,7 @@ fitnessRouter.post("/sessions", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "计划格式不正确" });
   const state = await readState();
   if (hasScheduleConflict(state.plan.sessions, parsed.data)) return res.status(409).json({ success: false, error: scheduleConflictMessage(parsed.data) });
-  const session = { id: uuid(), ...parsed.data, mealNutrition: estimatePlanMeals(parsed.data), custom: true };
+  const session = { id: uuid(), ...parsed.data, mealNutrition: await estimatePlanMeals(parsed.data), custom: true };
   state.plan.sessions.push(session); refreshProfileTargets(state); await writeState(state);
   return res.status(201).json(session);
 });
@@ -155,7 +168,7 @@ fitnessRouter.put("/sessions/:id", async (req, res) => {
     scheduledDate: parsed.data.scheduledDate,
     targetDistanceKm: parsed.data.targetDistanceKm, targetElevationM: parsed.data.targetElevationM,
     breakfast: parsed.data.breakfast || "", lunch: parsed.data.lunch || "", dinner: parsed.data.dinner || "", snack: parsed.data.snack || "",
-    mealNutrition: estimatePlanMeals(parsed.data),
+    mealNutrition: await estimatePlanMeals(parsed.data),
     wakeTime: undefined, sleepTime: undefined,
   };
   refreshProfileTargets(state);

@@ -1,13 +1,6 @@
 import { readVault, updateVault } from "./vault.js";
-import { calculateFood } from "./foodCalculator.js";
 import { calculateProfileTargets } from "./profileCalculator.js";
 import type { FitnessState } from "./types.js";
-
-const mealKeys = ["breakfast", "lunch", "dinner", "snack"] as const;
-const estimateStoredMeals = (session: FitnessState["plan"]["sessions"][number]) => Object.fromEntries(mealKeys.flatMap((key) => {
-  const query = session[key]?.trim(); const result = query ? calculateFood(query) : null;
-  return result ? [[key, { calories: result.calories, protein: result.protein, carbs: result.carbs, fat: result.fat }]] : [];
-}));
 
 const initialState: FitnessState = {
   profile: {
@@ -71,7 +64,7 @@ function normalizeState(state: FitnessState): FitnessState {
       lunch: session.lunch || "",
       dinner: session.dinner || "",
       snack: session.snack || "",
-      mealNutrition: session.mealNutrition || estimateStoredMeals(session),
+      mealNutrition: session.mealNutrition || {},
       activities: session.activities || (session.activityType !== "daily" ? [{ id: `legacy-${session.id}`, startTime: "18:00", name: session.name, activityType: session.activityType, durationMinutes: session.targetDurationMinutes || 60, notes: session.focus }] : []),
       exercises: (session.exercises || []).map((exercise) => ({ ...exercise, trackingType: exercise.trackingType || "weight_reps" })),
     }));

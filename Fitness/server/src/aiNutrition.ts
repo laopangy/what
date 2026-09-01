@@ -1,6 +1,32 @@
 import { z } from "zod";
 import { nutritionAiConfig } from "./aiConfig.js";
-import { calculateFood, type FoodCalculation, type FoodCalculationItem } from "./foodCalculator.js";
+
+export interface FoodCalculationItem {
+  input: string;
+  name: string;
+  amount: string;
+  grams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  note?: string;
+}
+
+export interface FoodCalculation {
+  name: string;
+  amount: string;
+  grams: number;
+  matchedFood: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  items: FoodCalculationItem[];
+  unmatched: string[];
+  estimationMethod: "ai";
+  note?: string;
+}
 
 const aiItemSchema = z.object({
   input: z.string().trim().min(1).max(120),
@@ -23,98 +49,6 @@ const aiResultSchema = z.object({
 
 const round = (value: number) => Math.round(value * 10) / 10;
 const endpoint = (baseUrl: string, suffix: string) => `${baseUrl.replace(/\/$/, "")}/${suffix.replace(/^\//, "")}`;
-const countFromChinese = (value?: string) => value === "两" || value === "二" ? 2 : value === "三" ? 3 : Number(value) || 1;
-
-function commonMealFallback(query: string): FoodCalculation | null {
-  const items: FoodCalculationItem[] = [];
-  const hasChickenRice = /(?:沙县[^，,。]*)?鸡腿饭/.test(query);
-  const skinlessChicken = /鸡腿[^，,。]*去皮|鸡腿和[^，,。]*都是去皮|都是去皮/.test(query);
-
-  if (hasChickenRice) {
-    items.push({
-      input: "鸡腿饭中的米饭与配菜", name: "鸡腿饭（米饭与配菜）", amount: "1份", grams: 330,
-      calories: 430, protein: 9, carbs: 78, fat: 9, note: "按约250克熟米饭、少量配菜和酱汁估算",
-    });
-    items.push({
-      input: "鸡腿饭中的鸡腿", name: skinlessChicken ? "去皮鸡腿" : "鸡腿", amount: "1个", grams: 120,
-      calories: skinlessChicken ? 216 : 260, protein: skinlessChicken ? 28.8 : 27, carbs: 1, fat: skinlessChicken ? 9.6 : 15,
-      note: skinlessChicken ? "按去皮后约120克可食部估算" : "按带皮约120克可食部估算",
-    });
-  }
-
-  const extraChicken = query.match(/(?:加|另外|额外)(?:了)?(\d+|一|二|两)?(?:个|只|份)?鸡腿/);
-  const extraChickenCount = extraChicken ? extraChicken[1] === "二" || extraChicken[1] === "两" ? 2 : Number(extraChicken[1]) || 1 : 0;
-  if (extraChickenCount > 0) {
-    items.push({
-      input: extraChicken?.[0] || "额外鸡腿", name: skinlessChicken ? "额外去皮鸡腿" : "额外鸡腿", amount: `${extraChickenCount}个`, grams: 120 * extraChickenCount,
-      calories: (skinlessChicken ? 216 : 260) * extraChickenCount, protein: round((skinlessChicken ? 28.8 : 27) * extraChickenCount),
-      carbs: extraChickenCount, fat: round((skinlessChicken ? 9.6 : 15) * extraChickenCount),
-      note: skinlessChicken ? "按每个去皮后约120克可食部估算" : "按每个带皮约120克可食部估算",
-    });
-  }
-
-  const extraDuck = query.match(/(?:加|另外|额外)(?:了)?\s*(\d+|一|二|两|三)?(?:个|只|份)?鸭腿|(\d+|一|二|两|三)(?:个|只|份)?鸭腿/);
-  const extraDuckCount = extraDuck ? countFromChinese(extraDuck[1] || extraDuck[2]) : 0;
-  const skinlessDuck = /鸭腿[^，,。]*去皮|鸡腿和鸭腿[^，,。]*去皮|都是去皮/.test(query);
-  if (extraDuckCount > 0) {
-    items.push({
-      input: extraDuck?.[0] || "额外鸭腿", name: skinlessDuck ? "去皮鸭腿" : "鸭腿", amount: `${extraDuckCount}个`, grams: 120 * extraDuckCount,
-      calories: (skinlessDuck ? 240 : 300) * extraDuckCount, protein: round((skinlessDuck ? 28 : 27) * extraDuckCount),
-      carbs: 0, fat: round((skinlessDuck ? 13 : 21) * extraDuckCount),
-      note: skinlessDuck ? "按每个去皮后约120克可食部估算" : "按每个带皮约120克可食部估算",
-    });
-  }
-
-  const juice = query.match(/(\d+(?:\.\d+)?)\s*(?:ml|毫升)(?:的)?橙汁/i);
-  if (juice) {
-    const milliliters = Number(juice[1]);
-    const ratio = milliliters / 100;
-    items.push({
-      input: juice[0], name: "橙汁", amount: `${milliliters}ml`, grams: milliliters,
-      calories: Math.round(45 * ratio), protein: round(0.7 * ratio), carbs: round(10.4 * ratio), fat: round(0.2 * ratio),
-      note: "按普通橙汁每100毫升约45 kcal估算",
-    });
-  }
-
-  const durian = query.match(/(\d+|一|二|两|三)(?:块|瓣|份)榴莲/);
-  const durianCount = durian ? countFromChinese(durian[1]) : 0;
-  if (durianCount > 0) {
-    const grams = durianCount * 50;
-    const ratio = grams / 100;
-    items.push({
-      input: durian?.[0] || "榴莲", name: "榴莲", amount: `${durianCount}块`, grams,
-      calories: Math.round(147 * ratio), protein: round(1.5 * ratio), carbs: round(27.1 * ratio), fat: round(5.3 * ratio),
-      note: "按每块约50克可食果肉估算",
-    });
-  }
-
-  const porkPancake = query.match(/(\d+|一|二|两|三)(?:块|个|份)猪肉煎饼/);
-  const porkPancakeCount = porkPancake ? countFromChinese(porkPancake[1]) : 0;
-  if (porkPancakeCount > 0) {
-    items.push({
-      input: porkPancake?.[0] || "猪肉煎饼", name: "猪肉煎饼", amount: `${porkPancakeCount}块`, grams: 150 * porkPancakeCount,
-      calories: 380 * porkPancakeCount, protein: 14 * porkPancakeCount, carbs: 45 * porkPancakeCount, fat: 16 * porkPancakeCount,
-      note: "按每块约150克、含面饼和猪肉馅估算",
-    });
-  }
-
-  if (items.length === 0) return null;
-  const mentionedDuckButNotEaten = /鸭腿/.test(query) && extraDuckCount === 0;
-  return {
-    name: items.map((item) => item.name).join(" + "), amount: items.map((item) => item.amount).join(" + "),
-    grams: round(items.reduce((sum, item) => sum + item.grams, 0)), matchedFood: items.map((item) => item.name).join(" / "),
-    calories: items.reduce((sum, item) => sum + item.calories, 0), protein: round(items.reduce((sum, item) => sum + item.protein, 0)),
-    carbs: round(items.reduce((sum, item) => sum + item.carbs, 0)), fat: round(items.reduce((sum, item) => sum + item.fat, 0)),
-    items, unmatched: [], estimationMethod: "local",
-    note: `已按常见餐馆份量进行本地近似估算${mentionedDuckButNotEaten ? "；描述只提到鸭腿去皮但未说明吃了鸭腿，因此未计入" : ""}`,
-  };
-}
-
-function isCompleteCommonMeal(query: string, calculation: FoodCalculation | null) {
-  if (!calculation) return false;
-  const expectedNames = [/鸡腿饭/, /鸭腿/, /橙汁/, /榴莲/, /猪肉煎饼/];
-  return expectedNames.every((pattern) => pattern.test(query) && calculation.items.some((item) => pattern.test(item.name)));
-}
 
 const systemPrompt = `你是饮食记录中的营养估算器。把用户的一整餐中文描述拆成合理的食物组成，并估算每项实际吃下部分的重量、热量、蛋白质、碳水和脂肪。
 规则：
@@ -159,15 +93,7 @@ async function callAi(query: string): Promise<string> {
   return data.content?.filter((item) => item.type === "text").map((item) => item.text || "").join("").trim() || "";
 }
 
-const complexDescription = /去皮|少油|少饭|半份|套餐|外卖|沙县|肯德基|麦当劳|额外|不吃|去掉|只吃|都是|然后|[+＋]/;
-
 export async function calculateFoodWithAi(query: string): Promise<FoodCalculation> {
-  const local = calculateFood(query);
-  const commonFallback = commonMealFallback(query);
-  const needsAi = !local || local.unmatched.length > 0 || complexDescription.test(query);
-  if (!needsAi) return { ...local, estimationMethod: "local" };
-  if (commonFallback && isCompleteCommonMeal(query, commonFallback)) return { ...commonFallback, note: `${commonFallback.note}；常见食物已完整拆分，无需等待 AI` };
-
   try {
     const parsed = aiResultSchema.parse(extractJson(await callAi(query)));
     const items: FoodCalculationItem[] = parsed.items.map((item) => ({
@@ -193,8 +119,6 @@ export async function calculateFoodWithAi(query: string): Promise<FoodCalculatio
       note: parsed.note,
     };
   } catch (error) {
-    if (local) return { ...local, estimationMethod: "local", note: "AI 暂时不可用，已改用本地食物库估算" };
-    if (commonFallback) return { ...commonFallback, note: `AI 暂时不可用，${commonFallback.note}` };
     if (error instanceof z.ZodError || error instanceof SyntaxError) throw new Error("AI 返回的营养数据格式不完整，请重新计算一次");
     if (error instanceof Error && error.name === "TimeoutError") throw new Error("AI 营养估算超时，请稍后重试");
     throw error;
