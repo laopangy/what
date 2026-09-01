@@ -49,6 +49,10 @@ const aiResultSchema = z.object({
 
 const round = (value: number) => Math.round(value * 10) / 10;
 const endpoint = (baseUrl: string, suffix: string) => `${baseUrl.replace(/\/$/, "")}/${suffix.replace(/^\//, "")}`;
+const PRIMARY_MAX_TOKENS = 3_000;
+const RETRY_MAX_TOKENS = 5_000;
+
+class AiOutputFormatError extends Error {}
 
 const systemPrompt = `你是饮食记录中的营养估算器。把用户的一整餐中文描述拆成合理的食物组成，并估算每项实际吃下部分的重量、热量、蛋白质、碳水和脂肪。
 规则：
@@ -57,17 +61,22 @@ const systemPrompt = `你是饮食记录中的营养估算器。把用户的一�
 3. “去皮”必须降低禽类脂肪和热量，不能仍按带皮数据计算。
 4. 套餐应拆出主食、肉类和有明显营养贡献的配菜；不要漏掉用户额外添加的食物。
 5. 所有营养数字是该项整份的数值，不是每100克。结果是近似值，不得声称精确。
-6. 只返回 JSON，不要 Markdown。JSON 结构：
+6. 不要展示分析过程，只返回一个完整 JSON 对象，不要 Markdown、代码块或额外文字。JSON 结构：
 {"name":"整餐名称","amount":"整餐分量","items":[{"input":"对应原文","name":"食物名称","amount":"分量","grams":数字,"calories":数字,"protein":数字,"carbs":数字,"fat":数字,"note":"估算依据"}],"note":"整餐估算说明"}`;
 
 function extractJson(text: string): unknown {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("AI 未返回可读取的营养数据");
-  return JSON.parse(text.slice(start, end + 1));
+  const normalized = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const start = normalized.indexOf("{");
+  const end = normalized.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new AiOutputFormatError("AI 未返回完整的营养 JSON");
+  try {
+    return JSON.parse(normalized.slice(start, end + 1));
+  } catch {
+    throw new AiOutputFormatError("AI 返回的营养 JSON 无法解析");
+  }
 }
 
-async function callAi(query: string): Promise<string> {
+async function callAi(query: string, maxTokens: number, retry = false): Promise<string> {
   if (!nutritionAiConfig.apiKey) throw new Error("AI 营养估算未配置，请先在安装器中保存 AI API Key");
   if (!/^[\x20-\x7e]+$/.test(nutritionAiConfig.apiKey)) {
     throw new Error("AI API Key 格式不正确：当前保存的是中文占位内容，请在安装器中粘贴平台生成的真实 Key");
@@ -82,20 +91,51 @@ async function callAi(query: string): Promise<string> {
     },
     body: Buffer.from(JSON.stringify({
       model: nutritionAiConfig.model,
-      max_tokens: 1800,
+      max_tokens: maxTokens,
+      thinking: { type: "disabled" },
       system: systemPrompt,
-      messages: [{ role: "user", content: `请估算这餐：${query}` }],
+      messages: [{
+        role: "user",
+        content: retry
+          ? `上一轮没有生成可解析的完整 JSON。请重新估算这餐，并确保最终只输出一个完整 JSON 对象：${query}`
+          : `请估算这餐：${query}`,
+      }],
     }), "utf-8"),
     signal,
   });
   if (!response.ok) throw new Error(`AI 营养估算请求失败 (${response.status})`);
-  const data = await response.json() as { content?: Array<{ type?: string; text?: string }> };
-  return data.content?.filter((item) => item.type === "text").map((item) => item.text || "").join("").trim() || "";
+  const data = await response.json() as {
+    stop_reason?: string;
+    content?: Array<{ type?: string; text?: string }>;
+  };
+  const text = data.content?.filter((item) => item.type === "text").map((item) => item.text || "").join("").trim() || "";
+  if (!text) {
+    const reason = data.stop_reason === "max_tokens" ? "AI 推理已用完本轮输出额度" : "AI 没有返回正文";
+    throw new AiOutputFormatError(reason);
+  }
+  return text;
+}
+
+async function requestAndParse(query: string, maxTokens: number, retry = false) {
+  const raw = await callAi(query, maxTokens, retry);
+  try {
+    return aiResultSchema.parse(extractJson(raw));
+  } catch (error) {
+    if (error instanceof AiOutputFormatError) throw error;
+    if (error instanceof z.ZodError) throw new AiOutputFormatError("AI 返回的营养字段不完整");
+    throw error;
+  }
 }
 
 export async function calculateFoodWithAi(query: string): Promise<FoodCalculation> {
   try {
-    const parsed = aiResultSchema.parse(extractJson(await callAi(query)));
+    let parsed: z.infer<typeof aiResultSchema>;
+    try {
+      parsed = await requestAndParse(query, PRIMARY_MAX_TOKENS);
+    } catch (error) {
+      if (!(error instanceof AiOutputFormatError)) throw error;
+      parsed = await requestAndParse(query, RETRY_MAX_TOKENS, true);
+    }
     const items: FoodCalculationItem[] = parsed.items.map((item) => ({
       ...item,
       grams: round(item.grams),
@@ -119,8 +159,8 @@ export async function calculateFoodWithAi(query: string): Promise<FoodCalculatio
       note: parsed.note,
     };
   } catch (error) {
-    if (error instanceof z.ZodError || error instanceof SyntaxError) throw new Error("AI 返回的营养数据格式不完整，请重新计算一次");
-    if (error instanceof Error && error.name === "TimeoutError") throw new Error("AI 营养估算超时，请稍后重试");
+    if (error instanceof AiOutputFormatError) throw new Error(`${error.message}，自动重试后仍未完成，请稍后再试`);
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) throw new Error("AI 营养估算等待超过 60 秒，请稍后重试");
     throw error;
   }
 }

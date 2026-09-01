@@ -1356,6 +1356,7 @@ Outdoor API：
 | 2026-08-31 | Codex | Outdoor/生成反馈 | 修复重复生成缺少可感知反馈的问题：新增可展开/收起的规划分析过程，持续显示来源、耗时、生成次数、完成或失败状态与实际步骤；后端生成接口同步返回结构化分析摘要，当前如实标注为本地规划而非 AI | `Outdoor/server/src/types.ts`, `routes.ts`, `Outdoor/client/src/types.ts`, `api.ts`, `App.tsx`, `index.css`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-09-01 | Codex | 全局数据同步 | 将 AES-256-GCM 加密仓库 `data/what.vault` 纳入 Git，使 A/B 电脑通过项目远端共用数据；锁与临时文件继续忽略，启动检查 Git 同步状态，Electron 启动及退出提示未提交、未推送或未拉取数据，并禁止将密文当作文本合并 | `.gitignore`, `.gitattributes`, `data/what.vault`, `scripts/check-vault-sync.js`, `package.json`, `electron/main.js`, `AGENTS.md`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-09-01 | Codex | Fitness/AI 饮食计算 | 移除本地食物库、常见套餐规则、营养标签换算和 AI 失败降级；饮食记录及计划四餐的营养计算全部强制调用 DeepSeek，未配置、超时或返回异常时直接失败且不写入估算结果 | `Fitness/server/src/aiNutrition.ts`, `foodCalculator.ts`, `routes.ts`, `storage.ts`, `Fitness/client/src/App.tsx`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-09-01 | Codex | Fitness/AI 输出可靠性 | 修复推理模型在 1800 token 限额内只返回 thinking、没有正文而导致“AI 未返回可读取数据”：按照 DeepSeek Anthropic 接口设置 `thinking.type=disabled` 关闭默认深度推理，主请求使用 3000 token，正文或 JSON 不完整时以 5000 token 自动修复重试一次，单次等待上限为 60 秒 | `Fitness/server/src/aiNutrition.ts`, `Fitness/client/src/App.tsx`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 

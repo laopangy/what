@@ -265,7 +265,7 @@ workbench/client ──WebSocket────────────────
 | 路由 | 用途 |
 |------|------|
 | `/api/fitness/state` | 获取个人资料、训练计划、训练/饮食/体重记录 |
-| `/api/fitness/foods/calculate` (POST) | 所有食物和整餐描述必须调用 DeepSeek 拆分并估算热量与三大营养素；AI 未配置、超时或返回异常时直接报错，不产生本地替代结果 |
+| `/api/fitness/foods/calculate` (POST) | 所有食物和整餐描述必须调用 DeepSeek 拆分并估算热量与三大营养素；Anthropic 请求显式设置 `thinking.type=disabled` 关闭默认深度推理，主请求提供 3000 输出 token，正文缺失或 JSON 不完整时以 5000 token 自动修复重试一次，单次请求最多等待 60 秒；仍失败时直接报错，不产生本地替代结果 |
 | `/api/fitness/routine` (PUT) | 保存全局固定起床和睡觉时间 |
 | `/api/fitness/sessions` (POST) | 新增每日计划；单个计划可包含多条活动和可动态配置的训练动作，四餐文本自动估算并保存热量与三大营养素 |
 | `/api/fitness/sessions/:id` (PUT) | 编辑已有每日计划、嵌套活动、训练动作及四餐营养估算 |
