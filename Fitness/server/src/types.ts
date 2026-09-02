@@ -9,6 +9,9 @@ export interface Profile {
   weightKg: number;
   activityLevel: number;
   goal: FitnessGoal;
+  bmr: number;
+  maintenanceCalories: number;
+  calorieGapTarget: number;
   calorieTarget: number;
   proteinTarget: number;
   carbsTarget: number;

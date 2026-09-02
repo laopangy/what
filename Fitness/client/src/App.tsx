@@ -128,6 +128,7 @@ function Dashboard({ data, go }: { data: FitnessState; go: (tab: Tab) => void })
   const thisWeek = data.workoutLogs.filter((log) => Date.now() - new Date(`${log.date}T12:00:00`).getTime() < 7 * 86400000);
   const lastWeight = data.weights[0]?.weightKg ?? data.profile.weightKg;
   const caloriePercent = Math.round(nutrition.calories / data.profile.calorieTarget * 100) || 0;
+  const currentCalorieGap = data.profile.maintenanceCalories - nutrition.calories;
   const TodayIcon = todaySession ? activityIcons[todaySession.activityType] : CalendarDays;
 
   return (
@@ -160,6 +161,9 @@ function Dashboard({ data, go }: { data: FitnessState; go: (tab: Tab) => void })
             ["碳水", nutrition.carbs, data.profile.carbsTarget, "g", "#74898d"],
             ["脂肪", nutrition.fat, data.profile.fatTarget, "g", "#7f8750"],
           ].map(([label, value, target, unit, color]) => <div key={String(label)} className="mb-4"><div className="flex justify-between text-[11px] mb-1.5"><span>{label}</span><span className="text-muted">{value} / {target} {unit}</span></div><Progress value={Number(value)} target={Number(target)} color={String(color)} /></div>)}
+          <div className="mt-5 pt-4 border-t border-border">
+            {nutrition.calories > 0 ? <><div className="flex items-end justify-between gap-3"><div><p className="text-[11px]">截至当前记录，与维持热量的差值</p><p className="text-muted text-[9px] mt-1">维持 {data.profile.maintenanceCalories} − 已记录 {nutrition.calories} kcal</p></div><strong className={currentCalorieGap >= 0 ? "text-accent-light" : "text-red-300"}>{currentCalorieGap >= 0 ? `缺口 ${currentCalorieGap}` : `超出 ${Math.abs(currentCalorieGap)}`} kcal</strong></div><p className="text-muted text-[9px] mt-2">这是按已记录饮食估算的阶段值，全天记录完整后才更接近当天实际缺口。</p></> : <p className="text-muted text-[10px]">记录今天的饮食后，这里会显示与维持热量的预计差值。</p>}
+          </div>
           <div className="mt-6 pt-4 border-t border-border flex items-center gap-3"><Droplets size={18} className="text-sky" /><div><p>饮水目标</p><p className="text-muted text-[11px]">每日约 {data.profile.waterTarget} ml</p></div></div>
         </section>
       </div>
@@ -640,6 +644,8 @@ function BodyData({ data, refresh, notify }: { data: FitnessState; refresh: () =
   const recentWeights = data.weights.slice(0, 8);
   const min = Math.min(...weights.map((item) => item.weightKg), data.profile.weightKg) - 1;
   const max = Math.max(...weights.map((item) => item.weightKg), data.profile.weightKg) + 1;
+  const targetGap = data.profile.calorieGapTarget;
+  const targetGapLabel = targetGap < 0 ? "计划热量缺口" : targetGap > 0 ? "计划热量盈余" : "计划热量差值";
 
   return (
     <div className="space-y-5">
@@ -656,7 +662,7 @@ function BodyData({ data, refresh, notify }: { data: FitnessState; refresh: () =
         </div></section>
 
         <div className="space-y-4">
-          <section className="panel rounded-xl p-5"><h2 className="font-semibold mb-4">当前每日目标</h2><div className="grid grid-cols-2 gap-3">{[["热量", `${data.profile.calorieTarget} kcal`], ["蛋白质", `${data.profile.proteinTarget} g`], ["碳水", `${data.profile.carbsTarget} g`], ["脂肪", `${data.profile.fatTarget} g`]].map(([label, value]) => <div key={label} className="bg-black/15 border border-border rounded-lg p-3"><p className="text-muted text-[10px]">{label}</p><p className="text-lg font-semibold mt-1">{value}</p></div>)}</div></section>
+          <section className="panel rounded-xl p-5"><h2 className="font-semibold">每日热量计算</h2><p className="text-muted text-[9px] mt-1 mb-4">基础代谢 × 计划分析出的活动系数 = 维持热量，再叠加目标与体重趋势修正。</p><div className="grid grid-cols-2 gap-3">{[["基础代谢", `${data.profile.bmr} kcal`], ["维持热量", `${data.profile.maintenanceCalories} kcal`], [targetGapLabel, `${Math.abs(targetGap)} kcal`], ["建议摄入", `${data.profile.calorieTarget} kcal`]].map(([label, value]) => <div key={label} className="bg-black/15 border border-border rounded-lg p-3"><p className="text-muted text-[10px]">{label}</p><p className="text-lg font-semibold mt-1">{value}</p></div>)}</div><div className="grid grid-cols-3 gap-2 mt-3">{[["蛋白质", `${data.profile.proteinTarget} g`], ["碳水", `${data.profile.carbsTarget} g`], ["脂肪", `${data.profile.fatTarget} g`]].map(([label, value]) => <div key={label} className="rounded-lg border border-border/70 p-2.5"><p className="text-muted text-[9px]">{label}</p><p className="font-semibold mt-1">{value}</p></div>)}</div>{data.profile.goal === "lose" && <p className="text-accent-light text-[9px] mt-3">当前减脂目标已包含热量缺口；后续会结合连续体重趋势自动微调，不需要再从建议摄入中重复扣除。</p>}</section>
           <section className="panel rounded-xl p-5"><div className="flex items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><TrendingUp size={16} className="text-sky"/><h2 className="font-semibold">今日测量</h2></div><SaveStatus status={measurementStatus}/></div><div className="grid grid-cols-2 gap-3"><label><span className="label">体重 {weightUnitSymbols[weightUnit]}</span><input className="field" type="number" min={convertWeight(30, "kg", weightUnit)} max={convertWeight(350, "kg", weightUnit)} step=".1" value={weight} onChange={(event) => { setWeight(normalizeNumericInput(event.target.value)); setMeasurementTouched(true); }}/></label><label><span className="label">体脂 %（可选）</span><input className="field" type="number" step=".1" value={bodyFat} onChange={(event) => { setBodyFat(normalizeNumericInput(event.target.value)); setMeasurementTouched(true); }}/></label></div><p className="text-muted text-[9px] mt-3">当前页面统一使用{weightUnitOptions.find((option) => option.value === weightUnit)?.label}；保存时换算为公斤，再立即评估趋势。至少一周数据才会调整计划。</p>{data.planAdaptation && <div className={`mt-3 rounded-lg border p-3 ${data.planAdaptation.status === "adjusted" ? "border-accent/35 bg-accent/10" : "border-sky/25 bg-sky/10"}`}><div className="flex items-center justify-between gap-2 mb-1"><strong className="text-[10px]">{data.planAdaptation.status === "collecting" ? "正在建立体重基线" : data.planAdaptation.status === "adjusted" ? "计划已自动调整" : "本次保持不变"}</strong><span className="text-muted text-[9px]">热量修正 {data.planAdaptation.calorieAdjustment > 0 ? "+" : ""}{data.planAdaptation.calorieAdjustment} kcal</span></div><p className="text-muted text-[9px] leading-relaxed">{data.planAdaptation.message}</p></div>}</section>
         </div>
       </div>

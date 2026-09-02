@@ -5,7 +5,8 @@ import type { FitnessState } from "./types.js";
 const initialState: FitnessState = {
   profile: {
     name: "阿潘", sex: "male", age: 28, heightCm: 175, weightKg: 70, activityLevel: 1.45, goal: "gain",
-    calorieTarget: 2550, proteinTarget: 140, carbsTarget: 330, fatTarget: 70, waterTarget: 2500,
+    bmr: 1659, maintenanceCalories: 2570, calorieGapTarget: 250,
+    calorieTarget: 2820, proteinTarget: 140, carbsTarget: 423, fatTarget: 63, waterTarget: 2450,
   },
   routine: { wakeTime: "07:00", sleepTime: "23:00" },
   plan: {

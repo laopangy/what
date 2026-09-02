@@ -23,9 +23,21 @@ export function calculateProfileTargets(input: Pick<Profile, "name" | "sex" | "a
   const activityLevel = analyzeActivityLevel(sessions);
   const bmr = input.sex === "male" ? 10 * input.weightKg + 6.25 * input.heightCm - 5 * input.age + 5 : 10 * input.weightKg + 6.25 * input.heightCm - 5 * input.age - 161;
   const adjustment = input.goal === "gain" ? 250 : input.goal === "lose" ? -350 : 0;
+  const maintenanceCalories = Math.round(bmr * activityLevel / 10) * 10;
   const calories = Math.max(1200, Math.round((bmr * activityLevel + adjustment + calorieAdjustment) / 10) * 10);
   const protein = Math.round(input.weightKg * (input.goal === "gain" ? 2 : 1.8));
   const fat = Math.round(input.weightKg * 0.9);
   const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4));
-  return { ...input, activityLevel, calorieTarget: calories, proteinTarget: protein, carbsTarget: carbs, fatTarget: fat, waterTarget: Math.round(input.weightKg * 35 / 50) * 50 };
+  return {
+    ...input,
+    activityLevel,
+    bmr: Math.round(bmr),
+    maintenanceCalories,
+    calorieGapTarget: calories - maintenanceCalories,
+    calorieTarget: calories,
+    proteinTarget: protein,
+    carbsTarget: carbs,
+    fatTarget: fat,
+    waterTarget: Math.round(input.weightKg * 35 / 50) * 50,
+  };
 }

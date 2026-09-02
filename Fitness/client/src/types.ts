@@ -1,7 +1,7 @@
 export type Tab = "dashboard" | "training" | "nutrition" | "body";
 export type Goal = "gain" | "lose" | "maintain";
 export type ActivityType = "daily" | "strength" | "cycling" | "running" | "hiking" | "other";
-export interface Profile { name: string; sex: "male" | "female"; age: number; heightCm: number; weightKg: number; activityLevel: number; goal: Goal; calorieTarget: number; proteinTarget: number; carbsTarget: number; fatTarget: number; waterTarget: number; }
+export interface Profile { name: string; sex: "male" | "female"; age: number; heightCm: number; weightKg: number; activityLevel: number; goal: Goal; bmr: number; maintenanceCalories: number; calorieGapTarget: number; calorieTarget: number; proteinTarget: number; carbsTarget: number; fatTarget: number; waterTarget: number; }
 export type ExerciseTrackingType = "weight_reps" | "reps" | "duration";
 export interface Exercise { id: string; name: string; muscle: string; sets: number; reps: string; restSeconds: number; trackingType?: ExerciseTrackingType; estimatedDurationMinutes?: number; }
 export type PlannedMealType = "breakfast" | "lunch" | "dinner" | "snack";
