@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import { config, getActiveAiConfig } from "../config.js";
 import { callAiText } from "../services/aiClient.js";
 import { broadcastEvent } from "../services/wsManager.js";
+import { getQQGuessYouLike, getQQPlaylistDetail } from "../services/qqMusic.js";
 
 // ── Load prompts from knowledge base document ──
 const __promptsDir = dirname(fileURLToPath(import.meta.url));
@@ -84,6 +85,11 @@ interface SongMeta {
   name: string;
   artist: string;
   album: string;
+  provider?: "netease" | "qq";
+  providerId?: string;
+  qqMid?: string;
+  mediaMid?: string;
+  duration?: number;
 }
 
 interface TasteCluster {
@@ -733,38 +739,59 @@ export const analyzeRouter = Router();
  */
 analyzeRouter.post("/style", async (req, res, next) => {
   try {
-    const { playlistIds } = z
-      .object({ playlistIds: z.array(z.string()).min(1).max(20) })
+    const { playlistIds, provider } = z
+      .object({
+        playlistIds: z.array(z.string()).min(1).max(20),
+        provider: z.enum(["netease", "qq"]).default("netease"),
+      })
       .parse(req.body);
 
     console.log("[analyze] Step 1 — fetching tracks...");
-    const trackArrays = await Promise.all(
-      playlistIds.map((id) => fetchPlaylistTracks(toNumeric(id)))
-    );
-    console.log("[analyze] Step 1 — done fetching tracks");
-
-    // 2. Flatten and deduplicate by song ID
-    const seen = new Set<string>();
-    const allSongs: Record<string, unknown>[] = [];
-    for (const tracks of trackArrays) {
-      for (const t of tracks) {
-        const sid = String(t.id ?? "");
-        if (!seen.has(sid)) {
-          seen.add(sid);
-          allSongs.push(t);
+    let allMetas: SongMeta[];
+    if (provider === "qq") {
+      const playlists = await Promise.all(playlistIds.map((id) => getQQPlaylistDetail(id)));
+      const seen = new Set<string>();
+      allMetas = playlists.flatMap((playlist) => playlist.tracks).flatMap((song) => {
+        if (seen.has(song.qqMid)) return [];
+        seen.add(song.qqMid);
+        return [{
+          id: song.id,
+          name: song.name,
+          artist: song.artists.map((artist) => artist.name).join(" / "),
+          album: song.album.name,
+          provider: "qq" as const,
+          providerId: song.providerId,
+          qqMid: song.qqMid,
+          mediaMid: song.mediaMid,
+          duration: song.duration,
+        }];
+      });
+    } else {
+      const trackArrays = await Promise.all(
+        playlistIds.map((id) => fetchPlaylistTracks(toNumeric(id)))
+      );
+      const seen = new Set<string>();
+      const allSongs: Record<string, unknown>[] = [];
+      for (const tracks of trackArrays) {
+        for (const track of tracks) {
+          const sid = String(track.id ?? "");
+          if (!seen.has(sid)) {
+            seen.add(sid);
+            allSongs.push(track);
+          }
         }
       }
+      allMetas = allSongs.map((song) => ({ ...mapSongMeta(song), provider: "netease" }));
     }
+    console.log("[analyze] Step 1 — done fetching tracks");
 
-    if (allSongs.length === 0) {
+    if (allMetas.length === 0) {
       return res.json({
         success: false,
         error: "所选歌单中没有歌曲",
       });
     }
 
-    // 3. Map to metadata
-    const allMetas = allSongs.map(mapSongMeta);
     console.log(`[analyze] Step 3 — ${allMetas.length} songs mapped`);
 
     // 4. Check AI key
@@ -801,22 +828,53 @@ analyzeRouter.post("/style", async (req, res, next) => {
       finalAnalysis = await analyzeSinglePass(allMetas);
     }
 
+    // QQ recommendations should come from the account's live "猜你喜欢" pool,
+    // rather than merely echoing representative songs from the analyzed playlists.
+    if (provider === "qq") {
+      try {
+        const sourceIds = new Set(allMetas.map((song) => song.qqMid || song.id.replace(/^qq:/, "")));
+        const candidates = (await getQQGuessYouLike(40))
+          .filter((song) => !sourceIds.has(song.qqMid))
+          .map((song) => ({
+            id: song.id,
+            name: song.name,
+            artist: song.artists.map((artist) => artist.name).join(" / "),
+            album: song.album.name,
+            provider: "qq" as const,
+            providerId: song.providerId,
+            qqMid: song.qqMid,
+            mediaMid: song.mediaMid,
+            duration: song.duration,
+          }));
+        if (candidates.length > 0) {
+          const selection = await callSongSelectionAI(candidates, finalAnalysis);
+          finalAnalysis.recommendedSongs = selection.recommendedSongIndices
+            .map((index) => candidates[index])
+            .filter(Boolean);
+        }
+      } catch (error) {
+        console.warn("[analyze] Failed to curate QQ recommendations:", error);
+      }
+    }
+
     // Filter out songs already in the user's liked (红心) playlist
     let filteredCount = 0;
-    try {
-      const likedIds = await fetchLikedSongIds();
-      if (likedIds.size > 0) {
-        const before = finalAnalysis.recommendedSongs.length;
-        finalAnalysis.recommendedSongs = finalAnalysis.recommendedSongs.filter(
-          (s) => !likedIds.has(s.id)
-        );
-        filteredCount = before - finalAnalysis.recommendedSongs.length;
-        if (filteredCount > 0) {
-          console.log(`[analyze] Excluded ${filteredCount} liked songs from recommendations (${finalAnalysis.recommendedSongs.length} remaining)`);
+    if (provider === "netease") {
+      try {
+        const likedIds = await fetchLikedSongIds();
+        if (likedIds.size > 0) {
+          const before = finalAnalysis.recommendedSongs.length;
+          finalAnalysis.recommendedSongs = finalAnalysis.recommendedSongs.filter(
+            (s) => !likedIds.has(s.id)
+          );
+          filteredCount = before - finalAnalysis.recommendedSongs.length;
+          if (filteredCount > 0) {
+            console.log(`[analyze] Excluded ${filteredCount} liked songs from recommendations (${finalAnalysis.recommendedSongs.length} remaining)`);
+          }
         }
+      } catch (e) {
+        console.warn("[analyze] Failed to filter liked songs:", e);
       }
-    } catch (e) {
-      console.warn("[analyze] Failed to filter liked songs:", e);
     }
 
     return res.json({
@@ -834,6 +892,7 @@ analyzeRouter.post("/style", async (req, res, next) => {
         totalSongs: finalAnalysis.totalSongs,
         analyzedSongs: finalAnalysis.analyzedSongs,
         batches: finalAnalysis.batches,
+        provider,
       },
     });
   } catch (err) {

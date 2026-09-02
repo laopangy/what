@@ -19,6 +19,7 @@ export default function HomePage() {
   const [history, setHistory] = useState<Song[]>([]);
   const [personalized, setPersonalized] = useState<Playlist[]>([]);
   const [qqCharts, setQqCharts] = useState<QQHomeChart[]>([]);
+  const [qqGuessYouLike, setQqGuessYouLike] = useState<Song[]>([]);
   const [qqLibrary, setQqLibrary] = useState<{
     liked?: QQHomePlaylist;
     created: QQHomePlaylist[];
@@ -35,6 +36,7 @@ export default function HomePage() {
       qqApi.home().then((result) => {
         if (c) return;
         setQqCharts(result.success && result.data ? result.data.charts : []);
+        setQqGuessYouLike(result.success && result.data ? result.data.guessYouLike : []);
         setQqLibrary(result.success && result.data ? result.data.library : { created: [], collected: [] });
         setQqLoggedIn(Boolean(result.data?.account.loggedIn));
       }).catch(() => {}).finally(() => { if (!c) setReady(true); });
@@ -98,6 +100,7 @@ export default function HomePage() {
       {provider === "qq" ? (
         <QQHome
           charts={qqCharts}
+          guessYouLike={qqGuessYouLike}
           library={qqLibrary}
           loggedIn={qqLoggedIn}
           onSettings={() => navigate("/settings")}
@@ -196,8 +199,9 @@ export default function HomePage() {
 
 /* ================================================================ */
 
-function QQHome({ charts, library, loggedIn, onSettings, onPlaylist }: {
+function QQHome({ charts, guessYouLike, library, loggedIn, onSettings, onPlaylist }: {
   charts: QQHomeChart[];
+  guessYouLike: Song[];
   library: { liked?: QQHomePlaylist; created: QQHomePlaylist[]; collected: QQHomePlaylist[] };
   loggedIn: boolean;
   onSettings: () => void;
@@ -236,6 +240,28 @@ function QQHome({ charts, library, loggedIn, onSettings, onPlaylist }: {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {library.collected.map((playlist) => <QQPlaylistTile key={`collected-${playlist.id}`} playlist={playlist} onClick={() => onPlaylist(playlist.id)} />)}
           </div>
+        </section>
+      )}
+
+      {loggedIn && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <SectionHeader icon={<Lightbulb className="w-4 h-4" />} title="QQ 音乐 · 猜你喜欢" />
+            {guessYouLike.length > 0 && (
+              <button onClick={() => playAll(guessYouLike)} className="flex items-center gap-1.5 text-xs text-accent hover:text-accent-dim smooth">
+                <Play className="w-3.5 h-3.5 fill-current" />播放全部
+              </button>
+            )}
+          </div>
+          {guessYouLike.length > 0 ? (
+            <div className="rounded-2xl bg-surface/80 border border-border/60 divide-y divide-border/40 overflow-hidden">
+              {guessYouLike.map((song, index) => (
+                <HistoryRow key={song.id} song={song} queue={guessYouLike} index={index} />
+              ))}
+            </div>
+          ) : (
+            <EmptyCard icon={<Lightbulb className="w-6 h-6" />} text="QQ 音乐暂未返回个性化推荐，请稍后再试" />
+          )}
         </section>
       )}
 

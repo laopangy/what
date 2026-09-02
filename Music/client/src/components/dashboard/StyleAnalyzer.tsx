@@ -17,8 +17,9 @@ import {
   X,
   Users,
   Layers,
+  Play,
 } from "lucide-react";
-import { playlistApi, analyzeApi, userApi } from "../../api/client";
+import { playlistApi, analyzeApi, userApi, qqApi, playbackApi } from "../../api/client";
 import { onSocketEvent } from "../../api/socket";
 import LoadingSpinner from "../shared/LoadingSpinner";
 import EmptyState from "../shared/EmptyState";
@@ -40,11 +41,22 @@ interface AnalysisData {
   eraTags: string[];
   languageTags: string[];
   favoritePatterns: string;
-  recommendedSongs: { id: string; name: string; artist: string; album: string }[];
+  recommendedSongs: {
+    id: string;
+    name: string;
+    artist: string;
+    album: string;
+    provider?: "netease" | "qq";
+    providerId?: string;
+    qqMid?: string;
+    mediaMid?: string;
+    duration?: number;
+  }[];
   totalSongs: number;
   analyzedSongs: number;
   sampled: boolean;
   filteredLikedSongs: number;
+  provider: "netease" | "qq";
 }
 
 // ── component ──
@@ -62,6 +74,7 @@ export default function StyleAnalyzer() {
   const [generating, setGenerating] = useState(false);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [mode, setMode] = useState<"mine" | "friend">("mine");
+  const [provider, setProvider] = useState<"netease" | "qq">("netease");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<
     { userId: string; nickname: string; avatarUrl: string; followeds: number; signature: string }[]
@@ -83,6 +96,30 @@ export default function StyleAnalyzer() {
   useEffect(() => {
     setLoadingPlaylists(true);
     setError(null);
+    if (provider === "qq") {
+      qqApi.home()
+        .then((res) => {
+          if (!res.success || !res.data) {
+            setError(res.error || "获取 QQ 音乐歌单失败");
+            setPlaylists([]);
+            return;
+          }
+          const source = tab === "created"
+            ? [...(res.data.library.liked ? [res.data.library.liked] : []), ...res.data.library.created]
+            : res.data.library.collected;
+          setPlaylists(source.map((playlist) => ({
+            id: playlist.id,
+            name: playlist.name,
+            coverUrl: playlist.coverUrl,
+            trackCount: playlist.trackCount,
+            playCount: playlist.playCount,
+            selected: false,
+          })));
+        })
+        .catch(() => setError("获取 QQ 音乐歌单失败，请检查登录状态"))
+        .finally(() => setLoadingPlaylists(false));
+      return;
+    }
     const uid = mode === "friend" ? friendUid ?? undefined : undefined;
     const fetcher = tab === "created" ? playlistApi.created : playlistApi.collected;
     fetcher(50, uid)
@@ -92,7 +129,7 @@ export default function StyleAnalyzer() {
       })
       .catch(() => setError("获取歌单失败，请检查登录状态"))
       .finally(() => setLoadingPlaylists(false));
-  }, [tab, mode, friendUid]);
+  }, [tab, mode, friendUid, provider]);
 
   // ── selection helpers ──
 
@@ -115,7 +152,7 @@ export default function StyleAnalyzer() {
     setError(null);
     setProgress(null);
     try {
-      const res = await analyzeApi.style(selectedIds);
+      const res = await analyzeApi.style(selectedIds, provider);
       if (res.success && res.data) {
         setAnalysis(res.data);
         setPageState("results");
@@ -150,6 +187,20 @@ export default function StyleAnalyzer() {
     } finally {
       setGenerating(false);
     }
+  };
+
+  const playRecommendations = () => {
+    if (!analysis?.recommendedSongs.length) return;
+    playbackApi.playSongs(analysis.recommendedSongs.map((song) => ({
+      provider: song.provider || analysis.provider,
+      providerId: song.providerId,
+      qqMid: song.qqMid,
+      mediaMid: song.mediaMid,
+      originalId: analysis.provider === "netease" && /^\d+$/.test(song.id) ? Number(song.id) : undefined,
+      name: song.name,
+      artist: song.artist,
+      duration: song.duration,
+    })));
   };
 
   // ── reset ──
@@ -242,8 +293,29 @@ export default function StyleAnalyzer() {
           </div>
         </div>
 
-        {/* mode toggle */}
+        {/* music provider */}
         <div className="flex gap-1 p-1 rounded-2xl bg-surface-raised border border-accent/10 w-fit">
+          {(["netease", "qq"] as const).map((source) => (
+            <button
+              key={source}
+              onClick={() => {
+                setProvider(source);
+                setMode("mine");
+                clearFriend();
+              }}
+              className={`px-4 py-2 rounded-xl text-sm smooth ${
+                provider === source
+                  ? "bg-accent text-white shadow-sm"
+                  : "text-text-dim hover:text-text"
+              }`}
+            >
+              {source === "netease" ? "网易云音乐" : "QQ 音乐"}
+            </button>
+          ))}
+        </div>
+
+        {/* mode toggle */}
+        {provider === "netease" && <div className="flex gap-1 p-1 rounded-2xl bg-surface-raised border border-accent/10 w-fit">
           <button
             onClick={() => { setMode("mine"); clearFriend(); }}
             className={`px-4 py-2 rounded-xl text-sm smooth ${
@@ -266,10 +338,10 @@ export default function StyleAnalyzer() {
             <Users className="w-3.5 h-3.5 inline mr-1.5" />
             好友歌单
           </button>
-        </div>
+        </div>}
 
         {/* friend search */}
-        {mode === "friend" && (
+        {provider === "netease" && mode === "friend" && (
           <div className="space-y-3">
             {friendNickname ? (
               /* friend selected */
@@ -653,10 +725,21 @@ export default function StyleAnalyzer() {
 
         {/* recommended songs */}
         <div className="space-y-3">
-          <h3 className="text-base font-semibold text-text flex items-center gap-2">
-            <Music className="w-4 h-4 text-accent" />
-            精选推荐 ({analysis.recommendedSongs.length} 首)
-          </h3>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-base font-semibold text-text flex items-center gap-2">
+              <Music className="w-4 h-4 text-accent" />
+              {analysis.provider === "qq" ? "猜你喜欢精选" : "精选推荐"} ({analysis.recommendedSongs.length} 首)
+            </h3>
+            {analysis.recommendedSongs.length > 0 && (
+              <button
+                onClick={playRecommendations}
+                className="px-3 py-1.5 rounded-xl text-xs font-medium bg-accent/10 text-accent hover:bg-accent/15 smooth flex items-center gap-1.5"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                播放推荐
+              </button>
+            )}
+          </div>
           {analysis.filteredLikedSongs > 0 && (
             <p className="text-xs text-amber-400/80 bg-amber-500/5 border border-amber-500/10 rounded-xl px-3 py-1.5">
               🔍 已自动排除 {analysis.filteredLikedSongs} 首红心歌曲，避免重复推荐
@@ -664,9 +747,19 @@ export default function StyleAnalyzer() {
           )}
           <div className="rounded-2xl border border-accent/15 bg-surface overflow-hidden divide-y divide-accent/5">
             {analysis.recommendedSongs.map((song, i) => (
-              <div
+              <button
                 key={song.id}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/5 smooth cursor-pointer"
+                onClick={() => playbackApi.playSongs([{
+                  provider: song.provider || analysis.provider,
+                  providerId: song.providerId,
+                  qqMid: song.qqMid,
+                  mediaMid: song.mediaMid,
+                  originalId: analysis.provider === "netease" && /^\d+$/.test(song.id) ? Number(song.id) : undefined,
+                  name: song.name,
+                  artist: song.artist,
+                  duration: song.duration,
+                }])}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-accent/5 smooth cursor-pointer"
               >
                 <span className="w-5 text-xs text-text-dim/50 text-right tabular-nums">
                   {i + 1}
@@ -678,13 +771,13 @@ export default function StyleAnalyzer() {
                     {song.album ? ` · ${song.album}` : ""}
                   </p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
 
         {/* generate button */}
-        <div className="flex justify-center">
+        {analysis.provider === "netease" ? <div className="flex justify-center">
           {showNameInput ? (
             <div className="flex items-center gap-3 bg-surface-raised rounded-2xl p-1.5 border border-accent/20">
               <input
@@ -724,7 +817,16 @@ export default function StyleAnalyzer() {
               生成精选歌单
             </button>
           )}
-        </div>
+        </div> : (
+          <div className="flex justify-center">
+            <button
+              onClick={reset}
+              className="px-6 py-2.5 rounded-2xl font-medium bg-surface-raised text-text-dim hover:text-text smooth"
+            >
+              继续分析 QQ 歌单
+            </button>
+          </div>
+        )}
       </div>
     );
   }

@@ -38,6 +38,13 @@ interface QQMusicUChartResponse {
   [key: string]: unknown;
 }
 
+interface QQMusicUResponse {
+  [key: string]: {
+    code?: number;
+    data?: Record<string, unknown>;
+  } | unknown;
+}
+
 interface QQSearchResponse {
   body?: {
     response?: {
@@ -217,9 +224,11 @@ interface QQPlaylistRaw {
   id?: string | number;
   dirid?: string | number;
   dissname?: string;
+  diss_name?: string;
   title?: string;
   name?: string;
   picurl?: string;
+  diss_cover?: string;
   pic_url?: string;
   logo?: string;
   cover?: string;
@@ -227,6 +236,7 @@ interface QQPlaylistRaw {
   song_cnt?: number;
   num0?: number;
   listen_num?: number;
+  visitnum?: number;
   type?: number;
 }
 
@@ -241,14 +251,16 @@ export interface QQPlaylist {
 
 function mapQQPlaylist(raw: QQPlaylistRaw, kind: QQPlaylist["kind"]): QQPlaylist | null {
   const id = raw.dissid ?? raw.tid ?? raw.id ?? raw.dirid;
-  if (id === undefined || id === null) return null;
+  if (id === undefined || id === null || String(id) === "0") return null;
   const trackCount = raw.songnum ?? raw.song_cnt ?? raw.num0;
   return {
     id: String(id),
-    name: raw.dissname || raw.title || raw.name || "未命名歌单",
-    coverUrl: raw.picurl || raw.pic_url || raw.logo || raw.cover || "",
+    name: raw.dissname || raw.diss_name || raw.title || raw.name || "未命名歌单",
+    coverUrl: raw.picurl || raw.pic_url || raw.diss_cover || raw.logo || raw.cover || "",
     trackCount: trackCount === undefined ? undefined : Number(trackCount),
-    playCount: raw.listen_num === undefined ? undefined : Number(raw.listen_num),
+    playCount: raw.listen_num === undefined && raw.visitnum === undefined
+      ? undefined
+      : Number(raw.listen_num ?? raw.visitnum),
     kind,
   };
 }
@@ -266,6 +278,62 @@ async function fetchQQJson(url: URL): Promise<Record<string, unknown>> {
   return await response.json() as Record<string, unknown>;
 }
 
+function parseQQCookie(): Record<string, string> {
+  return Object.fromEntries(
+    config.qq.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const separator = part.indexOf("=");
+        return separator > 0
+          ? [part.slice(0, separator), part.slice(separator + 1)]
+          : [part, ""];
+      }),
+  );
+}
+
+function getQQMusicKey(): string {
+  const cookie = parseQQCookie();
+  return cookie.qm_keyst
+    || cookie.qqmusic_key
+    || cookie.music_key
+    || cookie.p_skey
+    || cookie.skey
+    || cookie.wxskey
+    || "";
+}
+
+async function fetchQQMusicU(
+  requests: Record<string, { module: string; method: string; param: Record<string, unknown> }>,
+  authenticated = false,
+): Promise<QQMusicUResponse> {
+  const account = getQQLoginStatus();
+  const musicKey = authenticated ? getQQMusicKey() : "";
+  const response = await fetch("https://u.y.qq.com/cgi-bin/musicu.fcg", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: config.qq.cookie,
+      Referer: "https://y.qq.com/",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+    },
+    body: JSON.stringify({
+      comm: {
+        uin: account.uin || "0",
+        format: "json",
+        ct: musicKey ? 19 : 24,
+        cv: 0,
+        ...(musicKey ? { authst: musicKey } : {}),
+      },
+      ...requests,
+    }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`QQ 音乐请求失败 (${response.status})`);
+  return await response.json() as QQMusicUResponse;
+}
+
 export async function getQQLibrary(): Promise<{
   liked?: QQPlaylist;
   created: QQPlaylist[];
@@ -274,27 +342,29 @@ export async function getQQLibrary(): Promise<{
   const { loggedIn, uin } = getQQLoginStatus();
   if (!loggedIn || !uin) return { created: [], collected: [] };
 
-  const profileUrl = new URL("https://c6.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg");
+  const createdUrl = new URL("https://c.y.qq.com/rsc/fcgi-bin/fcg_user_created_diss");
   Object.entries({
-    _: String(Date.now()), cv: "4747474", ct: "24", format: "json", platform: "yqq.json",
-    uin, userid: uin, loginUin: uin, cid: "205360838", reqfrom: "1", reqtype: "0",
-  }).forEach(([key, value]) => profileUrl.searchParams.set(key, value));
+    hostUin: "0", hostuin: uin, sin: "0", size: "200", g_tk: "5381",
+    loginUin: uin, format: "json", inCharset: "utf8", outCharset: "utf-8",
+    notice: "0", platform: "yqq.json", needNewCode: "0",
+  }).forEach(([key, value]) => createdUrl.searchParams.set(key, value));
 
   const collectedUrl = new URL("https://c.y.qq.com/fav/fcgi-bin/fcg_get_profile_order_asset.fcg");
   Object.entries({
-    ct: "20", cid: "205360956", userid: uin, reqtype: "3", sin: "0", ein: "30", format: "json", g_tk: "5381",
+    ct: "20", cid: "205360956", userid: uin, reqtype: "3", sin: "0", ein: "80", format: "json", g_tk: "5381",
   }).forEach(([key, value]) => collectedUrl.searchParams.set(key, value));
 
-  const [profileResult, collectedResult] = await Promise.allSettled([
-    fetchQQJson(profileUrl),
+  const [createdResult, collectedResult] = await Promise.allSettled([
+    fetchQQJson(createdUrl),
     fetchQQJson(collectedUrl),
   ]);
-  const profile = profileResult.status === "fulfilled" ? profileResult.value : {};
-  const profileData = profile.data as Record<string, unknown> | undefined;
-  const mydiss = profileData?.mydiss as Record<string, unknown> | undefined;
-  const createdRaw = (mydiss?.list || profileData?.createdDissList || []) as QQPlaylistRaw[];
-  const mymusic = (profileData?.mymusic || []) as QQPlaylistRaw[];
-  const likedRaw = mymusic.find((item) => item.title?.includes("喜欢") || item.name?.includes("喜欢") || item.type === 1);
+  const createdPayload = createdResult.status === "fulfilled" ? createdResult.value : {};
+  const createdData = (createdPayload.data || createdPayload) as Record<string, unknown>;
+  const createdRaw = (createdData.disslist || createdData.list || []) as QQPlaylistRaw[];
+  const likedRaw = createdRaw.find((item) => {
+    const name = item.dissname || item.diss_name || item.title || item.name || "";
+    return ["我喜欢", "我喜欢的音乐", "喜欢的音乐"].includes(name.trim()) || item.type === 1;
+  });
 
   const collectedPayload = collectedResult.status === "fulfilled" ? collectedResult.value : {};
   const collectedData = (collectedPayload.data || collectedPayload) as Record<string, unknown>;
@@ -302,9 +372,43 @@ export async function getQQLibrary(): Promise<{
 
   return {
     liked: likedRaw ? mapQQPlaylist(likedRaw, "liked") || undefined : undefined,
-    created: createdRaw.map((item) => mapQQPlaylist(item, "created")).filter((item): item is QQPlaylist => Boolean(item)),
+    created: createdRaw
+      .filter((item) => item !== likedRaw)
+      .map((item) => mapQQPlaylist(item, "created"))
+      .filter((item): item is QQPlaylist => Boolean(item)),
     collected: collectedRaw.map((item) => mapQQPlaylist(item, "collected")).filter((item): item is QQPlaylist => Boolean(item)),
   };
+}
+
+export async function getQQGuessYouLike(limit = 20): Promise<QQSong[]> {
+  if (!getQQLoginStatus().loggedIn) return [];
+
+  const seen = new Set<string>();
+  const songs: QQSong[] = [];
+  for (let attempt = 0; attempt < 4 && songs.length < limit; attempt += 1) {
+    const response = await fetchQQMusicU({
+      radio: {
+        module: "music.radioProxy.MbTrackRadioSvr",
+        method: "get_radio_track",
+        param: {},
+      },
+    }, true);
+    const radio = response.radio as { code?: number; data?: Record<string, unknown> } | undefined;
+    if (radio?.code !== 0) break;
+    const data = radio.data || {};
+    const rawSongs = [data.track, data.songList, data.vec_song, data.tracks]
+      .find((candidate) => Array.isArray(candidate)) as QQSongRaw[] | undefined;
+    if (!rawSongs?.length) break;
+
+    for (const raw of rawSongs) {
+      const normalized = normalizeQQSong(raw);
+      if (!normalized || seen.has(normalized.songmid)) continue;
+      seen.add(normalized.songmid);
+      songs.push(mapQQSong(normalized));
+      if (songs.length >= limit) break;
+    }
+  }
+  return songs;
 }
 
 export interface QQPlaylistDetail extends QQPlaylist {

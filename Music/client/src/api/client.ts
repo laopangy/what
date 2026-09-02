@@ -18,7 +18,8 @@ async function request<T>(
   if (body) opts.body = JSON.stringify(body);
 
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
+  const timeoutMs = path.startsWith("/analyze/") ? 10 * 60_000 : 15_000;
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
   opts.signal = controller.signal;
 
   let res: Response;
@@ -206,8 +207,10 @@ export const qqApi = {
       created: QQHomePlaylist[];
       collected: QQHomePlaylist[];
     };
+    guessYouLike: import("../types/ncm").Song[];
     charts: QQHomeChart[];
   }>("/qq/home"),
+  guessYouLike: () => api.get<{ songs: import("../types/ncm").Song[] }>("/qq/recommend/songs"),
   playlist: (id: string) => api.get<QQHomePlaylist & {
     description?: string;
     creator?: string;
@@ -225,7 +228,7 @@ export const songApi = {
 
 // Analyze
 export const analyzeApi = {
-  style: (playlistIds: string[]) =>
+  style: (playlistIds: string[], provider: "netease" | "qq" = "netease") =>
     api.post<{
       styleProfile: string;
       tasteClusters: { name: string; percentage: number; description: string; keyArtists: string[] }[];
@@ -234,12 +237,23 @@ export const analyzeApi = {
       eraTags: string[];
       languageTags: string[];
       favoritePatterns: string;
-      recommendedSongs: { id: string; name: string; artist: string; album: string }[];
+      recommendedSongs: {
+        id: string;
+        name: string;
+        artist: string;
+        album: string;
+        provider?: "netease" | "qq";
+        providerId?: string;
+        qqMid?: string;
+        mediaMid?: string;
+        duration?: number;
+      }[];
       totalSongs: number;
       analyzedSongs: number;
       sampled: boolean;
       filteredLikedSongs: number;
-    }>("/analyze/style", { playlistIds }),
+      provider: "netease" | "qq";
+    }>("/analyze/style", { playlistIds, provider }),
   generatePlaylist: (name: string, songIds: string[]) =>
     api.post<{ playlistId: string; name: string; trackCount: number }>(
       "/analyze/generate-playlist",

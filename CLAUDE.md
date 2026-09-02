@@ -115,8 +115,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\setup.ps1 -ForceS
 - 同一个 Key 会写入 `Music/server/.env` 和 `workbench/server/.env` 的 `ANTHROPIC_AUTH_TOKEN`；Tools 复用 workbench 配置
 - 在 Music 客户端右上角进入“账号与服务设置”，可分别扫描网易云和 QQ 音乐二维码登录；Cookie 自动保存到本机 `.env`
 - 也可运行 `npm run login`，在终端扫描二维码登录网易云
-- QQ 音乐公开搜索、歌词和榜单无需登录；扫码登录后主页会读取“我喜欢”、创建歌单和收藏歌单，会员/版权受限歌曲也会使用该登录态
+- QQ 音乐公开搜索、歌词和榜单无需登录；扫码登录后主页通过独立的创建歌单/收藏接口读取个人歌单，并加载“猜你喜欢”个性化歌曲，会员/版权受限歌曲也会使用该登录态
 - QQ 首页的“我喜欢”、创建歌单和收藏歌单均可进入独立详情页，支持单曲与整单播放；非首页页面可使用顶栏返回按钮回到上一步
+- AI 风格分析支持切换网易云与 QQ 音乐；QQ 模式可选择创建或收藏歌单生成品味画像，再从账号实时“猜你喜欢”候选池中精选可直接播放的推荐歌曲
 - 整个 Electron 工作台采用 QQ 音乐桌面端风格：全局使用窄图标侧栏、透明顶栏、灰蓝玻璃表面与 QQ 绿强调色；Workbench、Music、Tools、Fitness 共享同一视觉令牌，Music 嵌入时复用工作台顶栏而不重复显示内部导航
 - 网易云与 QQ 音乐共用同一个 QQ 音乐风格的沉浸式“正在播放”页面：封面以“全屏模糊底图 + 灰蓝雾幕 + 左侧高亮清晰图 + 多方向羽化遮罩”合成；清晰层按原比例装入最大 420px 的正方形区域，不裁切、不额外放大，并在雾幕上方轻微增强亮度、对比度和饱和度，中心清晰而四周渐隐融入背景；歌词固定在右半区居中，当前歌词及关键控制使用 QQ 绿
 - 播放页为底部进度与控制栏预留独立空间；歌词可视区限制为 46vh/最大 400px，取消整体向下偏移，首尾定位留白按歌词容器自身高度计算，不会压到进度条
@@ -242,7 +243,9 @@ workbench/client ──WebSocket────────────────
 | `/api/settings/qq/login-check` | 检查 QQ 扫码状态并保存 Cookie |
 | `/api/settings/qq/logout` | 退出 QQ 音乐登录 |
 | `/api/qq/home` | QQ 音乐账号歌单信息，以及热歌、流行指数、新歌榜的原始榜单内容 |
+| `/api/qq/recommend/songs` | QQ 音乐登录账号的“猜你喜欢”歌曲 |
 | `/api/qq/playlist/:id` | QQ 音乐歌单详情与完整歌曲列表 |
+| `/api/analyze/style` | 分析网易云或 QQ 歌单（body: `{ playlistIds, provider }`）并返回品味画像与推荐歌曲 |
 | `/api/theme/cover-image` | 受限代理 QQ/网易云专辑封面，供本地播放器提取动态主题色 |
 
 ## Tools 服务器 API 端点（定时器）

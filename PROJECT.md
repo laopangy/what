@@ -98,7 +98,8 @@
 - **登录认证系统**：新增网易云音乐扫码登录流程（QR code），通过 `NETEASE_COOKIE` 环境变量支持 VIP 歌曲完整播放。
 - **多音源搜索与播放**：搜索页可切换网易云音乐与 QQ 音乐；QQ 音乐接入歌曲搜索、播放 URL 和歌词，复用现有 mpv 播放链路。
 - **统一账号与服务设置**：Music 客户端提供网易云/QQ 双二维码登录、退出登录和 DeepSeek API Key 配置；音乐账号 Cookie 与 AI 密钥均只保存在本机且不回显。网易云未登录不再阻塞整个播放器，QQ 搜索和公开歌曲可独立使用。
-- **双音源 Music 主页**：主页顶部可切换网易云与 QQ 音乐并记住选择；网易云保留每日推荐、收藏、歌单和最近播放；QQ 音乐读取扫码账号的“我喜欢”、创建歌单和收藏歌单，歌单可进入详情并播放单曲或全部歌曲；同时通过当前榜单接口分别展示热歌、流行指数和新歌榜，保留榜单原始顺序与内容。
+- **双音源 Music 主页**：主页顶部可切换网易云与 QQ 音乐并记住选择；网易云保留每日推荐、收藏、歌单和最近播放；QQ 音乐通过当前可用的独立接口读取创建歌单和收藏歌单，歌单可进入详情并播放单曲或全部歌曲；首页同时接入账号“猜你喜欢”歌曲与热歌、流行指数、新歌榜，均可整组或从任意歌曲连续播放。
+- **双音源 AI 风格分析**：风格分析页可切换网易云与 QQ 音乐。QQ 模式读取创建/收藏歌单的完整歌曲形成品味画像，再从登录账号实时“猜你喜欢”候选池排除原歌单歌曲并由 AI 精选推荐；推荐项保留 QQ MID，可单曲或整组直接播放。分析请求使用独立长超时，避免大歌单在 AI 分批分析期间被前端 15 秒通用超时中断。
 - **应用内返回导航**：非首页页面在顶栏显示返回按钮，优先返回上一次应用内操作；直接打开深层链接且没有可返回历史时安全回到 Music 首页。
 - **全局 QQ 音乐视觉系统**：Electron 工作台改为 78px 半透明图标轨道、全局透明导航/搜索栏和一体化窗口控制；Workbench、Music、Tools、Fitness 统一使用灰蓝表面、低对比白色文字和 QQ 绿强调色。Music 作为 webview 嵌入时隐藏内部重复顶栏，全局搜索可直接打开 Music 搜索结果。
 - **QQ 音乐风格播放页**：“正在播放”由网易云与 QQ 音乐共用：同源封面全屏放大模糊作为环境底图，灰蓝雾幕统一不同专辑的明暗；左侧清晰图按原比例装入最大 420px 的正方形区域，不使用 `object-cover` 放大裁切，并置于雾幕上方轻微增强亮度、对比度和饱和度，右/上/下多方向遮罩让高亮主体的四周渐隐融入背景。歌词固定在右半区居中，当前歌词及关键操作使用 QQ 绿，控制栏贴合底边。直接打开页面会立即同步当前播放状态，歌词只滚动自身容器，不带动整页。
@@ -541,7 +542,10 @@ POST /api/playback/play-song { encryptedId, originalId, name, artist, duration }
 | `/api/settings/qq/login-qr` | POST | 生成 QQ 登录二维码，服务端保管临时登录签名 |
 | `/api/settings/qq/login-check` | POST | 轮询 QQ 扫码状态，成功后保存 `QQ_MUSIC_COOKIE` |
 | `/api/settings/qq/logout` | POST | 清除 QQ 音乐 Cookie |
-| `/api/qq/home` | GET | 获取 QQ 热歌、流行指数、新歌榜及账号状态 |
+| `/api/qq/home` | GET | 获取 QQ 创建/收藏歌单、“猜你喜欢”、热歌、流行指数、新歌榜及账号状态 |
+| `/api/qq/recommend/songs` | GET | 获取 QQ 登录账号的“猜你喜欢”歌曲 |
+| `/api/qq/playlist/:id` | GET | 获取 QQ 歌单详情及完整歌曲列表 |
+| `/api/analyze/style` | POST | 按 `provider=netease|qq` 分析所选歌单并返回品味画像与可播放推荐歌曲 |
 | `/api/playlist/created` | GET | 创建的歌单 |
 | `/api/playlist/collected` | GET | 收藏的歌单 |
 | `/api/playlist/:id` | GET | 歌单详情 |
@@ -1357,8 +1361,9 @@ Outdoor API：
 | 2026-09-01 | Codex | 全局数据同步 | 将 AES-256-GCM 加密仓库 `data/what.vault` 纳入 Git，使 A/B 电脑通过项目远端共用数据；锁与临时文件继续忽略，启动检查 Git 同步状态，Electron 启动及退出提示未提交、未推送或未拉取数据，并禁止将密文当作文本合并 | `.gitignore`, `.gitattributes`, `data/what.vault`, `scripts/check-vault-sync.js`, `package.json`, `electron/main.js`, `AGENTS.md`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-09-01 | Codex | Fitness/AI 饮食计算 | 移除本地食物库、常见套餐规则、营养标签换算和 AI 失败降级；饮食记录及计划四餐的营养计算全部强制调用 DeepSeek，未配置、超时或返回异常时直接失败且不写入估算结果 | `Fitness/server/src/aiNutrition.ts`, `foodCalculator.ts`, `routes.ts`, `storage.ts`, `Fitness/client/src/App.tsx`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-09-01 | Codex | Fitness/AI 输出可靠性 | 修复推理模型在 1800 token 限额内只返回 thinking、没有正文而导致“AI 未返回可读取数据”：按照 DeepSeek Anthropic 接口设置 `thinking.type=disabled` 关闭默认深度推理，主请求使用 3000 token，正文或 JSON 不完整时以 5000 token 自动修复重试一次，单次等待上限为 60 秒 | `Fitness/server/src/aiNutrition.ts`, `Fitness/client/src/App.tsx`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-09-02 | Codex | Music/QQ 歌单与推荐分析 | 修复 QQ 登录后个人歌单为空：改用独立创建歌单接口并兼容当前字段；首页接入“猜你喜欢”并支持连续播放；AI 风格分析新增 QQ 音源选择、完整歌单读取、实时猜你喜欢候选精选及推荐播放，同时延长分析请求超时 | `Music/server/src/services/qqMusic.ts`, `routes/qq.ts`, `routes/analyze.ts`, `Music/client/src/api/client.ts`, `components/dashboard/HomePage.tsx`, `StyleAnalyzer.tsx`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 
 > **文档维护者**：潘高远  
-> **最后更新**：2026-09-01
+> **最后更新**：2026-09-02
