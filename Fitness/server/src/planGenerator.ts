@@ -86,13 +86,13 @@ export function generateWeeklyPlan(profile: Profile, preferences: PlanPreference
       ...(isTrainingDay ? [{ id: `training-${idSuffix}`, startTime: trainingTime, name: preferences.returnMode === "gentle" ? `恢复训练 · ${template.name}` : template.name, activityType: "strength" as const, durationMinutes: workoutDuration, notes: `${workday && preferences.preferredTrainingTime === "after_work" ? "按最晚下班时间预留；未加班可提前。" : workday && useBeforeWork && preferences.preferredTrainingTime === "adaptive" ? "考虑加班不确定，自动安排在上班前。" : ""}${preferences.returnMode === "gentle" ? "先完成动作、不追求力竭；感觉轻松也不要额外加量。" : "每组保留约2次余力。"}热身5–10分钟，动作不适立即停止` }] : [{ id: `recovery-${idSuffix}`, startTime: workday ? addMinutes(afterWorkBase, preferences.commuteMinutes + 30) : "10:00", name: "轻松步行与舒展", activityType: "daily" as const, durationMinutes: preferences.returnMode === "gentle" ? weekIndex === 0 ? 15 : 20 : profile.goal === "lose" ? 45 : 30, notes: preferences.returnMode === "gentle" ? "只建立每天活动的习惯，不追求速度；疲劳时可缩短" : "轻松强度，以能正常交谈为准；加班过晚可取消" }]),
       ...(workday ? [{ id: `work-end-${idSuffix}`, startTime: preferences.latestWorkEnd, name: "最晚下班预留", activityType: "daily" as const, notes: overtimeNote }] : []),
     ];
-    const goalText = profile.goal === "gain" ? "增肌" : profile.goal === "lose" ? "减脂" : "维持体能";
+    const goalText = profile.goal === "gain" ? "增肌" : profile.goal === "lose" ? `减脂${profile.targetWeightKg ? `至 ${profile.targetWeightKg}kg` : ""}${profile.targetDate ? `（目标 ${profile.targetDate}）` : ""}` : "维持体能";
     return {
       name: `${isAlternating ? `${isBigWeek ? "大周" : "小周"} · ` : ""}${weekdayNames[weekday]} · ${isTrainingDay ? template.name : workday ? "工作与恢复" : "主动恢复"}`,
       weekday,
       scheduledDate,
       generated: true,
-      focus: `${preferences.returnMode === "gentle" ? `恢复第${weekIndex + 1}周 · 先规律活动和正常吃饭，不要求严格控卡` : `${goalText} · 每日约 ${profile.calorieTarget} kcal / 蛋白质 ${profile.proteinTarget}g`} · ${workday ? overtimeNote : "休息日"}${preferences.healthNotes === "无" ? "" : ` · 注意：${preferences.healthNotes}`}`.slice(0, 120),
+      focus: `${preferences.returnMode === "gentle" ? `恢复第${weekIndex + 1}周 · ${goalText} · 先规律活动和正常吃饭，不要求严格控卡` : `${goalText} · 每日约 ${profile.calorieTarget} kcal / 蛋白质 ${profile.proteinTarget}g`} · ${workday ? overtimeNote : "休息日"}${preferences.healthNotes === "无" ? "" : ` · 注意：${preferences.healthNotes}`}`.slice(0, 120),
       activityType: isTrainingDay ? "strength" : "daily",
       targetDurationMinutes: isTrainingDay ? workoutDuration : 0,
       breakfast: preferences.breakfast || (preferences.returnMode === "gentle" ? "正常吃早餐，增加一份蛋白质（鸡蛋或牛奶）" : "鸡蛋2个 / 牛奶300毫升 / 燕麦50克"),

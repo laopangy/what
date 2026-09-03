@@ -14,6 +14,7 @@ const profileSchema = z.object({
   name: z.string().trim().min(1).max(30), sex: z.enum(["male", "female"]), age: z.number().int().min(14).max(100),
   heightCm: z.number().min(100).max(250), weightKg: z.number().min(30).max(350),
   goal: z.enum(["gain", "lose", "maintain"]),
+  targetWeightKg: z.number().min(30).max(350).optional(), targetDate: date.optional(),
 });
 const refreshProfileTargets = (state: FitnessState) => { state.profile = calculateProfileTargets(state.profile, state.plan.sessions, state.planAdaptation?.calorieAdjustment || 0); };
 const mealSchema = z.object({

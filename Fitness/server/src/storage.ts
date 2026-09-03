@@ -6,6 +6,7 @@ const initialState: FitnessState = {
   profile: {
     name: "阿潘", sex: "male", age: 28, heightCm: 175, weightKg: 70, activityLevel: 1.45, goal: "gain",
     bmr: 1659, maintenanceCalories: 2570, calorieGapTarget: 250,
+    goalPaceStatus: "unset", mealCalorieTargets: { breakfast: 710, lunch: 990, dinner: 850, snack: 270 },
     calorieTarget: 2820, proteinTarget: 140, carbsTarget: 423, fatTarget: 63, waterTarget: 2450,
   },
   routine: { wakeTime: "07:00", sleepTime: "23:00" },

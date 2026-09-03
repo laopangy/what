@@ -273,7 +273,7 @@ workbench/client ──WebSocket────────────────
 | `/api/fitness/sessions` (POST) | 新增每日计划；单个计划可包含多条活动和可动态配置的训练动作，四餐文本自动估算并保存热量与三大营养素 |
 | `/api/fitness/sessions/:id` (PUT) | 编辑已有每日计划、嵌套活动、训练动作及四餐营养估算 |
 | `/api/fitness/sessions/:id` (DELETE) | 删除每日计划（包括内置计划，历史运动记录保留） |
-| `/api/fitness/profile` (PUT) | 保存资料并重新计算基础代谢、维持热量、目标缺口或盈余、建议摄入及三大营养素目标；减脂默认缺口为 350 kcal，并叠加体重趋势修正 |
+| `/api/fitness/profile` (PUT) | 保存资料及可选减脂目标体重/完成日期，并重新计算周期、目标速度、基础代谢、维持热量、目标缺口或盈余、四餐预算、建议摄入及三大营养素目标；未设期限时减脂默认缺口为 350 kcal，设置期限后按目标进度估算并叠加体重趋势修正 |
 | `/api/fitness/meals` (POST) | 添加饮食记录 |
 | `/api/fitness/meals/from-text` (POST) | 从“我今天中午吃了……”等自然语言识别餐次，AI 估算营养后直接写入今天对应的早餐、午餐、晚餐或加餐 |
 | `/api/fitness/meals/:id` (DELETE) | 删除饮食记录 |

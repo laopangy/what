@@ -9,9 +9,17 @@ export interface Profile {
   weightKg: number;
   activityLevel: number;
   goal: FitnessGoal;
+  targetWeightKg?: number;
+  targetDate?: string;
   bmr: number;
   maintenanceCalories: number;
   calorieGapTarget: number;
+  goalDurationDays?: number;
+  weeklyWeightChangeTarget?: number;
+  requiredDailyCalorieDeficit?: number;
+  projectedGoalDate?: string;
+  goalPaceStatus?: "unset" | "on_track" | "too_fast" | "below_healthy_range" | "achieved";
+  mealCalorieTargets: Record<PlannedMealType, number>;
   calorieTarget: number;
   proteinTarget: number;
   carbsTarget: number;
