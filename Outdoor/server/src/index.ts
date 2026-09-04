@@ -7,7 +7,7 @@ import { isVaultUnlocked, unlockVault } from "./vault.js";
 import { journeyRouter } from "./routes/journeys.js";
 
 const app = express();
-const allowedOrigins = new Set(["http://localhost:5177", "http://127.0.0.1:5177", "http://localhost:5174", "http://127.0.0.1:5174"]);
+const allowedOrigins = new Set(["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5177", "http://127.0.0.1:5177", "http://localhost:5174", "http://127.0.0.1:5174"]);
 app.use(cors({ origin: (origin, callback) => callback(null, !origin || allowedOrigins.has(origin)) }));
 app.use((req, res, next) => {
   if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) {

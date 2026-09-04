@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Mountain, Settings2, Route, Bookmark, ArrowRight, ArrowLeft, Check, MapPin, Clock, Trash2, Save, Car, Bike, Footprints, ImageOff } from "lucide-react";
+import { Mountain, Route, Bookmark, ArrowRight, ArrowLeft, Check, MapPin, Clock, Trash2, Save, Car, Bike, Footprints, ImageOff } from "lucide-react";
 import { api } from "./api";
 import { journeyApi } from "./journeyApi";
 import type { Candidate, Journey, MapStatus, Place, TripDraft } from "./journeyTypes";
@@ -31,8 +31,6 @@ export default function App() {
   const [draft, setDraft] = useState<TripDraft>(initialDraft);
   const [step, setStep] = useState(0);
   const [status, setStatus] = useState<MapStatus>({ready: false, serviceReady: false, jsReady: false});
-  const [configOpen, setConfigOpen] = useState(false);
-  const [keys, setKeys] = useState({jsKey: "", securityCode: "", serviceKey: ""});
   const [home, setHome] = useState("");
   const [view, setView] = useState<"planner" | "saved">("planner");
   const [journey, setJourney] = useState<Journey | null>(null);
@@ -116,7 +114,7 @@ export default function App() {
     <header className="outdoor-local-header">
       <div><Mountain size={22} className="text-accent"/><h1>户外</h1><p>把想去的地方，变成走得通的行程。</p></div>
       <div className="outdoor-header-actions">
-        <button className="ow-button" onClick={() => setConfigOpen(!configOpen)}><Settings2 size={15}/>{status.ready ? "地图已配置" : "地图配置"}</button>
+        <span>{status.ready ? "地图已配置" : "请前往账号与服务配置高德地图"}</span>
         <nav aria-label="户外导航">
           <button className={view === "planner" ? "is-active" : ""} onClick={() => setView("planner")}><Route size={15}/>规划行程</button>
           <button className={view === "saved" ? "is-active" : ""} onClick={() => setView("saved")}><Bookmark size={15}/>我的行程<span>{saved.length + legacy.length}</span></button>
@@ -124,20 +122,6 @@ export default function App() {
       </div>
     </header>
     <div className="ow-scroll">
-      {configOpen && <section className="ow-config">
-        <div><h2>连接高德地图</h2><p>在本机填写，不要发送到聊天。配置加密保存到数据仓库，随加密仓库同步；Web 服务 Key 仅由后端使用。</p>
-          <p>本地桌面版使用 JS 安全密钥直连模式，Web 端 Key 和安全密钥在浏览器运行时可见；公开部署前需改为服务端安全代理。</p>
-          <a href="https://console.amap.com/dev/key/app" target="_blank" rel="noreferrer">打开高德开放平台控制台 ↗</a></div>
-        <form onSubmit={event => { event.preventDefault(); void run("正在保存地图配置", async () => {
-          setStatus(await journeyApi.configure(keys)); setKeys({jsKey: "", securityCode: "", serviceKey: ""});
-          setNotice("配置已加密保存。若更换了已加载的 Web 端 Key，请刷新户外页面。"); setConfigOpen(false);
-        }); }}>
-          {([["jsKey", "Web 端（JS API）Key"], ["securityCode", "JS 安全密钥 securityJsCode"], ["serviceKey", "Web 服务 API Key"]] as const).map(([field, label]) => <label key={field}>{label}
-            <input type="password" required autoComplete="off" value={keys[field]} onChange={event => setKeys({...keys, [field]: event.target.value})} placeholder="粘贴对应密钥，不回显已保存值" />
-          </label>)}
-          <button className="ow-button ow-primary" disabled={!!busy}>保存配置</button>
-        </form>
-      </section>}
       {error && <div className="ow-banner ow-error" role="alert">{error}<button onClick={() => setError("")} aria-label="关闭错误">×</button></div>}
       {notice && <div className="ow-banner" role="status">{notice}</div>}
       {busy && <div className="ow-banner" role="status"><span className="ow-pulse"/>{busy}</div>}

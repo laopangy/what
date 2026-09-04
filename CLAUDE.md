@@ -88,9 +88,6 @@ what/
 - 后台安装进程意外退出时立即恢复可操作状态并弹窗提示，不会一直停留在“执行中”
 - 安装期间可点击“取消安装”；关闭窗口也会先终止本次 Worker 及其 npm 子进程，避免残留安装相互占用目录
 - 自动创建 `Music/server/.env`、`workbench/server/.env`，并写入本机 ncm-cli 路径
-- 提供隐藏输入框保存 DeepSeek API Key，并同时写入两份 `.env`；密钥不会显示或进入安装日志
-- API Key 会校验为平台生成的英文字符密钥，中文占位文字不会再被误判为已配置
-- 提供“申请密钥”入口；未配置时启动前会明确提醒 AI 功能不可用
 - 已有 `.env` 内容会保留，不覆盖 API Key、端口等用户配置
 
 也可直接运行：
@@ -109,9 +106,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\setup.ps1 -ForceS
 
 ### 首次安装后的用户配置
 
-安装器可以创建可启动的 `.env`，并提供安全输入框保存用户自己的密钥：
+安装器只创建可启动的环境配置；账号和服务密钥在应用内统一管理：
 
-- 点击“申请密钥”打开 DeepSeek API Keys 页面，创建后粘贴到安装器并点击“保存密钥”
+- 在 DeepSeek 平台创建 API Key 后，进入“账号与服务设置”的 AI 服务区保存
 - 同一个 Key 会写入 `Music/server/.env` 和 `workbench/server/.env` 的 `ANTHROPIC_AUTH_TOKEN`；Tools 复用 workbench 配置
 - 在 Music 客户端右上角进入“账号与服务设置”，可分别扫描网易云和 QQ 音乐二维码登录；Cookie 自动保存到本机 `.env`
 - 也可运行 `npm run login`，在终端扫描二维码登录网易云
@@ -123,7 +120,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\setup.ps1 -ForceS
 - 播放页为底部进度与控制栏预留独立空间；歌词可视区限制为 46vh/最大 400px，取消整体向下偏移，首尾定位留白按歌词容器自身高度计算，不会压到进度条
 - 网易云与 QQ 的歌单、收藏、每日推荐、搜索结果和榜单点歌时会保留所选歌曲之后的列表上下文，当前歌曲结束后自动续播下一首
 - Electron 无边框窗口始终显示自绘的最小化、最大化和关闭按钮；所有嵌入 webview 从顶栏下方开始布局，避免其覆盖 56px 窗口控制点击区。关闭按钮、Alt+F4 和托盘“退出”会真正退出应用：依次通过 Music API、专用 named pipe 和临时 PID 记录关闭本应用创建的 mpv，再清理 Tools、Fitness、Music、Workbench 的前后端监听进程；PID 兜底只结束关联播放器及其子进程，不按进程名误杀其他 mpv；最小化按钮仍只最小化，不停止音乐
-- DeepSeek API Key 可在安装器或 Music“账号与服务设置”中配置，密钥只写入本机且不会回显
+- “账号与服务”作为统一应用设置页，展示应用名称、版本和模块信息，集中管理音乐账号、AI 与高德地图服务。高德配置复用 Outdoor 加密仓库，保存后刷新户外页面生效；肌肉大与户外不提供密钥录入表单。
+- DeepSeek API Key 统一在“账号与服务设置”中配置，密钥只写入本机且不会回显
 - `.env` 格式可参考 `Music/server/.env.example` 和 `workbench/server/.env.example`
 - 首次进入工作台需输入数据密码。密码只用于运行时验证和密钥派生，不写入仓库文件或项目文档
 - 解锁页采用与工作台一致的灰蓝玻璃与 QQ 绿设计：双栏说明数据保护方式，提供连接中、解锁中和内联错误状态；Electron 锁屏时仍显示最小化、最大化和关闭按钮。进入工作台后会定期检查 Tools 与 Fitness 的解锁状态，任一服务重启并重新上锁时自动返回密码页
@@ -156,7 +154,7 @@ npm install
 2. 注册/登录
 3. 进入 API Keys 页面创建 Key
 4. 充值或确认有可用额度
-5. 将 Key 填入两个 .env 文件
+5. 在应用“账号与服务设置”的 AI 服务区保存 Key
 
 ### 启动项目
 
@@ -193,7 +191,7 @@ npm run dev:web
 | 8 | Workbench 依赖已安装 | `ls workbench/node_modules/.package-lock.json` 存在 |
 | 9 | Tools 依赖已安装 | `ls Tools/node_modules/.package-lock.json` 存在 |
 | 10 | `.env` 文件已创建 | `cat Music/server/.env workbench/server/.env` |
-| 11 | DeepSeek API Key 已配置 | 安装器显示“已配置”；有效性需启动 workbench 后发送消息测试 |
+| 11 | DeepSeek API Key 已配置 | 账号与服务设置显示“已配置”；有效性需启动 workbench 后发送消息测试 |
 | 12 | Music server 启动 | `curl http://localhost:3001/api/playback/state` |
 | 13 | Workbench server 启动 | `curl http://localhost:3000/api/chat` |
 | 14 | Tools server 启动 | `curl http://localhost:3002/api/health` |
@@ -352,7 +350,7 @@ Fitness 与 Tools 共用根目录的加密数据仓库，服务重启后需再�
 
 Outdoor 与 Tools、Fitness 共用根目录加密仓库，工作台统一密码页会同时解锁三个数据服务。
 
-首次使用需在户外右上角「地图配置」填写高德开放平台申请的三项内容：
+首次使用需在工作台「账号与服务」设置的「高德地图服务」填写高德开放平台申请的三项内容：
 
 1. 平台类型为 **Web 端（JS API）** 的 Key。
 2. 该 Key 对应的 **安全密钥 securityJsCode**。
@@ -360,7 +358,7 @@ Outdoor 与 Tools、Fitness 共用根目录加密仓库，工作台统一密码�
 
 配置在本机表单填写，不要发到聊天或写入源码；加密进入 `data/what.vault` 并随仓库同步。按高德控制台要求配置开发域名/服务白名单（本机使用 localhost/127.0.0.1），开通地点搜索及路线规划权限并确认配额。JS Key 和安全密钥在本地浏览器运行时可见；Web 服务 Key 仅供后端访问。公开部署前应改用高德推荐的服务端安全代理，不能直接将本机服务暴露到公网。更换已加载的 JS Key 后刷新户外页面。
 
-Outdoor 后端只监听 127.0.0.1，并限制请求来源为本机 5174/5177。未配置时显示提示，不会加载假地图；填入真实 Key 后仍需在本机验证权限、网络、底图、地点查询和至少一条真实路线。
+Outdoor 后端只监听 127.0.0.1，并限制请求来源为本机 5173/5174/5177。未配置时显示提示，不会加载假地图；填入真实 Key 后仍需在本机验证权限、网络、底图、地点查询和至少一条真实路线。
 
 测试：在 Outdoor 执行 `npm run test -w server`；构建后根目录执行 `node Outdoor/tests/api-smoke.mjs`。浏览器测试 `node Outdoor/tests/browser-smoke.mjs` 需要本机 Playwright（可用 `PLAYWRIGHT_MODULE_PATH` 指定安装路径、`PLAYWRIGHT_CHANNEL=msedge` 使用本机 Edge）；`OUTDOOR_SCREENSHOTS` 可指定截图目录。测试仅使用隔离临时加密文件或模拟 API，不解锁、不修改用户数据。
 

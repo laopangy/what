@@ -26,7 +26,9 @@ try {
   assert.equal((await request("/api/outdoor/map/status")).body.ready,false);
   assert.equal((await request("/api/outdoor/map/config","PUT",{jsKey:"invalid"})).status,400);
   const credentials={jsKey:"a".repeat(32),securityCode:"b".repeat(32),serviceKey:"c".repeat(32)};
-  assert.equal((await request("/api/outdoor/map/config","PUT",credentials)).body.ready,true);
+  assert.equal((await request("/api/outdoor/map/config","PUT",credentials,"http://localhost:5173")).body.ready,true);
+  const settingsStatus = await request("/api/outdoor/map/status","GET",undefined,"http://127.0.0.1:5173");
+  assert.deepEqual(settingsStatus.body,{jsReady:true,serviceReady:true,ready:true});
   const sdk=await request("/api/outdoor/map/sdk");
   assert.equal(sdk.body.key,credentials.jsKey);
   assert.equal(sdk.body.serviceKey,undefined);

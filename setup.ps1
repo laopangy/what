@@ -93,12 +93,6 @@ function Get-EnvFileValue {
     return ($line -replace "^$escapedKey=", "").Trim()
 }
 
-function Test-ApiKeyValue {
-    param([AllowEmptyString()][string]$Value)
-    if ([string]::IsNullOrWhiteSpace($Value) -or $Value.Length -lt 10) { return $false }
-    return $Value -cmatch '^[\x20-\x7E]+$'
-}
-
 function Test-ProjectDependencies {
     $projectDirectories = @("", "Music", "workbench", "Tools", "Fitness", "Outdoor")
     $staleProjects = New-Object 'System.Collections.Generic.List[string]'
@@ -231,9 +225,6 @@ function Get-EnvironmentState {
     $musicEnv = Join-Path $ProjectRoot "Music\server\.env"
     $workbenchEnv = Join-Path $ProjectRoot "workbench\server\.env"
     $envReady = (Test-Path -LiteralPath $musicEnv) -and (Test-Path -LiteralPath $workbenchEnv)
-    $musicApiKey = Get-EnvFileValue -Path $musicEnv -Key "ANTHROPIC_AUTH_TOKEN"
-    $workbenchApiKey = Get-EnvFileValue -Path $workbenchEnv -Key "ANTHROPIC_AUTH_TOKEN"
-    $apiKeyReady = (Test-ApiKeyValue $musicApiKey) -and (Test-ApiKeyValue $workbenchApiKey)
 
     return [ordered]@{
         Node = [ordered]@{
@@ -266,11 +257,6 @@ function Get-EnvironmentState {
             Version = if ($envReady) { "已配置" } else { "待配置" }
             Detail = "Music/server/.env、workbench/server/.env"
         }
-        ApiKey = [ordered]@{
-            Installed = $apiKeyReady
-            Version = if ($apiKeyReady) { "已配置" } else { "未配置" }
-            Detail = "DeepSeek API Key（不会显示或写入日志）"
-        }
     }
 }
 
@@ -282,8 +268,7 @@ function Test-AllSetupReady {
         $State.Mpv.Installed -and
         $State.Ncm.Installed -and
         $State.Dependencies.Installed -and
-        $State.Environment.Installed -and
-        $State.ApiKey.Installed
+        $State.Environment.Installed
     )
 }
 
@@ -607,7 +592,7 @@ function Initialize-EnvironmentFiles {
     Set-EnvValue -Path $workbenchEnv -Key "ANTHROPIC_BASE_URL" -Value "https://api.deepseek.com/anthropic" -PreserveExisting
     Set-EnvValue -Path $workbenchEnv -Key "ANTHROPIC_MODEL" -Value "deepseek-v4-pro" -PreserveExisting
 
-    Write-WorkerLog "环境文件已就绪。DeepSeek API Key 留空时，基础功能可启动，但 AI 功能不可用。"
+    Write-WorkerLog "环境文件已就绪。账号与服务可在应用设置中配置。"
 }
 
 function Invoke-SetupWorker {
@@ -822,60 +807,12 @@ foreach ($key in $definitions.Keys) {
     $rowIndex++
 }
 
-$apiPanel = New-Object Windows.Forms.Panel
-$apiPanel.Location = New-Object Drawing.Point(24, 463)
-$apiPanel.Size = New-Object Drawing.Size(704, 82)
-$apiPanel.Anchor = "Top,Left,Right"
-$apiPanel.BackColor = $colors.Surface
-$apiPanel.BorderStyle = "FixedSingle"
-$form.Controls.Add($apiPanel)
-
-$apiLabel = New-Object Windows.Forms.Label
-$apiLabel.Text = "DeepSeek API Key"
-$apiLabel.Font = New-Object Drawing.Font("Microsoft YaHei UI", 9, [Drawing.FontStyle]::Bold)
-$apiLabel.ForeColor = $colors.Text
-$apiLabel.AutoSize = $true
-$apiLabel.Location = New-Object Drawing.Point(15, 13)
-$apiPanel.Controls.Add($apiLabel)
-
-$apiDescription = New-Object Windows.Forms.Label
-$apiDescription.Text = "用于 Workbench、Music AI 分析和 Tools 日记 AI；输入内容不会写入日志。"
-$apiDescription.ForeColor = $colors.Muted
-$apiDescription.AutoSize = $true
-$apiDescription.Location = New-Object Drawing.Point(15, 42)
-$apiPanel.Controls.Add($apiDescription)
-
-$apiKeyBox = New-Object Windows.Forms.TextBox
-$apiKeyBox.UseSystemPasswordChar = $true
-$apiKeyBox.Location = New-Object Drawing.Point(345, 13)
-$apiKeyBox.Size = New-Object Drawing.Size(220, 25)
-$apiKeyBox.Anchor = "Top,Right"
-$apiPanel.Controls.Add($apiKeyBox)
-
-$apiStatus = New-Object Windows.Forms.Label
-$apiStatus.TextAlign = "MiddleRight"
-$apiStatus.Location = New-Object Drawing.Point(477, 43)
-$apiStatus.Size = New-Object Drawing.Size(88, 24)
-$apiStatus.Anchor = "Top,Right"
-$apiPanel.Controls.Add($apiStatus)
-
-$getApiKeyButton = New-Object Windows.Forms.Button
-$getApiKeyButton.Text = "申请密钥"
-$getApiKeyButton.Size = New-Object Drawing.Size(95, 28)
-$getApiKeyButton.Location = New-Object Drawing.Point(579, 42)
-$getApiKeyButton.Anchor = "Top,Right"
-$apiPanel.Controls.Add($getApiKeyButton)
-
-$saveApiKeyButton = New-Object Windows.Forms.Button
-$saveApiKeyButton.Text = "保存密钥"
-$saveApiKeyButton.FlatStyle = "Flat"
-$saveApiKeyButton.FlatAppearance.BorderSize = 0
-$saveApiKeyButton.BackColor = $colors.Primary
-$saveApiKeyButton.ForeColor = [Drawing.Color]::White
-$saveApiKeyButton.Size = New-Object Drawing.Size(95, 28)
-$saveApiKeyButton.Location = New-Object Drawing.Point(579, 10)
-$saveApiKeyButton.Anchor = "Top,Right"
-$apiPanel.Controls.Add($saveApiKeyButton)
+$settingsHint = New-Object Windows.Forms.Label
+$settingsHint.Text = "账号登录与服务配置请在启动后的「账号与服务」设置中完成。"
+$settingsHint.ForeColor = $colors.Muted
+$settingsHint.Location = New-Object Drawing.Point(27, 478)
+$settingsHint.Size = New-Object Drawing.Size(690, 45)
+$form.Controls.Add($settingsHint)
 
 $progressTitle = New-Object Windows.Forms.Label
 $progressTitle.Text = "等待开始"
@@ -1033,13 +970,6 @@ function Update-UiState {
             $row.Panel.BackColor = $colors.Surface
         }
     }
-    if ($script:currentState.ApiKey.Installed) {
-        $apiStatus.Text = "✓ 已配置"
-        $apiStatus.ForeColor = $colors.Success
-    } else {
-        $apiStatus.Text = "未配置"
-        $apiStatus.ForeColor = $colors.Warning
-    }
     $requiredKeys = @($rows.Keys | Where-Object { -not $definitions[$_].Optional })
     $allReady = @($requiredKeys | Where-Object { -not $script:currentState[$_].Installed }).Count -eq 0
     $fullyReady = Test-AllSetupReady -State $script:currentState
@@ -1058,9 +988,6 @@ function Set-UiBusy {
     $refreshButton.Enabled = -not $Busy
     $selectMissingButton.Enabled = -not $Busy
     $installAllButton.Enabled = -not $Busy
-    $apiKeyBox.Enabled = -not $Busy
-    $saveApiKeyButton.Enabled = -not $Busy
-    $getApiKeyButton.Enabled = -not $Busy
     $skipInstallerButton.Enabled = (-not $Busy) -and (Test-AllSetupReady -State $script:currentState)
     foreach ($key in $rows.Keys) {
         if (-not $script:currentState[$key].Installed) { $rows[$key].Check.Enabled = -not $Busy }
@@ -1092,39 +1019,6 @@ function Stop-WorkerProcess {
     }
 }
 
-function Save-ApiKey {
-    param([switch]$Silent)
-    $value = $apiKeyBox.Text.Trim()
-    if ([string]::IsNullOrWhiteSpace($value)) {
-        if (-not $Silent) {
-            [Windows.Forms.MessageBox]::Show("请先输入 DeepSeek API Key。", "密钥为空", "OK", "Information") | Out-Null
-        }
-        return $false
-    }
-    if (-not (Test-ApiKeyValue $value)) {
-        if (-not $Silent) {
-            [Windows.Forms.MessageBox]::Show("API Key 格式不正确。请粘贴平台生成的英文字符密钥，不要填写【你的 API Key】等中文占位文字。", "密钥格式错误", "OK", "Warning") | Out-Null
-        }
-        return $false
-    }
-    try {
-        Initialize-EnvironmentFiles
-        Set-EnvValue -Path (Join-Path $ProjectRoot "Music\server\.env") -Key "ANTHROPIC_AUTH_TOKEN" -Value $value
-        Set-EnvValue -Path (Join-Path $ProjectRoot "workbench\server\.env") -Key "ANTHROPIC_AUTH_TOKEN" -Value $value
-        $apiKeyBox.Clear()
-        Update-UiState
-        $apiStatus.Text = "✓ 已保存"
-        $apiStatus.ForeColor = $colors.Success
-        if (-not $Silent) {
-            [Windows.Forms.MessageBox]::Show("DeepSeek API Key 已安全写入 Music 和 workbench 的本地 .env 文件。", "保存成功", "OK", "Information") | Out-Null
-        }
-        return $true
-    } catch {
-        [Windows.Forms.MessageBox]::Show("密钥保存失败：$($_.Exception.Message)", "保存失败", "OK", "Error") | Out-Null
-        return $false
-    }
-}
-
 function Start-Project {
     $npm = Get-NpmPath
     if (-not $npm) {
@@ -1140,13 +1034,6 @@ function Start-Project {
         Update-UiState
         return
     }
-    if (-not $state.ApiKey.Installed) {
-        $answer = [Windows.Forms.MessageBox]::Show(
-            "DeepSeek API Key 尚未配置。项目仍可启动，但 Workbench、Music AI 分析和 Tools 日记 AI 将不可用。是否继续启动？",
-            "AI 功能未配置", "YesNo", "Warning"
-        )
-        if ($answer -ne "Yes") { return }
-    }
     Start-ProjectProcess
     $progressTitle.Text = "项目正在启动"
     $logBox.AppendText("`r`n已启动后台服务，Electron 窗口将在服务就绪后打开。")
@@ -1158,9 +1045,6 @@ function Start-Project {
 function Start-Install {
     param([bool]$AllMissing, [bool]$StartAfter)
     $requestedBeforeSave = @($rows.Keys | Where-Object { $rows[$_].Check.Checked })
-    if (-not [string]::IsNullOrWhiteSpace($apiKeyBox.Text)) {
-        if (-not (Save-ApiKey -Silent)) { return }
-    }
     if ($AllMissing) {
         foreach ($key in $rows.Keys) {
             if (-not $script:currentState[$key].Installed) { $rows[$key].Check.Checked = $true }
@@ -1392,8 +1276,6 @@ $skipInstallerButton.Add_Click({
         "以后直接启动", "OK", "Information"
     ) | Out-Null
 })
-$saveApiKeyButton.Add_Click({ [void](Save-ApiKey) })
-$getApiKeyButton.Add_Click({ Start-Process "https://platform.deepseek.com/api_keys" })
 $autoCloseCheck.Add_CheckedChanged({
     try {
         Set-AutoClosePreference -Enabled $autoCloseCheck.Checked

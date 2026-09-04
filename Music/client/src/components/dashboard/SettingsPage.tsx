@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Bot, Check, KeyRound, Loader2, LogOut, QrCode, RefreshCw, Settings } from "lucide-react";
 import { settingsApi, userApi, type ApiResponse, type SettingsStatus } from "../../api/client";
 
+import MapSettingsCard from "./MapSettingsCard";
+import appInfo from "../../../../../package.json";
+
 type LoginResult = {
   status: "waiting" | "confirming" | "success" | "expired" | "error";
   message?: string;
@@ -179,10 +182,16 @@ export default function SettingsPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-text">账号与服务设置</h1>
-          <p className="text-xs text-text-dim mt-0.5">音乐账号使用扫码登录，AI 服务使用 API Key</p>
+          <p className="text-xs text-text-dim mt-0.5">统一管理应用信息、音乐账号、AI 服务与地图服务</p>
         </div>
       </div>
 
+      <section className="mb-4 rounded-3xl border border-border/60 bg-surface/80 p-5">
+        <h2 className="font-semibold text-text">应用信息</h2>
+        <p className="mt-2 text-sm text-text">{appInfo.build.productName} · v{appInfo.version}</p>
+        <p className="mt-2 text-xs leading-6 text-text-dim">AI 对话、音乐、随手记、户外、肌肉大与工具的统一工作台。下方管理账号连接及应用服务配置。</p>
+      </section>
+      <MapSettingsCard />
       <div className="grid md:grid-cols-2 gap-4">
         <AccountCard
           name="网易云音乐"
@@ -218,7 +227,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <h2 className="font-semibold text-text">AI 服务</h2>
-              <p className="text-xs text-text-dim mt-1">供工作台、音乐分析和日记 AI 使用；密钥不会回显。</p>
+              <p className="text-xs text-text-dim mt-1">供工作台、音乐分析、日记 AI 和饮食识别使用；密钥不会回显。</p>
             </div>
           </div>
           <span className={`px-2.5 py-1 rounded-full text-[11px] ${

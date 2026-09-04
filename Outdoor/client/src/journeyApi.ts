@@ -9,7 +9,6 @@ async function request<T>(path: string, data?: unknown, method = "POST"): Promis
 }
 export const journeyApi = {
   status: () => request<MapStatus>("/map/status"),
-  configure: (keys: {jsKey: string; securityCode: string; serviceKey: string}) => request<MapStatus>("/map/config", keys, "PUT"),
   sdk: () => request<{key: string; securityCode: string}>("/map/sdk"),
   places: (query: string, near?: Place, type?: "hotel") => request<Place[]>("/places", {query, near, type}),
   recommend: (draft: TripDraft) => request<{candidates: Candidate[]; note: string}>("/recommend", draft),

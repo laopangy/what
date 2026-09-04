@@ -70,7 +70,7 @@ export default function AmapView({ ready, places, legs, selected, onSelect }: {
   return <section className="ow-map">
     <div ref={container} className="ow-map-canvas" />
     {(!ready || error || loading) && <div className="ow-map-state"><Map size={36}/><h3>{!ready ? "连接高德，展开你的路线" : loading ? "正在加载高德地图" : "地图暂不可用"}</h3>
-      <p>{!ready ? "请在「地图配置」中填写 Key。配置前不会展示模拟地图或虚构路线。" : error || "地图数据由高德提供，行程时间仍需出发前核实。"}</p>
+      <p>{!ready ? "请在工作台「账号与服务」设置中填写高德 Key。配置前不会展示模拟地图或虚构路线。" : error || "地图数据由高德提供，行程时间仍需出发前核实。"}</p>
       {error && <button className="ow-button" onClick={() => setRetry(n => n + 1)}><RotateCcw size={14}/>重试地图</button>}
     </div>}
   </section>;
