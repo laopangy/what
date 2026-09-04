@@ -2,6 +2,7 @@ import { readVault, updateVault } from "./vault.js";
 import type { Itinerary, OutdoorSettings, OutdoorState } from "./types.js";
 
 const normalizeState = (state: OutdoorState | undefined): OutdoorState => ({
+  ...state,
   plans: Array.isArray(state?.plans) ? state.plans : [],
   settings: {
     homeAddress: typeof state?.settings?.homeAddress === "string" ? state.settings.homeAddress : "",

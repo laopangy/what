@@ -1,272 +1,249 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle, Bike, Bookmark, BrainCircuit, CalendarDays, CarFront, ChevronDown, ChevronRight, ChevronUp, Clock3, CloudSun, Compass,
-  Check, Flag, Footprints, House, Image as ImageIcon, LoaderCircle, LockKeyhole, Map, MapPin, Mic, MicOff,
-  Navigation, Pencil, RefreshCw, Route, Save, Sparkles, TrainFront, Trash2, Utensils, X,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Mountain, Settings2, Route, Bookmark, ArrowRight, ArrowLeft, Check, MapPin, Clock, Trash2, Save, Car, Bike, TrainFront, Footprints, ImageOff } from "lucide-react";
 import { api } from "./api";
-import type { Itinerary, ItineraryStop, OutdoorSettings, PlannerAnalysis, TransportMode, TripIntent } from "./types";
+import { journeyApi } from "./journeyApi";
+import type { Candidate, Journey, MapStatus, Place, TripDraft } from "./journeyTypes";
+import type { Itinerary } from "./types";
+import PlaceSearch from "./components/PlaceSearch";
+import AmapView from "./components/AmapView";
 
-interface SpeechRecognitionEventLike { results: ArrayLike<{ 0: { transcript: string } }> }
-interface SpeechRecognitionInstance {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  start(): void;
-  stop(): void;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
+const steps = ["时间与范围", "交通与活动", "目的地与路线", "过夜与住宿", "完整行程"];
+const modeNames = {driving: "自驾", cycling: "骑行", transit: "公共交通", rail: "高铁 / 铁路"};
+const activityNames = {hiking: "徒步爬山", cycling: "骑车探索", touring: "风景游览", leisure: "轻松旅游"};
+const today = () => new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Shanghai"}).format(new Date());
+const initialDraft = (): TripDraft => ({
+  origin: null, startDate: today(), endDate: today(), startTime: "08:00", endTime: "20:00",
+  maxMinutes: 120, maxKm: null, people: 2, mode: "driving", activity: "leisure",
+  activityMinutes: 180, activityKm: 10, destination: null, dailyPlaces: [], activityEnd: null,
+  lodging: "recommend", hotel: null, rooms: 1, hotelBudget: 400, hotelPreference: "",
+});
+const dayCount = (d: TripDraft) => Math.round((Date.parse(d.endDate) - Date.parse(d.startDate)) / 86400000) + 1;
+function Photo({ place }: { place: Place }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [place.id]);
+  return place.photos[0] && !failed ? <img src={place.photos[0].url} alt={place.photos[0].title || place.name} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}/> :
+    <div className="ow-photo-empty"><ImageOff size={23}/><span>暂无该地点图片</span></div>;
 }
-type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
-
-const defaultQuery = "周六去莫干山，一天来回，单程两小时以内，自驾或者高铁都行，不想太累";
-const modeMeta: Record<TransportMode, { label: string; icon: typeof CarFront }> = {
-  driving: { label: "自驾", icon: CarFront }, rail: { label: "高铁", icon: TrainFront }, cycling: { label: "骑行", icon: Bike },
-};
-
-const stopIcon = (stop: ItineraryStop) => {
-  if (stop.type === "meal") return Utensils;
-  if (stop.type === "activity") return Footprints;
-  if (stop.type === "rest") return ImageIcon;
-  if (stop.type === "return") return Flag;
-  if (stop.type === "station") return TrainFront;
-  if (stop.type === "parking") return CarFront;
-  return Navigation;
-};
-
-function RouteMap({ plan, selectedStop, onSelect }: { plan: Itinerary; selectedStop: number; onSelect: (order: number) => void }) {
-  const points = plan.stops.map((stop) => `${stop.mapX},${stop.mapY}`).join(" ");
-  return (
-    <section className="outdoor-map" aria-label="完整行程路线图">
-      <div className="outdoor-map-toolbar">
-        <span><CloudSun size={14} /> 16°C · 多云</span>
-        <span className="outdoor-data-status"><span />{plan.dataQuality === "live" ? "实时路线" : "路线估算"}</span>
-      </div>
-      <div className="outdoor-map-label outdoor-map-label-home">{plan.intent.origin}</div>
-      <div className="outdoor-map-label outdoor-map-label-destination">{plan.intent.destination}</div>
-      <svg className="outdoor-route-svg" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={`${plan.title}闭环路线`}>
-        <defs>
-          <filter id="route-glow"><feGaussianBlur stdDeviation="1.4" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-        </defs>
-        <polyline className="outdoor-route-shadow" points={points} />
-        <polyline className="outdoor-route-line" points={points} filter="url(#route-glow)" />
-      </svg>
-      {plan.stops.map((stop) => {
-        const Icon = stopIcon(stop);
-        return (
-          <button key={stop.id} type="button" className={`outdoor-map-stop ${selectedStop === stop.order ? "is-active" : ""}`} style={{ left: `${stop.mapX}%`, top: `${stop.mapY}%` }} onClick={() => onSelect(stop.order)}>
-            <span className="outdoor-map-pin"><Icon size={13} strokeWidth={1.8} /></span>
-            <span className="outdoor-map-stop-copy"><b>{stop.order}</b>{stop.title}</span>
-          </button>
-        );
-      })}
-      <div className="outdoor-map-scale"><span />20 km</div>
-    </section>
-  );
-}
-
-function Timeline({ plan, selectedStop, onSelect }: { plan: Itinerary; selectedStop: number; onSelect: (order: number) => void }) {
-  return (
-    <section className="outdoor-timeline" aria-label="行程时间轴">
-      {plan.stops.map((stop, index) => {
-        const Icon = stopIcon(stop);
-        return (
-          <article key={stop.id} className={`outdoor-timeline-item ${selectedStop === stop.order ? "is-active" : ""}`}>
-            {index > 0 && <div className="outdoor-travel-segment"><span>{stop.travelMinutesFromPrevious || plan.totalTravelMinutes / 2} 分钟</span></div>}
-            <button type="button" onClick={() => onSelect(stop.order)}>
-              <span className="outdoor-timeline-dot"><Icon size={13} /></span>
-              <span><b>{stop.arrivalAt}</b><small>{stop.title}</small></span>
-            </button>
-          </article>
-        );
-      })}
-    </section>
-  );
-}
-
-function EditableIntent({ plan, onChange }: { plan: Itinerary; onChange: (next: Partial<TripIntent>) => void }) {
-  const intensityLabel = plan.intent.intensity === "relaxed" ? "轻松游" : plan.intent.intensity === "challenging" ? "挑战模式" : "标准强度";
-  return (
-    <div className="outdoor-intent-list">
-      <label><MapPin size={15} /><span><small>出发地</small><input value={plan.intent.origin} onChange={(event) => onChange({ origin: event.target.value })} /></span></label>
-      <label><Navigation size={15} /><span><small>目的地</small><input value={plan.intent.destination} onChange={(event) => onChange({ destination: event.target.value })} /></span></label>
-      <label><CalendarDays size={15} /><span><small>日期与时间</small><input value={`${plan.intent.dayLabel} ${plan.intent.startTime}—${plan.intent.endTime}`} readOnly /></span></label>
-      <label><Clock3 size={15} /><span><small>单程上限</small><input value={`${plan.intent.maxOneWayMinutes} 分钟`} readOnly /></span></label>
-      <label><Compass size={15} /><span><small>游玩强度</small><input value={intensityLabel} readOnly /></span></label>
-    </div>
-  );
-}
-
 export default function App() {
-  const [query, setQuery] = useState(defaultQuery);
-  const [plan, setPlan] = useState<Itinerary | null>(null);
-  const [savedPlans, setSavedPlans] = useState<Itinerary[]>([]);
-  const [settings, setSettings] = useState<OutdoorSettings>({ homeAddress: "" });
-  const [homeDraft, setHomeDraft] = useState("");
-  const [editingHome, setEditingHome] = useState(false);
+  const [draft, setDraft] = useState<TripDraft>(initialDraft);
+  const [step, setStep] = useState(0);
+  const [status, setStatus] = useState<MapStatus>({ready: false, serviceReady: false, jsReady: false});
+  const [configOpen, setConfigOpen] = useState(false);
+  const [keys, setKeys] = useState({jsKey: "", securityCode: "", serviceKey: ""});
+  const [home, setHome] = useState("");
   const [view, setView] = useState<"planner" | "saved">("planner");
-  const [selectedStop, setSelectedStop] = useState(3);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [savingHome, setSavingHome] = useState(false);
-  const [listening, setListening] = useState(false);
+  const [journey, setJourney] = useState<Journey | null>(null);
+  const [saved, setSaved] = useState<Journey[]>([]);
+  const [legacy, setLegacy] = useState<Itinerary[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidateNote, setCandidateNote] = useState("");
+  const [selected, setSelected] = useState("");
+  const [activeDay, setActiveDay] = useState("");
+  const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const [analysis, setAnalysis] = useState<PlannerAnalysis | null>(null);
-  const [analysisVisible, setAnalysisVisible] = useState(true);
-  const [analysisStatus, setAnalysisStatus] = useState<"idle" | "running" | "success" | "error">("idle");
-  const [analysisElapsed, setAnalysisElapsed] = useState(0);
-  const [generationCount, setGenerationCount] = useState(0);
-
-  const generate = async (mode?: TransportMode, overrides?: Partial<TripIntent>) => {
-    const startedAt = performance.now();
-    setLoading(true); setError(""); setAnalysisStatus("running"); setAnalysisVisible(true); setAnalysisElapsed(0);
-    setAnalysis({ source: "local-rules", summary: "正在理解你的出行要求", steps: [
-      { title: "读取行程描述", detail: "正在识别目的地、时间、交通方式和强度" },
-      { title: "构建闭环路线", detail: "等待规划结果" },
-    ] });
-    const elapsedTimer = window.setInterval(() => setAnalysisElapsed(Math.round(performance.now() - startedAt)), 100);
-    try {
-      const result = await api.generate(query, mode, overrides);
-      const next = result.plan;
-      const lockedStops = plan?.stops.filter((stop) => stop.locked) || [];
-      if (lockedStops.length) {
-        next.stops = next.stops.map((stop) => lockedStops.find((locked) => locked.order === stop.order) || stop);
-      }
-      setPlan(next); setAnalysis(result.analysis); setAnalysisStatus("success"); setGenerationCount((count) => count + 1); setSelectedStop(3); setView("planner");
-    } catch (generateError) {
-      const message = generateError instanceof Error ? generateError.message : "暂时无法生成行程";
-      setError(message); setAnalysisStatus("error");
-      setAnalysis((current) => ({ source: current?.source || "local-rules", summary: "行程生成失败", steps: [...(current?.steps || []), { title: "生成中断", detail: message }] }));
-    } finally {
-      window.clearInterval(elapsedTimer); setAnalysisElapsed(Math.round(performance.now() - startedAt)); setLoading(false);
-    }
-  };
-
-  useEffect(() => { void generate(); }, []);
+  const [notice, setNotice] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState("");
+  const revision = useRef(0);
+  const days = dayCount(draft);
   useEffect(() => {
-    api.plans().then(setSavedPlans).catch(() => undefined);
-    api.settings().then((next) => { setSettings(next); setHomeDraft(next.homeAddress); }).catch(() => undefined);
+    let disposed = false;
+    void Promise.all([journeyApi.status(), journeyApi.saved(), api.settings(), api.plans()]).then(([map, plans, settings, old]) => {
+      if (disposed) return;
+      setStatus(map); setSaved(plans); setHome(settings.homeAddress); setLegacy(old);
+    }).catch(e => { if (!disposed) setError((e as Error).message + "；如仓库未解锁，请先在工作台输入数据密码。"); });
+    return () => { disposed = true; revision.current++; };
   }, []);
-
-  const saveHome = async () => {
-    if (homeDraft.trim().length < 2) { setError("请输入完整的家庭地址"); return; }
-    setSavingHome(true); setError("");
-    try {
-      const next = await api.saveSettings({ homeAddress: homeDraft.trim() });
-      setSettings(next); setHomeDraft(next.homeAddress); setEditingHome(false);
-      await generate();
-    } catch (settingsError) { setError(settingsError instanceof Error ? settingsError.message : "家庭地址保存失败"); }
-    finally { setSavingHome(false); }
-  };
-
-  const startVoice = () => {
-    const scope = window as typeof window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor };
-    const Recognition = scope.SpeechRecognition || scope.webkitSpeechRecognition;
-    if (!Recognition) { setError("当前环境不支持语音识别，请使用文字输入"); return; }
-    const recognition = new Recognition();
-    recognition.lang = "zh-CN"; recognition.continuous = false; recognition.interimResults = false;
-    recognition.onresult = (event) => { const transcript = event.results[0]?.[0]?.transcript; if (transcript) setQuery(transcript); };
-    recognition.onend = () => setListening(false); recognition.onerror = () => { setListening(false); setError("没有听清，请再说一次"); };
-    setListening(true); recognition.start();
-  };
-
-  const saveCurrent = async () => {
-    if (!plan) return;
-    setSaving(true); setError("");
-    try {
-      const saved = await api.save(plan); setPlan(saved);
-      setSavedPlans((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
-    } catch (saveError) { setError(saveError instanceof Error ? saveError.message : "保存失败"); }
-    finally { setSaving(false); }
-  };
-
-  const removePlan = async (id: string) => {
-    try { await api.remove(id); setSavedPlans((items) => items.filter((item) => item.id !== id)); }
-    catch (removeError) { setError(removeError instanceof Error ? removeError.message : "删除失败"); }
-  };
-
-  const selected = useMemo(() => plan?.stops.find((stop) => stop.order === selectedStop), [plan, selectedStop]);
-  const toggleSelectedLock = () => {
-    if (!plan) return;
-    setPlan({ ...plan, stops: plan.stops.map((stop) => stop.order === selectedStop ? { ...stop, locked: !stop.locked } : stop) });
-  };
-
-  return (
-    <main className="outdoor-root">
-      <header className="outdoor-local-header">
-        <div><span className="outdoor-eyebrow">OUTDOOR</span><h1>户外</h1><p>一句话生成从出发到回家的完整路线</p></div>
-        <div className="outdoor-header-actions">
-          <div className={`outdoor-home-setting ${editingHome ? "is-editing" : ""}`}>
-            {editingHome ? <>
-              <House size={14} />
-              <input autoFocus value={homeDraft} onChange={(event) => setHomeDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void saveHome(); if (event.key === "Escape") { setHomeDraft(settings.homeAddress); setEditingHome(false); } }} placeholder="输入小区、街道或完整地址" aria-label="家庭地址" />
-              <button type="button" onClick={() => void saveHome()} disabled={savingHome} aria-label="保存家庭地址">{savingHome ? <LoaderCircle className="spin" size={14} /> : <Check size={14} />}</button>
-              <button type="button" onClick={() => { setHomeDraft(settings.homeAddress); setEditingHome(false); }} aria-label="取消编辑"><X size={14} /></button>
-            </> : <button type="button" className="outdoor-home-trigger" onClick={() => setEditingHome(true)} title={settings.homeAddress || "设置家庭地址"}>
-              <House size={14} /><span><small>家</small>{settings.homeAddress || "设置地址"}</span><Pencil size={12} />
-            </button>}
-          </div>
-          <nav aria-label="户外模块导航">
-            <button className={view === "planner" ? "is-active" : ""} onClick={() => setView("planner")}><Route size={15} />行程规划</button>
-            <button className={view === "saved" ? "is-active" : ""} onClick={() => setView("saved")}><Bookmark size={15} />我的计划 <span>{savedPlans.length}</span></button>
-          </nav>
-        </div>
-      </header>
-
-      {view === "saved" ? (
-        <section className="outdoor-saved-view">
-          <div className="outdoor-section-heading"><div><span>已保存</span><h2>随时再次出发</h2></div><button className="outdoor-secondary" onClick={() => setView("planner")}><ChevronRight size={15} />规划新行程</button></div>
-          {savedPlans.length === 0 ? <div className="outdoor-empty"><Bookmark size={28} /><h3>还没有保存的行程</h3><p>生成完整路线后点击“保存行程”，它会加密写入个人数据仓库。</p></div> : (
-            <div className="outdoor-saved-list">{savedPlans.map((item) => <article key={item.id}><div className="outdoor-saved-photo" style={{ backgroundImage: `url(${item.photos[0]?.url})` }} /><div><span>{item.intent.dayLabel} · {modeMeta[item.transportMode].label}</span><h3>{item.title}</h3><p>{item.stops.length} 个节点 · {item.totalDistanceKm} km · 预计 ¥{item.estimatedCost}</p></div><button onClick={() => { setPlan(item); setQuery(item.intent.query); setView("planner"); }}><Map size={16} />查看路线</button><button className="outdoor-icon-button danger" aria-label="删除行程" onClick={() => void removePlan(item.id)}><Trash2 size={15} /></button></article>)}</div>
-          )}
-        </section>
-      ) : (
-        <div className="outdoor-workspace">
-          <aside className="outdoor-planner-panel">
-            <div className="outdoor-prompt-block">
-              <label htmlFor="trip-query"><Sparkles size={14} />告诉我你想怎么出去</label>
-              <textarea id="trip-query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="例如：周六想去看山，自驾两小时以内，一天来回" />
-              <div className="outdoor-prompt-actions">
-                <button className={`outdoor-voice ${listening ? "is-listening" : ""}`} type="button" onClick={startVoice}>{listening ? <MicOff size={15} /> : <Mic size={15} />}{listening ? "正在听" : "说出想法"}</button>
-                <button className="outdoor-generate" type="button" disabled={loading || query.trim().length < 2} onClick={() => void generate()}>{loading ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />}生成完整行程</button>
+  function change(patch: Partial<TripDraft>, resetDestination = false) {
+    revision.current++; setBusy(""); setError(""); setNotice(""); setJourney(null); setSelected("");
+    setCandidates([]); setCandidateNote("");
+    setDraft(previous => ({ ...previous, ...patch, ...(resetDestination ? {destination: null, dailyPlaces: [], activityEnd: null, hotel: null} : {}) }));
+  }
+  async function run(label: string, action: () => Promise<void>) {
+    setBusy(label); setError(""); setNotice("");
+    try { await action(); } catch (e) { setError((e as Error).message); } finally { setBusy(""); }
+  }
+  function validateFirst() {
+    if (!draft.origin) throw new Error("请搜索并确认出发地");
+    if (!draft.startDate || !draft.endDate || !Number.isFinite(days) || days < 1 || days > 7) throw new Error("请选择 1 至 7 天的有效起止日期");
+    if (!draft.startTime || !draft.endTime || (days === 1 && draft.endTime <= draft.startTime)) throw new Error("请检查出发与返程截止时间");
+    if (draft.maxMinutes < 15 || draft.maxMinutes > 1440 || (draft.maxKm !== null && (draft.maxKm < 1 || draft.maxKm > 3000))) throw new Error("单程时长应为 15～1440 分钟，距离应为 1～3000 公里");
+    if (draft.people < 1 || draft.people > 30) throw new Error("同行人数应为 1～30");
+  }
+  async function next() {
+    await run("正在检查条件", async () => {
+      validateFirst();
+      if (step === 1 && (draft.activityMinutes < 30 || draft.activityMinutes > 480)) throw new Error("活动时间应为 30～480 分钟");
+      if (step === 2 && !draft.destination) throw new Error("请先选择目的地，或从推荐结果中选择");
+      if (step === 2 && ["hiking", "cycling"].includes(draft.activity) && !draft.activityEnd) throw new Error("请确认活动折返点，以计算徒步/骑行往返路线");
+      if (step === 3) {
+        if (days > 1 && (!draft.hotel || draft.lodging === "later")) throw new Error("请先确认酒店位置，完整行程需要计算住宿接驳");
+        const token = ++revision.current;
+        const result = await journeyApi.generate(draft);
+        if (token !== revision.current) return;
+        setJourney(result); setActiveDay(result.events[0].day); setSelected(result.events[0].id);
+      }
+      setStep(previous => Math.min(4, previous + 1));
+    });
+  }
+  async function recommend() {
+    await run("正在搜索地点并逐一校验往返路线，可能需要一些时间…", async () => {
+      validateFirst(); const token = ++revision.current;
+      const result = await journeyApi.recommend(draft);
+      if (token !== revision.current) return;
+      setCandidates(result.candidates); setCandidateNote(result.note);
+    });
+  }
+  const events = journey?.events.filter(event => event.day === activeDay) || [];
+  const currentEvent = events.find(event => event.id === selected) || events[0];
+  const previewPlaces = journey ? events.map(event => event.place) : [draft.origin, draft.destination, draft.activityEnd, draft.hotel].filter((place): place is Place => Boolean(place));
+  const places = [...new Map(previewPlaces.map(place => [place.id, place])).values()];
+  const legs = events.flatMap(event => event.leg ? [event.leg] : []);
+  const distance = journey?.events.reduce((sum, event) => sum + (event.leg?.km || 0), 0) || 0;
+  const travelMinutes = journey?.events.reduce((sum, event) => sum + (event.leg?.minutes || 0), 0) || 0;
+  return <div className="outdoor-root ow-root">
+    <header className="outdoor-local-header">
+      <div><Mountain size={22} className="text-accent"/><h1>户外</h1><p>把想去的地方，变成走得通的行程。</p></div>
+      <div className="outdoor-header-actions">
+        <button className="ow-button" onClick={() => setConfigOpen(!configOpen)}><Settings2 size={15}/>{status.ready ? "地图已配置" : "地图配置"}</button>
+        <nav aria-label="户外导航">
+          <button className={view === "planner" ? "is-active" : ""} onClick={() => setView("planner")}><Route size={15}/>规划行程</button>
+          <button className={view === "saved" ? "is-active" : ""} onClick={() => setView("saved")}><Bookmark size={15}/>我的行程<span>{saved.length + legacy.length}</span></button>
+        </nav>
+      </div>
+    </header>
+    <div className="ow-scroll">
+      {configOpen && <section className="ow-config">
+        <div><h2>连接高德地图</h2><p>在本机填写，不要发送到聊天。配置加密保存到数据仓库，随加密仓库同步；Web 服务 Key 仅由后端使用。</p>
+          <p>本地桌面版使用 JS 安全密钥直连模式，Web 端 Key 和安全密钥在浏览器运行时可见；公开部署前需改为服务端安全代理。</p>
+          <a href="https://console.amap.com/dev/key/app" target="_blank" rel="noreferrer">打开高德开放平台控制台 ↗</a></div>
+        <form onSubmit={event => { event.preventDefault(); void run("正在保存地图配置", async () => {
+          setStatus(await journeyApi.configure(keys)); setKeys({jsKey: "", securityCode: "", serviceKey: ""});
+          setNotice("配置已加密保存。若更换了已加载的 Web 端 Key，请刷新户外页面。"); setConfigOpen(false);
+        }); }}>
+          {([["jsKey", "Web 端（JS API）Key"], ["securityCode", "JS 安全密钥 securityJsCode"], ["serviceKey", "Web 服务 API Key"]] as const).map(([field, label]) => <label key={field}>{label}
+            <input type="password" required autoComplete="off" value={keys[field]} onChange={event => setKeys({...keys, [field]: event.target.value})} placeholder="粘贴对应密钥，不回显已保存值" />
+          </label>)}
+          <button className="ow-button ow-primary" disabled={!!busy}>保存配置</button>
+        </form>
+      </section>}
+      {error && <div className="ow-banner ow-error" role="alert">{error}<button onClick={() => setError("")} aria-label="关闭错误">×</button></div>}
+      {notice && <div className="ow-banner" role="status">{notice}</div>}
+      {busy && <div className="ow-banner" role="status"><span className="ow-pulse"/>{busy}</div>}
+      {view === "saved" ? <main className="ow-saved">
+        <h2>我的行程</h2><p>新路线保存到加密仓库；重新出发前请更新路线数据。</p>
+        {!saved.length && !legacy.length && <div className="ow-empty"><Bookmark size={32}/><h3>还没有保存的行程</h3><button className="ow-button" onClick={() => setView("planner")}>开始规划</button></div>}
+        {saved.map(item => <article key={item.id}><div><h3>{item.title}</h3><p>{item.draft.startDate} — {item.draft.endDate} · {modeNames[item.draft.mode]}</p></div>
+          <button className="ow-button" onClick={() => { revision.current++; setDraft(item.draft); setJourney(item); setActiveDay(item.events[0].day); setSelected(item.events[0].id); setStep(4); setView("planner"); }}>查看行程</button>
+          <button className="ow-button" aria-label={"删除" + item.title} onClick={() => setConfirmDelete(item.id)}><Trash2 size={15}/></button>
+          {confirmDelete === item.id && <button className="ow-button ow-danger" disabled={!!busy} onClick={() => void run("正在删除", async () => { await journeyApi.remove(item.id); setSaved(saved.filter(p => p.id !== item.id)); setConfirmDelete(""); })}>确认删除</button>}
+          {confirmDelete === item.id && <button className="ow-button" onClick={() => setConfirmDelete("")}>取消</button>}
+        </article>)}
+        {legacy.map(item => <article key={item.id}><div><h3>{item.title} · 旧版估算</h3><p>{item.intent.origin} → {item.intent.destination}。旧示意图已停用，原记录仍保留。</p>
+          <details><summary>查看旧行程文字</summary>{item.stops.map(stop => <p key={stop.id}>{stop.arrivalAt} · {stop.title}（未核实）</p>)}</details></div>
+          <button className="ow-button" onClick={() => { setView("planner"); setStep(0); setJourney(null); setNotice("请重新搜索确认旧行程的出发地和目的地，使用真实路线规划。"); }}>重新规划</button>
+          <button className="ow-button" aria-label={"删除旧行程" + item.title} onClick={() => setConfirmDelete(item.id)}><Trash2 size={15}/></button>
+          {confirmDelete === item.id && <><button className="ow-button ow-danger" disabled={!!busy} onClick={() => void run("正在删除旧行程", async () => { await api.remove(item.id); setLegacy(legacy.filter(p => p.id !== item.id)); setConfirmDelete(""); })}>确认删除</button><button className="ow-button" onClick={() => setConfirmDelete("")}>取消</button></>}
+        </article>)}
+      </main> : <main className="ow-main">
+        <nav className="ow-steps" aria-label="行程规划步骤">{steps.map((label, index) => <button key={label} disabled={!!busy || index > step} aria-current={index === step ? "step" : undefined} className={index === step ? "is-current" : index < step ? "is-complete" : ""} onClick={() => { setStep(index); setError(""); }}>
+          <span>{index < step ? <Check size={15}/> : index + 1}</span><b>{label}</b>
+        </button>)}</nav>
+        <div className="ow-layout">
+          <section className="ow-form-panel">
+            <div className="ow-section-title"><span>STEP 0{step + 1}</span><h2>{["先定好时间，再决定走多远", "怎么去，到了之后怎么玩", "有目的地直接选，没想好就探索", days === 1 ? "当天往返，不必安排酒店" : "给旅程安排一个落脚点", "从出发到回家，都安排清楚"][step]}</h2></div>
+            <fieldset disabled={!!busy}>
+            {step === 0 && <>
+              <PlaceSearch label="从哪里出发" value={draft.origin} initialQuery={home} onChange={origin => change({origin})}/>
+              {draft.origin && <button className="ow-text-button" onClick={() => void run("正在保存家庭地址", async () => { await api.saveSettings({homeAddress: draft.origin!.address + " " + draft.origin!.name}); setHome(draft.origin!.name); setNotice("已设为家的默认搜索地址，下一次仍需确认具体地点。"); })}>将这里设为家</button>}
+              <div className="ow-fields">
+                <label>出发日期<input type="date" value={draft.startDate} onChange={e => change({startDate: e.target.value})}/></label>
+                <label>返程日期<input type="date" value={draft.endDate} onChange={e => change({endDate: e.target.value})}/></label>
+                <label>出发时间<input type="time" value={draft.startTime} onChange={e => change({startTime: e.target.value})}/></label>
+                <label>最晚到家<input type="time" value={draft.endTime} onChange={e => change({endTime: e.target.value})}/></label>
+                <label>单程交通上限 / 分钟<input type="number" min="15" max="1440" value={draft.maxMinutes} onChange={e => change({maxMinutes: Number(e.target.value)})}/></label>
+                <label>单程距离上限 / 公里<input type="number" min="1" max="3000" value={draft.maxKm ?? ""} placeholder="可选，不限制" onChange={e => change({maxKm: e.target.value ? Number(e.target.value) : null})}/></label>
+                <label>同行人数<input type="number" min="1" max="30" value={draft.people} onChange={e => change({people: Number(e.target.value)})}/></label>
               </div>
-            </div>
-            {analysis && <section className={`outdoor-analysis ${analysisStatus === "error" ? "has-error" : ""}`} aria-label="行程分析过程">
-              <button type="button" className="outdoor-analysis-toggle" onClick={() => setAnalysisVisible((visible) => !visible)} aria-expanded={analysisVisible}>
-                <span className={`outdoor-analysis-icon ${analysisStatus}`}><BrainCircuit size={14} /></span>
-                <span><b>规划分析</b><small>{analysis.source === "ai" ? "AI 分析" : "本地规划"} · {analysisElapsed < 100 ? "<0.1" : (analysisElapsed / 1000).toFixed(1)} 秒{generationCount > 0 ? ` · 第 ${generationCount} 次生成` : ""}</small></span>
-                <em>{analysisStatus === "running" ? "分析中" : analysisStatus === "success" ? "已完成" : analysisStatus === "error" ? "失败" : ""}</em>
-                {analysisVisible ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </button>
-              {analysisVisible && <div className="outdoor-analysis-body">
-                <p>{analysis.summary}</p>
-                <ol>{analysis.steps.map((step, index) => { const isRunning = analysisStatus === "running" && index === 0; const isFailed = analysisStatus === "error" && index === analysis.steps.length - 1; return <li key={`${step.title}-${index}`} className={isRunning ? "is-active" : isFailed ? "is-failed" : ""}><span>{isRunning ? <LoaderCircle className="spin" size={11} /> : isFailed ? <X size={11} /> : <Check size={11} />}</span><div><b>{step.title}</b><small>{step.detail}</small></div></li>; })}</ol>
-              </div>}
-            </section>}
-            {error && <div className="outdoor-error"><AlertTriangle size={15} /><span>{error}</span><button onClick={() => setError("")} aria-label="关闭"><X size={14} /></button></div>}
-            {plan && <>
-              <div className="outdoor-plan-heading"><div><span>完整行程</span><h2>{plan.title}</h2></div><span className="outdoor-quality">{plan.dataQuality === "live" ? "实时" : "估算"}</span></div>
-              <EditableIntent plan={plan} onChange={(overrides) => setPlan({ ...plan, intent: { ...plan.intent, ...overrides } })} />
-              <div className="outdoor-mode-switch">{plan.intent.transportModes.map((mode) => { const MetaIcon = modeMeta[mode].icon; return <button key={mode} className={plan.transportMode === mode ? "is-active" : ""} onClick={() => void generate(mode, plan.intent)}><MetaIcon size={15} />{modeMeta[mode].label}</button>; })}</div>
-              <dl className="outdoor-summary"><div><dt>总路程</dt><dd>{plan.totalDistanceKm}<small> km</small></dd></div><div><dt>交通时间</dt><dd>{Math.floor(plan.totalTravelMinutes / 60)}<small>h</small> {plan.totalTravelMinutes % 60}<small>m</small></dd></div><div><dt>预计费用</dt><dd><small>¥</small>{plan.estimatedCost}</dd></div></dl>
-              <div className="outdoor-panel-footer"><button className="outdoor-secondary" onClick={() => void generate(plan.transportMode, plan.intent)}><RefreshCw size={15} />重新生成</button><button className="outdoor-save" onClick={() => void saveCurrent()} disabled={saving}>{saving ? <LoaderCircle className="spin" size={15} /> : plan.saved ? <LockKeyhole size={15} /> : <Save size={15} />}{plan.saved ? "已保存" : "保存行程"}</button></div>
+              <p className="ow-help">时间按北京时间计算，支持 1～7 天。单程限制用于交通路段；徒步/骑行活动另设上限。搜索时地点将发送至高德。</p>
             </>}
-          </aside>
-
-          <section className="outdoor-result-panel">
-            {loading && !plan ? <div className="outdoor-loading"><div className="outdoor-loading-map" /><div className="outdoor-loading-line" /><p>正在安排路线与返程时间</p></div> : plan && <>
-              <RouteMap plan={plan} selectedStop={selectedStop} onSelect={setSelectedStop} />
-              <Timeline plan={plan} selectedStop={selectedStop} onSelect={setSelectedStop} />
-              <section className="outdoor-photo-story" aria-label="行程图片参考">
-                {plan.stops.filter((stop) => stop.photo).map((stop) => <button key={stop.id} type="button" className={selectedStop === stop.order ? "is-active" : ""} onClick={() => setSelectedStop(stop.order)}><img src={stop.photo!.url} alt={stop.photo!.alt} onError={(event) => { event.currentTarget.style.display = "none"; }} /><span><b>{stop.order}</b><strong>{stop.title}</strong><small>{stop.arrivalAt} · {stop.photo!.source}</small></span></button>)}
-              </section>
-              {selected && <div className="outdoor-selected-detail"><span className="outdoor-selected-order">{selected.order}</span><div><small>{selected.arrivalAt}—{selected.departureAt}</small><strong>{selected.title}</strong><p>{selected.subtitle} · 停留 {selected.stayMinutes} 分钟</p></div><button className={selected.locked ? "is-locked" : ""} title={selected.locked ? "取消锁定" : "锁定节点"} onClick={toggleSelectedLock}><LockKeyhole size={15} />{selected.locked ? "已锁定" : "锁定此站"}</button></div>}
-              <footer className="outdoor-route-note"><AlertTriangle size={13} /><span>{plan.warnings[0]}</span></footer>
+            {step === 1 && <>
+              <label className="ow-group-label">到达目的地的交通方式</label><div className="ow-options">
+                {Object.entries(modeNames).map(([key, label], index) => { const Icon = [Car, Bike, TrainFront, TrainFront][index]; return <button key={key} aria-pressed={draft.mode === key} className={draft.mode === key ? "is-picked" : ""} onClick={() => change({mode: key as TripDraft["mode"]})}><Icon size={22}/><b>{label}</b></button>; })}
+              </div>
+              <label className="ow-group-label">这次想做什么</label><div className="ow-options">
+                {Object.entries(activityNames).map(([key, label], index) => { const Icon = [Footprints, Bike, Car, Mountain][index]; return <button key={key} aria-pressed={draft.activity === key} className={draft.activity === key ? "is-picked" : ""} onClick={() => change({activity: key as TripDraft["activity"], activityEnd: null})}><Icon size={22}/><b>{label}</b></button>; })}
+              </div>
+              <div className="ow-fields"><label>每天活动预算 / 分钟<input type="number" min="30" max="480" value={draft.activityMinutes} onChange={e => change({activityMinutes: Number(e.target.value)})}/></label>
+                {["hiking", "cycling"].includes(draft.activity) && <label>活动往返上限 / 公里<input type="number" min="1" max="200" value={draft.activityKm} onChange={e => change({activityKm: Number(e.target.value)})}/></label>}
+              </div>
+              <p className="ow-help">交通和活动独立选择，例如「自驾到目的地，再骑车」。铁路选项只接受高德返回的含铁路换乘方案，不保证是高铁；车次与余票需另行核实。</p>
+            </>}
+            {step === 2 && <>
+              <PlaceSearch label="想去的目的地" value={draft.destination} onChange={destination => change({destination, dailyPlaces: [], hotel: null, activityEnd: null})}/>
+              <div className="ow-discover"><div><b>还没想好去哪？</b><p>根据交通、活动与时间范围，查找可达地点。</p></div><button className="ow-button ow-primary" onClick={() => void recommend()}>帮我推荐</button></div>
+              {candidateNote && <p className="ow-help">{candidateNote}</p>}
+              <div className="ow-candidates">{candidates.map(candidate => <button className="ow-candidate" key={candidate.place.id} onClick={() => change({destination: candidate.place, hotel: null, dailyPlaces: [], activityEnd: null})}>
+                <Photo place={candidate.place}/><div><b>{candidate.place.name}</b><p>去程 {candidate.outbound.minutes} 分钟 · {candidate.outbound.km.toFixed(1)} km</p><small>返程 {candidate.returnRoute.minutes} 分钟 · 高德地点图片</small></div><ArrowRight size={17}/>
+              </button>)}</div>
+              {draft.destination && ["hiking", "cycling"].includes(draft.activity) && <PlaceSearch label="活动折返点（会沿实际道路返回）" near={draft.destination} value={draft.activityEnd} onChange={activityEnd => change({activityEnd})}/>}
+              {draft.destination && days > 1 && <details className="ow-details"><summary>调整每天游玩的地点（默认都在目的地）</summary>
+                {Array.from({length: Math.min(7, Math.max(1, days))}, (_, index) => <PlaceSearch key={index} label={"第 " + (index + 1) + " 天"} value={draft.dailyPlaces[index] || draft.destination} onChange={place => {
+                  const dailyPlaces = Array.from({length: days}, (_, i) => draft.dailyPlaces[i] || draft.destination!);
+                  dailyPlaces[index] = place || draft.destination!; change({dailyPlaces});
+                }}/>)}
+              </details>}
+              <p className="ow-help">建议选择具体入口。徒步是普通步行道路规划，山路开放、海拔与安全性待核实；没有真实图片时不使用无关风景替代。</p>
+            </>}
+            {step === 3 && (days === 1 ? <div className="ow-empty"><Check size={32}/><h3>当天出发，当天回家</h3><p>将直接生成交通、活动、用餐留白与返程路线。</p></div> : <>
+              <div className="ow-stay-summary">{draft.startDate} 入住 → {draft.endDate} 退房 · {days - 1} 晚</div>
+              <div className="ow-options ow-options-three">{([["recommend", "找酒店"], ["booked", "我已订好"], ["later", "稍后决定"]] as const).map(([value, label]) => <button key={value} className={draft.lodging === value ? "is-picked" : ""} onClick={() => change({lodging: value, hotel: null})}>{label}</button>)}</div>
+              <div className="ow-fields"><label>每间每晚预算 / 元<input type="number" min="50" max="20000" value={draft.hotelBudget} onChange={e => change({hotelBudget: Number(e.target.value)})}/></label>
+                <label>房间数<input type="number" min="1" max="20" value={draft.rooms} onChange={e => change({rooms: Number(e.target.value)})}/></label></div>
+              <label>住宿偏好 / 搜索关键词<input maxLength={60} value={draft.hotelPreference} placeholder="例如：民宿、温泉、停车" onChange={e => change({hotelPreference: e.target.value, hotel: null})}/></label>
+              {draft.lodging !== "later" ? <PlaceSearch label={draft.lodging === "booked" ? "确认已订酒店位置" : "目的地周边酒店"} value={draft.hotel} near={draft.destination || undefined} hotel initialQuery={draft.hotelPreference} onChange={hotel => change({hotel})}/> : <p className="ow-help">可以先返回调整其他条件。生成完整路线前需要确认住宿位置，不会虚构酒店接驳。</p>}
+              <p className="ow-help">当前使用同一酒店作为多日基地。预算和偏好是意向，不代表匹配到实时房价或设施；选择酒店不产生预订。</p>
+            </>)}
+            {step === 4 && journey && <>
+              <h3>{journey.title}</h3><div className="ow-stats"><div><b>{distance.toFixed(1)}<small> km</small></b><span>规划路段总距离</span></div><div><b>{travelMinutes}<small> 分钟</small></b><span>交通及活动移动时间</span></div></div>
+              <p>{draft.startDate} {draft.startTime} → {draft.endDate} {draft.endTime} 前到家</p>
+              <p className="ow-help">高德路线数据 + 本地时间编排 · 保存的是查询快照，不是实时导航。</p>
+              <div className="ow-warnings">{journey.warnings.map(warning => <p key={warning}>{warning}</p>)}</div>
+              {days > 1 && <p className="ow-help">住宿意向预算合计：¥{draft.hotelBudget * draft.rooms * (days - 1)}，非报价，不含交通与餐饮。</p>}
+              <button className="ow-button ow-primary ow-wide" onClick={() => void run("正在加密保存", async () => {
+                const result = await journeyApi.save(journey); setJourney(result); setSaved([result, ...saved.filter(p => p.id !== result.id)]); setNotice("完整行程已加密保存");
+              })}><Save size={16}/>{journey.saved ? "更新已保存行程" : "保存完整行程"}</button>
+              <button className="ow-button ow-wide" onClick={() => { setStep(3); setNotice("确认条件后重新生成，将重新查询全部路线。"); }}>修改条件 / 重新计算</button>
+            </>}
+            </fieldset>
+            <footer className="ow-form-footer"><button className="ow-button" disabled={step === 0 || !!busy} onClick={() => { setStep(step - 1); setError(""); }}><ArrowLeft size={15}/>上一步</button>
+              {step < 4 && <button className="ow-button ow-primary" disabled={!!busy} onClick={() => void next()}>{step === 3 ? "生成完整行程" : "下一步"}<ArrowRight size={15}/></button>}
+            </footer>
+          </section>
+          <section className="ow-result">
+            <div className="ow-result-heading"><div><span className="ow-kicker">旅程预览</span><h2>{journey?.title || draft.destination?.name || "下一次出发，从这里开始"}</h2></div><span className="ow-source">{status.ready ? "高德地图" : "待配置地图"}</span></div>
+            {journey && <nav className="ow-days" aria-label="每日行程">{[...new Set(journey.events.map(event => event.day))].map((day, index) => <button className={activeDay === day ? "is-picked" : ""} key={day} onClick={() => {setActiveDay(day); setSelected("");}}>{index + 1} 日 · {day.slice(5)}</button>)}</nav>}
+            <AmapView ready={status.jsReady} places={places} legs={legs} selected={currentEvent?.place.id || selected} onSelect={id => setSelected(events.find(event => event.place.id === id)?.id || id)}/>
+            {!journey ? <div className="ow-preview-summary">
+              <div><MapPin size={18}/><span>从哪里出发<b>{draft.origin?.name || "先确认出发地点"}</b></span></div>
+              <div><Clock size={18}/><span>出行范围<b>单程 {draft.maxMinutes} 分钟{draft.maxKm ? " / " + draft.maxKm + " km" : ""}</b></span></div>
+              <p>填好条件后，地图会显示地点；生成行程后才展示高德返回的路线，不用直线假装道路。</p>
+            </div> : <>
+              <div className="ow-timeline">{events.map(event => <button key={event.id} className={currentEvent?.id === event.id ? "is-picked" : ""} onClick={() => setSelected(event.id)}>
+                <time>{event.start}—{event.end}</time><b>{event.title}</b><small>{event.note}</small>
+              </button>)}</div>
+              {currentEvent && <article className="ow-event-detail"><Photo place={currentEvent.place}/><div><span className="ow-kicker">当前节点</span><h3>{currentEvent.title}</h3><p>{currentEvent.place.address}</p>
+                <p>{currentEvent.note}</p><small>地点与图片来源：高德 POI；图片可能为用户上传，仅供参考。</small>
+                {currentEvent.leg && <details><summary>路段说明 · {currentEvent.leg.km.toFixed(1)} km / {currentEvent.leg.minutes} 分钟</summary>
+                  <p>查询时间：{new Date(currentEvent.leg.queriedAt).toLocaleString("zh-CN")}</p>
+                  {!currentEvent.leg.paths.length && <p>该路段未返回路线几何，地图不连线。请在高德中核实。</p>}
+                  {currentEvent.leg.warning && <p>{currentEvent.leg.warning}</p>}
+                  {currentEvent.leg.instructions.map((instruction, i) => <p key={i}>{instruction}</p>)}</details>}
+                <a target="_blank" rel="noreferrer" href={"https://uri.amap.com/marker?position=" + currentEvent.place.location.join(",") + "&name=" + encodeURIComponent(currentEvent.place.name) + "&coordinate=gaode&callnative=1"}>在高德查看此地点 ↗</a>
+              </div></article>}
             </>}
           </section>
         </div>
-      )}
-    </main>
-  );
+      </main>}
+    </div>
+  </div>;
 }

@@ -48,7 +48,7 @@
 | Workbench | ✅ 已上线 | AI 对话助手（可语音/文字操控各模块） |
 | Electron | ✅ 已上线 | 桌面客户端（主进程 + 托盘 + 打包） |
 | Fitness（肌肉大） | ✅ 已上线 | 训练计划、逐组打卡、饮食记录、营养目标和身体趋势 |
-| Outdoor（户外） | ✅ 已上线 | 自然语言生成骑行、自驾和高铁完整闭环行程 |
+| Outdoor（户外） | ✅ 已上线 | 五步出行规划、高德地点与真实路段、多日住宿及加密行程；需配置高德 Key |
 
 **仓库地址**：`https://github.com/laopangy/what`
 
@@ -1162,24 +1162,32 @@ Fitness API：
 
 核心能力：
 
-- 自然语言条件解析：识别出发地、目的地、日期、单程分钟/小时限制、自驾/高铁/骑行和轻松/标准/挑战强度；支持阿拉伯数字及常见中文数字时长
-- 完整行程生成：按时间预算生成出发、停车场或接驳点、主要活动、午餐、第二景点、休息、开始返程和到家八类连续节点，并反向校验返程时间
-- 联动呈现：户外内容区独立使用现有灰蓝表面与 QQ 绿令牌，地图式闭环路线、横向时间轴、节点图片和详情同步选中；不修改 Workbench 或其他模块样式
-- 交通对比：在同一条件下切换自驾、高铁和骑行并重新计算时间、费用和限制警告；当前版本明确标记为估算路线
-- 行程管理：完整计划可保存、更新、查看和删除，全部写入根目录 `data/what.vault` 的 `outdoor` 分区，不产生模块明文数据文件
-- 家庭地址：户外页顶栏可直接设置和修改“家”，加密保存到 `data/what.vault`；行程描述未明确写出发地时自动作为闭环路线的起终点
-- 生成反馈：点击生成后立即显示可展开/收起的分析过程、耗时、状态和实际规划步骤；当前明确标注为“本地规划”，失败时保留中断阶段与错误原因
+- 五步流程：时间与范围 → 交通与活动 → 目的地与路线 → 过夜与住宿 → 完整行程。支持 1～7 天、具体起止日期/时刻、单程交通时间与距离、同行人数；日期按北京时间解释
+- 地点确认：文字或系统语音输入地点后，从高德 POI 搜索结果确认具体位置；家庭地址可设为默认搜索值，不再默认为上海/莫干山
+- 目的地推荐：从周边 50km 与所在省份的有限候选池中，按活动关键词搜索并逐一校验真实往返路线与时间/距离限制；无匹配或查询失败时明确提示，不虚构地点
+- 实际路线：服务端接入高德 v5 驾车、骑行、步行、公共交通；铁路仅接受含铁路换乘的返回方案，不保证为高铁，不替代车次/余票查询。道路移动时间使用查询时估计，非未来路况保证
+- 活动与住宿：交通方式独立于活动；徒步/骑行填写折返点并校验实际道路往返距离和时间。登山路线安全、海拔及开放状态未核实。当天往返跳过住宿，多日使用同一酒店为基地，可调整每日目的地；预算/设施偏好非实时房价、房态或预订承诺
+- 完整行程：排入交通、活动、用餐留白、住宿、晚间休息与返程；交通预留机动时间，超出截止时间或路段限制时拒绝生成。修改条件即失效旧结果，生成时重新查询所有受影响路段
+- 真实地图与图片：高德 JS API 2.0 底图与道路几何、每日时间轴、节点详情联动；没有几何不画假线，没有 POI 图片显示缺图状态。只在 Outdoor 内容区增加局部样式，保留现有灰蓝/QQ 绿，不修改其他模块
+- 加密管理：新行程与高德配置写入根目录 `data/what.vault` 的 `outdoor` 分区，保留旧版估算记录。旧模板生成及写入 API 返回 410，旧记录仍可读取/删除
+- 密钥配置：户外页「地图配置」输入 Web 端 Key、JS 安全密钥、Web 服务 Key；不回显已保存表单值，Web 服务 Key 不返回前端。桌面本地版 JS 密钥在浏览器运行时可见，公开部署前需要安全代理。后端只监听 127.0.0.1，限制来源，不记录请求/密钥日志
+- 验证：`npm run test -w server`（Outdoor 内）测试排程/适配器/隔离加密存储；`node Outdoor/tests/api-smoke.mjs` 测试隔离 Express API；`Outdoor/tests/browser-smoke.mjs` 使用本机 Playwright + 模拟 API 测试交互，不访问用户数据
 - Workbench 集成：`/outdoor` 通过 `OutdoorEmbed` webview 加载 `http://localhost:5177`；旧 `/cycling` 与 `/travel` 路由兼容跳转
 
 Outdoor API：
 
 | 方法 | 路由 | 用途 |
 |------|------|------|
-| POST | `/api/outdoor/generate` | 解析自然语言并生成完整行程草案与规划分析摘要，可指定交通方式和条件覆盖 |
+| GET / PUT | `/api/outdoor/map/status`、`/api/outdoor/map/config` | 查询配置状态 / 加密保存高德配置 |
+| GET | `/api/outdoor/map/sdk` | 本地 JS 地图运行所需配置（不含 Web 服务 Key） |
+| POST | `/api/outdoor/places`、`/api/outdoor/recommend` | 搜索真实地点 / 约束筛选候选 |
+| POST | `/api/outdoor/journeys/generate` | 根据五步条件查询真实路段并编排完整行程 |
+| GET / POST | `/api/outdoor/journeys` | 读取 / Zod 校验后加密保存新行程 |
+| DELETE | `/api/outdoor/journeys/:id` | 删除新行程 |
+| POST | `/api/outdoor/generate` | 旧模板接口停用，返回 410 |
 | GET / PUT | `/api/outdoor/settings` | 获取或保存家庭地址设置 |
 | GET | `/api/outdoor/plans` | 获取已保存的行程 |
-| POST | `/api/outdoor/plans` | 保存新行程 |
-| PUT | `/api/outdoor/plans/:id` | 更新已有行程 |
+| POST / PUT | `/api/outdoor/plans`、`/api/outdoor/plans/:id` | 旧写入接口停用，返回 410 |
 | DELETE | `/api/outdoor/plans/:id` | 删除行程 |
 | GET | `/api/health` | Outdoor 服务和加密仓库状态 |
 
@@ -1366,8 +1374,9 @@ Outdoor API：
 | 2026-09-02 | Codex | Fitness/减脂热量缺口 | 将隐藏在建议摄入量中的减脂缺口显式展示：新增基础代谢、维持热量、计划缺口或盈余和建议摄入的完整计算链，并在今日饮食记录后显示与维持热量的阶段差值 | `Fitness/server/src/profileCalculator.ts`, `storage.ts`, `types.ts`, `Fitness/client/src/App.tsx`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-09-03 | Codex | Fitness/减脂目标周期 | 身体数据新增减脂目标体重与完成日期，自动换算周期、每周减重速度、每日缺口及预计完成日；过快或低于健康 BMI 的目标受到保护，建议摄入拆分为四餐预算，一周计划同步携带目标体重、期限和最新营养目标 | `Fitness/server/src/profileCalculator.ts`, `planGenerator.ts`, `routes.ts`, `storage.ts`, `types.ts`, `Fitness/client/src/App.tsx`, `api.ts`, `types.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-09-04 | Codex | Fitness/饮食历史 | 新增日期切换、已有记录日期列表、历史营养汇总及手动/AI 往日补录；标明历史汇总对比当前目标，继续使用加密仓库 | `Fitness/client/src/App.tsx`, `api.ts`, `Fitness/server/src/routes.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-09-04 | Codex | Outdoor/真实地图与分步规划 | 以五步流程替换固定模板；接入高德地点、道路与地图，增加约束推荐、多日住宿、活动往返及超限拒绝；配置和新行程复用加密仓库；保留旧记录，添加隔离单测/API/浏览器测试，仅调整户外局部样式。真实高德联调需用户配置 Key | `Outdoor/**`, `CLAUDE.md`, `PROJECT.md` |
 
 ---
 
 > **文档维护者**：潘高远  
-> **最后更新**：2026-09-02
+> **最后更新**：2026-09-04

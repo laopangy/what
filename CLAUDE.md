@@ -285,14 +285,21 @@ workbench/client ──WebSocket────────────────
 
 | 路由 | 用途 |
 |------|------|
-| `/api/outdoor/generate` (POST) | 从自然语言解析出发地、目的地、时间限制、交通方式和强度，返回完整闭环行程及可展示的规划分析摘要 |
+| `/api/outdoor/generate` (POST) | 旧模板生成停用，返回 410 |
+| `/api/outdoor/map/status` (GET) | 高德配置状态（不返回密钥） |
+| `/api/outdoor/map/config` (PUT) | 加密保存 Web 端 Key、安全密钥和 Web 服务 Key |
+| `/api/outdoor/map/sdk` (GET) | 本地 JS API 配置，不含 Web 服务 Key |
+| `/api/outdoor/places`、`/api/outdoor/recommend` (POST) | 高德地点搜索、基于真实往返路线的候选筛选 |
+| `/api/outdoor/journeys/generate` (POST) | 五步条件生成 1～7 天路线及时间安排，超限拒绝 |
+| `/api/outdoor/journeys` (GET/POST) | 获取/校验后加密保存新行程 |
+| `/api/outdoor/journeys/:id` (DELETE) | 删除新行程 |
 | `/api/outdoor/settings` (GET/PUT) | 获取或保存加密的家庭地址；描述未指定出发地时作为默认起终点 |
-| `/api/outdoor/plans` | 获取或保存加密行程计划 |
-| `/api/outdoor/plans/:id` (PUT) | 更新已有行程计划 |
+| `/api/outdoor/plans` | 获取旧版估算记录；POST 写入返回 410 |
+| `/api/outdoor/plans/:id` (PUT) | 旧记录写入停用，返回 410 |
 | `/api/outdoor/plans/:id` (DELETE) | 删除已有行程计划 |
 | `/api/health` | Outdoor 健康检查及加密仓库解锁状态 |
 
-当前路线时间和费用为可编辑估算，并在界面中明确标记；生成过程可展开或收起，显示耗时、完成状态和实际规划步骤。当前规划来源为本地规则引擎而非 AI，界面会如实标注；后续接入 AI 时可使用同一来源字段切换标识。客户端支持系统语音识别，识别结果只作为行程描述提交，不保存录音。
+当前户外使用五步流程：时间/范围、交通/活动、目的地、住宿、完整行程。地图和 POI/道路路线来自高德，时间编排为本地规则。没有 Key、无路线或不满足限制时不再生成固定模板；铁路换乘不等于已核实高铁车次，酒店 POI 不提供实时房价/房态，登山安全性与海拔未验证。支持系统语音输入地点，应用不保存录音；识别后需确认具体 POI。旧版估算记录保留为文字查看。
 
 ### 定时器数据模型
 
@@ -338,6 +345,18 @@ Fitness 与 Tools 共用根目录的加密数据仓库，服务重启后需再�
 ## Outdoor 服务器配置项
 
 Outdoor 与 Tools、Fitness 共用根目录加密仓库，工作台统一密码页会同时解锁三个数据服务。
+
+首次使用需在户外右上角「地图配置」填写高德开放平台申请的三项内容：
+
+1. 平台类型为 **Web 端（JS API）** 的 Key。
+2. 该 Key 对应的 **安全密钥 securityJsCode**。
+3. 另一个平台类型为 **Web 服务** 的 Key。
+
+配置在本机表单填写，不要发到聊天或写入源码；加密进入 `data/what.vault` 并随仓库同步。按高德控制台要求配置开发域名/服务白名单（本机使用 localhost/127.0.0.1），开通地点搜索及路线规划权限并确认配额。JS Key 和安全密钥在本地浏览器运行时可见；Web 服务 Key 仅供后端访问。公开部署前应改用高德推荐的服务端安全代理，不能直接将本机服务暴露到公网。更换已加载的 JS Key 后刷新户外页面。
+
+Outdoor 后端只监听 127.0.0.1，并限制请求来源为本机 5174/5177。未配置时显示提示，不会加载假地图；填入真实 Key 后仍需在本机验证权限、网络、底图、地点查询和至少一条真实路线。
+
+测试：在 Outdoor 执行 `npm run test -w server`；构建后根目录执行 `node Outdoor/tests/api-smoke.mjs`。浏览器测试 `node Outdoor/tests/browser-smoke.mjs` 需要本机 Playwright（可用 `PLAYWRIGHT_MODULE_PATH` 指定安装路径、`PLAYWRIGHT_CHANNEL=msedge` 使用本机 Edge）；`OUTDOOR_SCREENSHOTS` 可指定截图目录。测试仅使用隔离临时加密文件或模拟 API，不解锁、不修改用户数据。
 
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
