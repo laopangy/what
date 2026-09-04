@@ -84,7 +84,16 @@ try {
   await page.getByRole("button",{name:"查看行程",exact:true}).click();
   await page.getByRole("button",{name:"修改条件 / 重新计算",exact:true}).click();
   await page.getByRole("button",{name:/时间与范围/}).click();
-  await page.getByLabel("单程交通上限 / 分钟",{exact:true}).fill("15");
+  await page.getByRole("button",{name:"清除时间限制",exact:true}).click();
+  await page.getByRole("button",{name:"下一步",exact:true}).click();
+  await page.getByRole("alert").filter({hasText:"至少填写一项"}).waitFor();
+  await page.getByRole("textbox",{name:"单程距离上限 / 公里",exact:true}).fill("50");
+  await page.getByRole("textbox",{name:"老人",exact:true}).fill("");
+  assert.equal(await page.getByRole("textbox",{name:"老人",exact:true}).inputValue(),"");
+  await page.getByRole("textbox",{name:"老人",exact:true}).pressSequentially("2");
+  assert.equal(await page.getByRole("textbox",{name:"老人",exact:true}).inputValue(),"2");
+  await page.getByRole("textbox",{name:"老人",exact:true}).fill("0");
+  await page.getByRole("textbox",{name:"单程交通上限分钟",exact:true}).fill("15");
   await page.getByRole("button",{name:"下一步",exact:true}).click();
   await page.getByRole("button",{name:"下一步",exact:true}).click();
   await page.getByRole("button",{name:"下一步",exact:true}).click();

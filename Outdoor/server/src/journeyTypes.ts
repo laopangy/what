@@ -6,7 +6,8 @@ export interface Place {
 }
 export interface TripDraft {
   origin: Place | null; startDate: string; endDate: string; startTime: string; endTime: string;
-  maxMinutes: number; maxKm: number | null; people: number; mode: TravelMode;
+  maxMinutes: number | null; maxKm: number | null; people: number; mode: TravelMode;
+  travelers?: { adults: number; seniors: number; children: number; women: number };
   activity: Activity; activityMinutes: number; activityKm: number;
   destination: Place | null; dailyPlaces: Place[]; activityEnd: Place | null;
   lodging: "recommend" | "booked" | "later"; hotel: Place | null;

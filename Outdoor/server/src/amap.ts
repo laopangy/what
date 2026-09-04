@@ -1,10 +1,29 @@
 import type { Place, RouteLeg, TravelMode } from "./journeyTypes.js";
+import { createHash } from "node:crypto";
+import { providerQueue } from "./providerQueue.js";
 
 type Json = Record<string, unknown>;
 const obj = (value: unknown): Json => value && typeof value === "object" && !Array.isArray(value) ? value as Json : {};
 const list = (value: unknown): unknown[] => Array.isArray(value) ? value : [];
 const str = (value: unknown): string => typeof value === "string" ? value : "";
 export class ProviderError extends Error {}
+const inFlight = new Map<string, Promise<Json>>();
+const rateCodes = new Set(["10014", "10019", "10020", "10021", "10022", "10023"]);
+export function providerErrorMessage(code: string): string {
+  if (rateCodes.has(code)) return "高德请求过于频繁（代码 " + code + "）：接口 QPS 超限，已限速并重试。请稍后再试；若持续发生，请在高德控制台检查该账号接口的并发配额及其他应用调用";
+  const messages: Record<string, string> = {
+    "10001": "Key 无效，请检查 Web 服务 Key",
+    "10003": "当日调用额度已用完，请查看高德控制台配额",
+    "10004": "权限不足，请检查所需服务是否已开通",
+    "10005": "服务器 IP 不在高德白名单中",
+    "10006": "域名不在高德白名单中",
+    "10007": "签名验证失败，请检查签名配置",
+    "10009": "Key 平台类型不匹配，后端需要 Web 服务类型 Key",
+    "10012": "权限不足，请检查接口访问权限",
+    "10013": "Key 已删除，请重新配置",
+  };
+  return "高德请求失败（代码 " + code + "）：" + (messages[code] || "请检查服务状态、配置和配额");
+}
 export function coordinates(value: unknown): [number, number] | null {
   if (typeof value !== "string" || !/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(value)) return null;
   const [lng, lat] = value.split(",").map(Number);
@@ -34,17 +53,36 @@ export class Amap {
   constructor(private key: string, private fetcher: typeof fetch = fetch) {}
   private async request(path: string, params: Record<string, string>): Promise<Json> {
     if (!this.key) throw new ProviderError("请先配置高德 Web 服务 Key");
+    const identity = createHash("sha256").update(JSON.stringify([this.key, path, params])).digest("hex");
+    const existing = inFlight.get(identity);
+    if (existing) return existing;
+    const pending = (async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { return await providerQueue.run(() => this.fetchOnce(path, params)); }
+        catch (error) {
+          if (!(error instanceof RateLimitError) || attempt === 2) throw error;
+          await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+        }
+      }
+      throw new ProviderError("地图查询未完成，请重试");
+    })();
+    inFlight.set(identity, pending);
+    try { return await pending; } finally { inFlight.delete(identity); }
+  }
+  private async fetchOnce(path: string, params: Record<string, string>): Promise<Json> {
     let response: Response;
     try {
       response = await this.fetcher("https://restapi.amap.com" + path + "?" + new URLSearchParams({ ...params, key: this.key }), {
         signal: AbortSignal.timeout(15000),
       });
     } catch { throw new ProviderError("高德连接失败或超时，请检查网络后重试"); }
+    if (response.status === 429) throw new RateLimitError(providerErrorMessage("10021"));
     if (!response.ok) throw new ProviderError("高德服务暂不可用，请稍后重试");
     const data = obj(await response.json().catch(() => null));
     if (data.status !== "1") {
       const code = /^\d{5}$/.test(str(data.infocode)) ? str(data.infocode) : "未知";
-      throw new ProviderError("高德请求失败（代码 " + code + "），请检查 Key 类型、权限、白名单和配额");
+      if (rateCodes.has(code)) throw new RateLimitError(providerErrorMessage(code));
+      throw new ProviderError(providerErrorMessage(code));
     }
     return data;
   }
@@ -100,3 +138,4 @@ export class Amap {
     };
   }
 }
+class RateLimitError extends ProviderError {}

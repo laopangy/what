@@ -35,6 +35,10 @@
 .ow-root .ow-section-title > span, .ow-root .ow-kicker { display: inline-block; font-size: 10px; letter-spacing: .1em; color: #55f0ac; margin-bottom: 10px; }
 .ow-root .ow-section-title h2 { line-height: 1.45; }
 .ow-root .ow-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; }
+.ow-root .ow-duration-field { margin-bottom: 18px; font-size: 12px; color: #dce3e7; }
+.ow-root .ow-duration-inputs { display: grid; grid-template-columns: minmax(40px,1fr) auto minmax(40px,1fr) auto; align-items: center; gap: 6px; margin-top: 9px; }
+.ow-root .ow-duration-inputs input { padding-inline: 8px; }
+.ow-root .ow-duration-field .ow-text-button { margin: 8px 0 0; font-size: 11px; }
 .ow-root .ow-form-footer { display: flex; justify-content: space-between; gap: 14px; padding-top: 22px; margin-top: 20px; border-top: 1px solid #ffffff18; }
 .ow-root .ow-search-row { display: flex; border: 1px solid #ffffff26; border-radius: 8px; background: #23313a60; }
 .ow-root .ow-search-row input { border: 0; background: transparent; flex: 1; }

@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { Amap, coordinates } from "./amap.js";
+import { Amap, coordinates, providerErrorMessage } from "./amap.js";
 import { draftSchema, journeySchema } from "./journeySchema.js";
-import { buildJourney, recommend } from "./journeyPlanner.js";
+import { buildJourney, recommend, withinLimits } from "./journeyPlanner.js";
 import type { Place, RouteLeg, TripDraft } from "./journeyTypes.js";
 const place = (id: string, x: number): Place => ({id, name: id, address: "测试地址", location: [x, 30], citycode: "0571", adcode: "330100", photos: []});
 const origin = place("origin", 120);
@@ -17,6 +17,35 @@ const draft: TripDraft = {origin, destination, startDate: "2026-09-12", endDate:
 const mockRoute = async (from: Place, to: Place, mode: RouteLeg["mode"]): Promise<RouteLeg> => ({
   from, to, mode, minutes: from.id === to.id ? 0 : 30, km: from.id === to.id ? 0 : 2,
   paths: [[from.location, to.location]], instructions: ["测试路线"], queriedAt: new Date().toISOString(), source: "amap",
+});
+test("time or distance is required; traveler ages and optional women do not double-count", async () => {
+  assert.equal(draftSchema.safeParse({...draft, maxMinutes:null, maxKm:null}).success, false);
+  assert.equal(draftSchema.safeParse({...draft, maxMinutes:null, maxKm:50}).success, true);
+  assert.equal(draftSchema.safeParse({...draft, maxMinutes:90, maxKm:null}).success, true);
+  assert.equal(draftSchema.safeParse({...draft, people:4, travelers:{adults:2,seniors:1,children:1,women:2}}).success, true);
+  assert.equal(draftSchema.safeParse({...draft, travelers:{adults:2,seniors:1,children:1,women:2}}).success, false);
+  assert.equal(draftSchema.safeParse({...draft, travelers:{adults:2,seniors:0,children:0,women:3}}).success, false);
+  const leg = await mockRoute(origin,destination,"driving");
+  assert.equal(withinLimits({...leg,minutes:500}, {...draft,maxMinutes:null}), true);
+  assert.equal(withinLimits({...leg,km:500}, {...draft,maxKm:null}), true);
+  assert.equal(withinLimits({...leg,km:500}, {...draft,maxMinutes:null}), false);
+  const plan = await buildJourney({...draft,maxMinutes:null}, {route:mockRoute});
+  assert.equal(plan.events.at(-1)?.kind,"return");
+});
+test("AMap 10021 retries finitely and concurrent identical requests share one request", async () => {
+  let calls = 0;
+  const provider = new Amap("rate-test-key", async () => {
+    calls++;
+    return calls === 1 ? response({status:"0",infocode:"10021"}) : response({status:"1",pois:[]});
+  });
+  await Promise.all([provider.search("test"),provider.search("test")]);
+  assert.equal(calls,2);
+  let failedCalls=0;
+  const limited = new Amap("always-rate-test",async () => {failedCalls++;return response({status:"0",infocode:"10021"});});
+  await assert.rejects(limited.search("test"), /QPS 超限/);
+  assert.equal(failedCalls,3);
+  assert.match(providerErrorMessage("10003"),/当日调用额度/);
+  assert.ok(!providerErrorMessage("10021").includes("Key 类型"));
 });
 test("schema rejects invalid calendar dates, end dates and negative limits", () => {
   assert.equal(draftSchema.safeParse({...draft, startDate: "2026-02-30"}).success, false);

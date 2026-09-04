@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Mountain, Settings2, Route, Bookmark, ArrowRight, ArrowLeft, Check, MapPin, Clock, Trash2, Save, Car, Bike, TrainFront, Footprints, ImageOff } from "lucide-react";
+import { Mountain, Settings2, Route, Bookmark, ArrowRight, ArrowLeft, Check, MapPin, Clock, Trash2, Save, Car, Bike, Footprints, ImageOff } from "lucide-react";
 import { api } from "./api";
 import { journeyApi } from "./journeyApi";
 import type { Candidate, Journey, MapStatus, Place, TripDraft } from "./journeyTypes";
 import type { Itinerary } from "./types";
 import PlaceSearch from "./components/PlaceSearch";
 import AmapView from "./components/AmapView";
+import NumberField from "./components/NumberField";
+import DurationField, { formatDuration } from "./components/DurationField";
 
 const steps = ["时间与范围", "交通与活动", "目的地与路线", "过夜与住宿", "完整行程"];
 const modeNames = {driving: "自驾", cycling: "骑行", transit: "公共交通", rail: "高铁 / 铁路"};
@@ -13,7 +15,7 @@ const activityNames = {hiking: "徒步爬山", cycling: "骑车探索", touring:
 const today = () => new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Shanghai"}).format(new Date());
 const initialDraft = (): TripDraft => ({
   origin: null, startDate: today(), endDate: today(), startTime: "08:00", endTime: "20:00",
-  maxMinutes: 120, maxKm: null, people: 2, mode: "driving", activity: "leisure",
+  maxMinutes: 120, maxKm: null, people: 2, travelers: {adults: 2, seniors: 0, children: 0, women: 0}, mode: "driving", activity: "leisure",
   activityMinutes: 180, activityKm: 10, destination: null, dailyPlaces: [], activityEnd: null,
   lodging: "recommend", hotel: null, rooms: 1, hotelBudget: 400, hotelPreference: "",
 });
@@ -45,6 +47,11 @@ export default function App() {
   const [confirmDelete, setConfirmDelete] = useState("");
   const revision = useRef(0);
   const days = dayCount(draft);
+  const travelers = draft.travelers || {adults: draft.people, seniors: 0, children: 0, women: 0};
+  function changeTravelers(field: keyof typeof travelers, value: number | null) {
+    const next = {...travelers, [field]: value ?? 0};
+    change({travelers: next, people: next.adults + next.seniors + next.children});
+  }
   useEffect(() => {
     let disposed = false;
     void Promise.all([journeyApi.status(), journeyApi.saved(), api.settings(), api.plans()]).then(([map, plans, settings, old]) => {
@@ -66,13 +73,16 @@ export default function App() {
     if (!draft.origin) throw new Error("请搜索并确认出发地");
     if (!draft.startDate || !draft.endDate || !Number.isFinite(days) || days < 1 || days > 7) throw new Error("请选择 1 至 7 天的有效起止日期");
     if (!draft.startTime || !draft.endTime || (days === 1 && draft.endTime <= draft.startTime)) throw new Error("请检查出发与返程截止时间");
-    if (draft.maxMinutes < 15 || draft.maxMinutes > 1440 || (draft.maxKm !== null && (draft.maxKm < 1 || draft.maxKm > 3000))) throw new Error("单程时长应为 15～1440 分钟，距离应为 1～3000 公里");
+    if (draft.maxMinutes === null && draft.maxKm === null) throw new Error("单程交通时间和单程距离至少填写一项");
+    if ((draft.maxMinutes !== null && (!Number.isInteger(draft.maxMinutes) || draft.maxMinutes < 1 || draft.maxMinutes > 1440)) || (draft.maxKm !== null && (draft.maxKm < 1 || draft.maxKm > 3000))) throw new Error("交通时长应在 24 小时以内，距离应为 1～3000 公里");
+    if (Object.values(travelers).some(n => !Number.isInteger(n) || n < 0) || travelers.women > draft.people) throw new Error("人员数量需为非负整数，女性人数不能超过总人数");
     if (draft.people < 1 || draft.people > 30) throw new Error("同行人数应为 1～30");
   }
   async function next() {
     await run("正在检查条件", async () => {
       validateFirst();
-      if (step === 1 && (draft.activityMinutes < 30 || draft.activityMinutes > 480)) throw new Error("活动时间应为 30～480 分钟");
+      if (step === 1 && !["driving", "cycling"].includes(draft.mode)) throw new Error("请重新选择自驾或骑行");
+      if (step === 1 && (!Number.isInteger(draft.activityMinutes) || draft.activityMinutes < 30 || draft.activityMinutes > 480)) throw new Error("每天活动预算应为 0 小时 30 分钟～8 小时");
       if (step === 2 && !draft.destination) throw new Error("请先选择目的地，或从推荐结果中选择");
       if (step === 2 && ["hiking", "cycling"].includes(draft.activity) && !draft.activityEnd) throw new Error("请确认活动折返点，以计算徒步/骑行往返路线");
       if (step === 3) {
@@ -160,23 +170,24 @@ export default function App() {
                 <label>返程日期<input type="date" value={draft.endDate} onChange={e => change({endDate: e.target.value})}/></label>
                 <label>出发时间<input type="time" value={draft.startTime} onChange={e => change({startTime: e.target.value})}/></label>
                 <label>最晚到家<input type="time" value={draft.endTime} onChange={e => change({endTime: e.target.value})}/></label>
-                <label>单程交通上限 / 分钟<input type="number" min="15" max="1440" value={draft.maxMinutes} onChange={e => change({maxMinutes: Number(e.target.value)})}/></label>
-                <label>单程距离上限 / 公里<input type="number" min="1" max="3000" value={draft.maxKm ?? ""} placeholder="可选，不限制" onChange={e => change({maxKm: e.target.value ? Number(e.target.value) : null})}/></label>
-                <label>同行人数<input type="number" min="1" max="30" value={draft.people} onChange={e => change({people: Number(e.target.value)})}/></label>
+                <DurationField label="单程交通上限" value={draft.maxMinutes} optional onChange={maxMinutes => change({maxMinutes})}/>
+                <label>单程距离上限 / 公里<NumberField label="单程距离上限 / 公里" min={1} max={3000} value={draft.maxKm} placeholder="与时间至少填写一项" onChange={maxKm => change({maxKm})}/></label>
+                {([["adults", "成年人（不含老人）"], ["seniors", "老人"], ["children", "儿童"], ["women", "其中女性（可选）"]] as const).map(([field, label]) => <label key={field}>{label}<NumberField label={label} value={travelers[field]} max={30} onChange={value => changeTravelers(field, value)}/></label>)}
+                <p className="ow-help">同行共 {draft.people} 人。女性人数包含在年龄分组中，不重复计数；仅作同行信息，不据此推断体力。</p>
               </div>
               <p className="ow-help">时间按北京时间计算，支持 1～7 天。单程限制用于交通路段；徒步/骑行活动另设上限。搜索时地点将发送至高德。</p>
             </>}
             {step === 1 && <>
               <label className="ow-group-label">到达目的地的交通方式</label><div className="ow-options">
-                {Object.entries(modeNames).map(([key, label], index) => { const Icon = [Car, Bike, TrainFront, TrainFront][index]; return <button key={key} aria-pressed={draft.mode === key} className={draft.mode === key ? "is-picked" : ""} onClick={() => change({mode: key as TripDraft["mode"]})}><Icon size={22}/><b>{label}</b></button>; })}
+                {(["driving", "cycling"] as const).map((key, index) => { const label = modeNames[key]; const Icon = [Car, Bike][index]; return <button key={key} aria-pressed={draft.mode === key} className={draft.mode === key ? "is-picked" : ""} onClick={() => change({mode: key as TripDraft["mode"]})}><Icon size={22}/><b>{label}</b></button>; })}
               </div>
               <label className="ow-group-label">这次想做什么</label><div className="ow-options">
                 {Object.entries(activityNames).map(([key, label], index) => { const Icon = [Footprints, Bike, Car, Mountain][index]; return <button key={key} aria-pressed={draft.activity === key} className={draft.activity === key ? "is-picked" : ""} onClick={() => change({activity: key as TripDraft["activity"], activityEnd: null})}><Icon size={22}/><b>{label}</b></button>; })}
               </div>
-              <div className="ow-fields"><label>每天活动预算 / 分钟<input type="number" min="30" max="480" value={draft.activityMinutes} onChange={e => change({activityMinutes: Number(e.target.value)})}/></label>
-                {["hiking", "cycling"].includes(draft.activity) && <label>活动往返上限 / 公里<input type="number" min="1" max="200" value={draft.activityKm} onChange={e => change({activityKm: Number(e.target.value)})}/></label>}
+              <div className="ow-fields"><DurationField label="每天活动预算" value={draft.activityMinutes} onChange={value => change({activityMinutes: value ?? 0})}/>
+                {["hiking", "cycling"].includes(draft.activity) && <label>活动往返上限 / 公里<NumberField label="活动往返上限 / 公里" min={1} max={200} value={draft.activityKm} onChange={value => change({activityKm: value ?? 0})}/></label>}
               </div>
-              <p className="ow-help">交通和活动独立选择，例如「自驾到目的地，再骑车」。铁路选项只接受高德返回的含铁路换乘方案，不保证是高铁；车次与余票需另行核实。</p>
+              <p className="ow-help">交通和活动独立选择，例如「自驾到目的地，再骑车」。当前重点支持自驾和骑行；旧行程中的公共交通记录仍可查看，重新规划请改选自驾或骑行。</p>
             </>}
             {step === 2 && <>
               <PlaceSearch label="想去的目的地" value={draft.destination} onChange={destination => change({destination, dailyPlaces: [], hotel: null, activityEnd: null})}/>
@@ -197,14 +208,15 @@ export default function App() {
             {step === 3 && (days === 1 ? <div className="ow-empty"><Check size={32}/><h3>当天出发，当天回家</h3><p>将直接生成交通、活动、用餐留白与返程路线。</p></div> : <>
               <div className="ow-stay-summary">{draft.startDate} 入住 → {draft.endDate} 退房 · {days - 1} 晚</div>
               <div className="ow-options ow-options-three">{([["recommend", "找酒店"], ["booked", "我已订好"], ["later", "稍后决定"]] as const).map(([value, label]) => <button key={value} className={draft.lodging === value ? "is-picked" : ""} onClick={() => change({lodging: value, hotel: null})}>{label}</button>)}</div>
-              <div className="ow-fields"><label>每间每晚预算 / 元<input type="number" min="50" max="20000" value={draft.hotelBudget} onChange={e => change({hotelBudget: Number(e.target.value)})}/></label>
-                <label>房间数<input type="number" min="1" max="20" value={draft.rooms} onChange={e => change({rooms: Number(e.target.value)})}/></label></div>
+              <div className="ow-fields"><label>每间每晚预算 / 元<NumberField label="每间每晚预算 / 元" min={50} max={20000} value={draft.hotelBudget} onChange={value => change({hotelBudget: value ?? 0})}/></label>
+                <label>房间数<NumberField label="房间数" min={1} max={20} value={draft.rooms} onChange={value => change({rooms: value ?? 0})}/></label></div>
               <label>住宿偏好 / 搜索关键词<input maxLength={60} value={draft.hotelPreference} placeholder="例如：民宿、温泉、停车" onChange={e => change({hotelPreference: e.target.value, hotel: null})}/></label>
               {draft.lodging !== "later" ? <PlaceSearch label={draft.lodging === "booked" ? "确认已订酒店位置" : "目的地周边酒店"} value={draft.hotel} near={draft.destination || undefined} hotel initialQuery={draft.hotelPreference} onChange={hotel => change({hotel})}/> : <p className="ow-help">可以先返回调整其他条件。生成完整路线前需要确认住宿位置，不会虚构酒店接驳。</p>}
               <p className="ow-help">当前使用同一酒店作为多日基地。预算和偏好是意向，不代表匹配到实时房价或设施；选择酒店不产生预订。</p>
             </>)}
             {step === 4 && journey && <>
               <h3>{journey.title}</h3><div className="ow-stats"><div><b>{distance.toFixed(1)}<small> km</small></b><span>规划路段总距离</span></div><div><b>{travelMinutes}<small> 分钟</small></b><span>交通及活动移动时间</span></div></div>
+              <p>同行 {draft.people} 人 · 成年人 {travelers.adults} / 老人 {travelers.seniors} / 儿童 {travelers.children} · 其中女性 {travelers.women}</p>
               <p>{draft.startDate} {draft.startTime} → {draft.endDate} {draft.endTime} 前到家</p>
               <p className="ow-help">高德路线数据 + 本地时间编排 · 保存的是查询快照，不是实时导航。</p>
               <div className="ow-warnings">{journey.warnings.map(warning => <p key={warning}>{warning}</p>)}</div>
@@ -225,7 +237,7 @@ export default function App() {
             <AmapView ready={status.jsReady} places={places} legs={legs} selected={currentEvent?.place.id || selected} onSelect={id => setSelected(events.find(event => event.place.id === id)?.id || id)}/>
             {!journey ? <div className="ow-preview-summary">
               <div><MapPin size={18}/><span>从哪里出发<b>{draft.origin?.name || "先确认出发地点"}</b></span></div>
-              <div><Clock size={18}/><span>出行范围<b>单程 {draft.maxMinutes} 分钟{draft.maxKm ? " / " + draft.maxKm + " km" : ""}</b></span></div>
+              <div><Clock size={18}/><span>出行范围<b>单程 {formatDuration(draft.maxMinutes)}{draft.maxKm ? " / " + draft.maxKm + " km" : ""}</b></span></div>
               <p>填好条件后，地图会显示地点；生成行程后才展示高德返回的路线，不用直线假装道路。</p>
             </div> : <>
               <div className="ow-timeline">{events.map(event => <button key={event.id} className={currentEvent?.id === event.id ? "is-picked" : ""} onClick={() => setSelected(event.id)}>

@@ -6,14 +6,14 @@ export const tripDays = (draft: TripDraft) => Math.round((Date.parse(draft.endDa
 const clockMinutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
 const clock = (minutes: number) => String(Math.floor(minutes / 60)).padStart(2, "0") + ":" + String(minutes % 60).padStart(2, "0");
 export function withinLimits(leg: RouteLeg, draft: TripDraft): boolean {
-  return leg.minutes <= draft.maxMinutes && (draft.maxKm === null || leg.km <= draft.maxKm);
+  return (draft.maxMinutes === null || leg.minutes <= draft.maxMinutes) && (draft.maxKm === null || leg.km <= draft.maxKm);
 }
 export async function recommend(draft: TripDraft, amap: Amap): Promise<{ candidates: Candidate[]; note: string }> {
   if (!draft.origin) throw new Error("请先确认出发地点");
   const keywords = { hiking: "山", cycling: "绿道", touring: "风景名胜", leisure: "公园" };
   // Candidate discovery is bounded; reachability is checked on road/transit routes, never straight-line distance.
   const nearby = await amap.search(keywords[draft.activity], { near: draft.origin, type: "110000" });
-  const regional = draft.maxMinutes >= 120 && draft.mode !== "cycling"
+  const regional = (draft.maxMinutes === null || draft.maxMinutes >= 120) && draft.mode !== "cycling"
     ? await amap.search(keywords[draft.activity], { region: draft.origin.adcode.slice(0, 2) + "0000", type: "110000" }) : [];
   const places = [...new Map([...nearby, ...regional].map(p => [p.id, p])).values()].filter(p => p.id !== draft.origin?.id).slice(0, 12);
   const candidates: Candidate[] = [];

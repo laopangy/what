@@ -15,7 +15,11 @@ const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 export const draftSchema = z.object({
   origin: placeSchema.nullable(), startDate: date, endDate: date,
   startTime: time, endTime: time,
-  maxMinutes: z.number().int().min(15).max(1440),
+  maxMinutes: z.number().int().min(1).max(1440).nullable(),
+  travelers: z.object({
+    adults: z.number().int().min(0).max(30), seniors: z.number().int().min(0).max(30),
+    children: z.number().int().min(0).max(30), women: z.number().int().min(0).max(30),
+  }).optional(),
   maxKm: z.number().min(1).max(3000).nullable(), people: z.number().int().min(1).max(30),
   mode: z.enum(["driving", "cycling", "transit", "rail"]),
   activity: z.enum(["hiking", "cycling", "touring", "leisure"]),
@@ -25,6 +29,13 @@ export const draftSchema = z.object({
   rooms: z.number().int().min(1).max(20), hotelBudget: z.number().min(50).max(20000),
   hotelPreference: z.string().trim().max(60),
 }).superRefine((draft, ctx) => {
+  if (draft.maxMinutes === null && draft.maxKm === null)
+    ctx.addIssue({code: "custom", message: "单程交通时间和单程距离至少填写一项"});
+  if (draft.travelers) {
+    const total = draft.travelers.adults + draft.travelers.seniors + draft.travelers.children;
+    if (total !== draft.people || draft.travelers.women > total)
+      ctx.addIssue({code: "custom", message: "同行总人数应等于成年人、老人和儿童之和，女性人数不能超过总人数"});
+  }
   const days = (Date.parse(draft.endDate) - Date.parse(draft.startDate)) / 86400000;
   if (days < 0 || days > 6) ctx.addIssue({code: "custom", message: "行程支持 1 至 7 天，请检查起止日期"});
   if (draft.startDate === draft.endDate && draft.startTime >= draft.endTime)
