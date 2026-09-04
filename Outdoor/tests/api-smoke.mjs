@@ -22,9 +22,14 @@ try {
     await new Promise(resolve=>setTimeout(resolve,100));
   }
   assert.equal((await request("/api/outdoor/map/status")).status,423);
+  assert.equal((await request("/api/outdoor/calendar/status")).status,423);
   assert.equal((await request("/api/storage/unlock","POST",{password:"api-test-password"})).status,200);
   assert.equal((await request("/api/outdoor/map/status")).body.ready,false);
   assert.equal((await request("/api/outdoor/map/config","PUT",{jsKey:"invalid"})).status,400);
+  assert.equal((await request("/api/outdoor/calendar/status","GET",undefined,"http://localhost:5173")).body.connected,false);
+  assert.equal((await request("/api/outdoor/calendar/connect","POST",{username:"test@example.com",password:"invalid"})).status,400);
+  assert.equal((await request("/api/outdoor/calendar/status","GET",undefined,"https://untrusted.example")).status,403);
+  assert.equal((await request("/api/outdoor/journeys/a90d84b0-060e-4d08-ad5e-b8ed3f1ea920/calendar","POST",{})).status,500);
   const credentials={jsKey:"a".repeat(32),securityCode:"b".repeat(32),serviceKey:"c".repeat(32)};
   assert.equal((await request("/api/outdoor/map/config","PUT",credentials,"http://localhost:5173")).body.ready,true);
   const settingsStatus = await request("/api/outdoor/map/status","GET",undefined,"http://127.0.0.1:5173");

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Mountain, Route, Bookmark, ArrowRight, ArrowLeft, Check, MapPin, Clock, Trash2, Save, Car, Bike, Footprints, ImageOff } from "lucide-react";
+import { Mountain, CalendarDays, Route, Bookmark, ArrowRight, ArrowLeft, Check, MapPin, Clock, Trash2, Save, Car, Bike, Footprints, ImageOff } from "lucide-react";
 import { api } from "./api";
 import { journeyApi } from "./journeyApi";
 import type { Candidate, Journey, MapStatus, Place, TripDraft } from "./journeyTypes";
@@ -49,6 +49,13 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [confirmDelete, setConfirmDelete] = useState("");
   const revision = useRef(0);
+  const editingJourneyId = useRef<string | null>(null);
+  async function syncCalendar(id: string) {
+    await run("正在同步到苹果日历，请保持应用打开", async () => {
+      const result = await journeyApi.syncCalendar(id);
+      setNotice(`已同步 ${result.count} 项日程到「${result.calendarName}」。请在 iPhone 日历中勾选此日历；显示时间取决于 iCloud 刷新。`);
+    });
+  }
   const days = dayCount(draft);
   const travelers = draft.travelers || {adults: draft.people, seniors: 0, children: 0, women: 0};
   function changeTravelers(field: TravelerField, value: number | null) {
@@ -91,7 +98,8 @@ export default function App() {
       if (step === 3) {
         if (days > 1 && (!draft.hotel || draft.lodging === "later")) throw new Error("请先确认酒店位置，完整行程需要计算住宿接驳");
         const token = ++revision.current;
-        const result = await journeyApi.generate(draft);
+        const generated = await journeyApi.generate(draft);
+        const result = editingJourneyId.current ? {...generated, id: editingJourneyId.current} : generated;
         if (token !== revision.current) return;
         setJourney(result); setActiveDay(result.events[0].day); setSelected(result.events[0].id);
       }
@@ -130,17 +138,18 @@ export default function App() {
       {notice && <div className="ow-banner" role="status">{notice}</div>}
       {busy && <div className="ow-banner" role="status"><span className="ow-pulse"/>{busy}</div>}
       {view === "saved" ? <main className="ow-saved">
-        <h2>我的行程</h2><p>新路线保存到加密仓库；重新出发前请更新路线数据。</p>
-        {!saved.length && !legacy.length && <div className="ow-empty"><Bookmark size={32}/><h3>还没有保存的行程</h3><button className="ow-button" onClick={() => setView("planner")}>开始规划</button></div>}
+        <h2>我的行程</h2><p>新路线保存到加密仓库；重新出发前请更新路线数据。</p><p>同步到苹果日历前，请在账号与服务连接 iCloud 并选择日历。重复同步更新原日程；删除本地行程不会删除苹果日历中的日程。</p>
+        {!saved.length && !legacy.length && <div className="ow-empty"><Bookmark size={32}/><h3>还没有保存的行程</h3><button className="ow-button" onClick={() => { editingJourneyId.current = null; setView("planner"); }}>开始规划</button></div>}
         {saved.map(item => <article key={item.id}><div><h3>{item.title}</h3><p>{item.draft.startDate} — {item.draft.endDate} · {modeNames[item.draft.mode]}</p></div>
-          <button className="ow-button" onClick={() => { revision.current++; setDraft(item.draft); setAddedTravelers([]); setJourney(item); setActiveDay(item.events[0].day); setSelected(item.events[0].id); setStep(4); setView("planner"); }}>查看行程</button>
+          <button className="ow-button" onClick={() => { revision.current++; setDraft(item.draft); editingJourneyId.current = item.id; setAddedTravelers([]); setJourney(item); setActiveDay(item.events[0].day); setSelected(item.events[0].id); setStep(4); setView("planner"); }}>查看行程</button>
+          <button className="ow-button" disabled={!!busy} onClick={() => void syncCalendar(item.id)}><CalendarDays size={15}/>同步到苹果日历</button>
           <button className="ow-button" aria-label={"删除" + item.title} onClick={() => setConfirmDelete(item.id)}><Trash2 size={15}/></button>
-          {confirmDelete === item.id && <button className="ow-button ow-danger" disabled={!!busy} onClick={() => void run("正在删除", async () => { await journeyApi.remove(item.id); setSaved(saved.filter(p => p.id !== item.id)); setConfirmDelete(""); })}>确认删除</button>}
+          {confirmDelete === item.id && <button className="ow-button ow-danger" disabled={!!busy} onClick={() => void run("正在删除", async () => { await journeyApi.remove(item.id); if (editingJourneyId.current === item.id) editingJourneyId.current = null; setSaved(saved.filter(p => p.id !== item.id)); setConfirmDelete(""); })}>确认删除</button>}
           {confirmDelete === item.id && <button className="ow-button" onClick={() => setConfirmDelete("")}>取消</button>}
         </article>)}
         {legacy.map(item => <article key={item.id}><div><h3>{item.title} · 旧版估算</h3><p>{item.intent.origin} → {item.intent.destination}。旧示意图已停用，原记录仍保留。</p>
           <details><summary>查看旧行程文字</summary>{item.stops.map(stop => <p key={stop.id}>{stop.arrivalAt} · {stop.title}（未核实）</p>)}</details></div>
-          <button className="ow-button" onClick={() => { setView("planner"); setStep(0); setJourney(null); setNotice("请重新搜索确认旧行程的出发地和目的地，使用真实路线规划。"); }}>重新规划</button>
+          <button className="ow-button" onClick={() => { editingJourneyId.current = null; setView("planner"); setStep(0); setJourney(null); setNotice("请重新搜索确认旧行程的出发地和目的地，使用真实路线规划。"); }}>重新规划</button>
           <button className="ow-button" aria-label={"删除旧行程" + item.title} onClick={() => setConfirmDelete(item.id)}><Trash2 size={15}/></button>
           {confirmDelete === item.id && <><button className="ow-button ow-danger" disabled={!!busy} onClick={() => void run("正在删除旧行程", async () => { await api.remove(item.id); setLegacy(legacy.filter(p => p.id !== item.id)); setConfirmDelete(""); })}>确认删除</button><button className="ow-button" onClick={() => setConfirmDelete("")}>取消</button></>}
         </article>)}
@@ -232,7 +241,8 @@ export default function App() {
               <button className="ow-button ow-primary ow-wide" onClick={() => void run("正在加密保存", async () => {
                 const result = await journeyApi.save(journey); setJourney(result); setSaved([result, ...saved.filter(p => p.id !== result.id)]); setNotice("完整行程已加密保存");
               })}><Save size={16}/>{journey.saved ? "更新已保存行程" : "保存完整行程"}</button>
-              <button className="ow-button ow-wide" onClick={() => { setStep(3); setNotice("确认条件后重新生成，将重新查询全部路线。"); }}>修改条件 / 重新计算</button>
+              {journey.saved && <button className="ow-button ow-wide" onClick={() => void syncCalendar(journey.id)}><CalendarDays size={16}/>同步到苹果日历</button>}
+              <button className="ow-button ow-wide" onClick={() => { editingJourneyId.current = journey.id; setStep(3); setNotice("确认条件后重新生成，将重新查询全部路线。"); }}>修改条件 / 重新计算</button>
             </>}
             </fieldset>
             <footer className="ow-form-footer"><button className="ow-button" disabled={step === 0 || !!busy} onClick={() => { setStep(step - 1); setError(""); }}><ArrowLeft size={15}/>上一步</button>

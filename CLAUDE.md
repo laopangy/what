@@ -367,6 +367,26 @@ Outdoor 后端只监听 127.0.0.1，并限制请求来源为本机 5173/5174/517
 | `PORT` | `3004` | 服务器端口 |
 | `VAULT_FILE` | `data/what.vault` | 与其他业务模块共用的 AES-256-GCM 加密文件 |
 
+
+### iCloud 日历连接与行程同步
+
+- 在“账号与服务”→“iCloud 日历”输入 Apple 账号和 App 专用密码（不是账户登录密码）。账户需启用双重认证及 iCloud 日历；在 https://account.apple.com/ 的“登录和安全”→“App 专用密码”生成密码。
+- 连接成功后选择自己的可编辑目标日历，设置提醒时间（默认提前 15 分钟，也可关闭），点击“保存日历设置”。建议在 iPhone 日历中单独创建“工具栈行程”。
+- 在户外“我的行程”或已保存行程详情点击“同步到苹果日历”。每段活动成为一个日程，包含北京时间对应的起止时刻、地点、私人地址与备注、人数和提醒；iPhone 显示取决于系统时区与 iCloud 刷新，并需勾选目标日历。
+- 同步为手动、单向写入；同一行程重复同步更新原日程（会覆盖其在手机端的编辑），重新计算保留行程 ID，减少的活动在下次同步时清理。改选日历会在新日历创建一份，旧日历保留；断开连接或删除本地行程不会删除云端已有日程。
+- 凭据、日历选择和同步记录全部保存在根目录 data/what.vault 的 outdoor.icloudCalendar 中。凭据及同步记录随加密仓库在 A/B 电脑间共享；不生成明文 ICS、账号文件或请求日志。服务发现与凭据发送仅允许 HTTPS 的 caldav.icloud.com 和 p数字-caldav.icloud.com。
+- 使用 tsdav 2.2.2 完成 CalDAV 发现；对象通过固定 UID、条件写入和 ETag 更新。同步前记录计划资源，中断后重试不会重复创建；其他来源的同名日程不覆盖，失败显示已完成项数。真实 iCloud 联调需用户在本机填写账号授权。
+- 安装新增依赖：在 Outdoor 执行 npm install，重启 Outdoor 服务和刷新设置页。测试使用隔离加密仓库及模拟 CalDAV，不向真实账号写入。
+
+| API | 用途 |
+|------|------|
+| GET /api/outdoor/calendar/status | 返回连接状态、账号、日历列表和提醒，不返回密码或日历 URL |
+| POST /api/outdoor/calendar/connect | 验证 App 专用密码并加密保存连接 |
+| POST /api/outdoor/calendar/refresh | 刷新账号的日历列表 |
+| PUT /api/outdoor/calendar/selection | 保存目标日历和提醒 |
+| DELETE /api/outdoor/calendar/connection | 清除连接凭据，保留云端日程及加密同步记录 |
+| POST /api/outdoor/journeys/:id/calendar | 将已保存行程同步到选定的 iCloud 日历 |
+
 ## Music 服务器配置项
 
 配置通过 `Music/server/src/config.ts` 从环境变量读取：

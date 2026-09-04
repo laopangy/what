@@ -3,6 +3,7 @@ import { Bot, Check, KeyRound, Loader2, LogOut, QrCode, RefreshCw, Settings } fr
 import { settingsApi, userApi, type ApiResponse, type SettingsStatus } from "../../api/client";
 
 import MapSettingsCard from "./MapSettingsCard";
+import ICloudSettingsCard from "./ICloudSettingsCard";
 import appInfo from "../../../../../package.json";
 
 type LoginResult = {
@@ -192,6 +193,7 @@ export default function SettingsPage() {
         <p className="mt-2 text-xs leading-6 text-text-dim">AI 对话、音乐、随手记、户外、肌肉大与工具的统一工作台。下方管理账号连接及应用服务配置。</p>
       </section>
       <MapSettingsCard />
+      <ICloudSettingsCard />
       <div className="grid md:grid-cols-2 gap-4">
         <AccountCard
           name="网易云音乐"

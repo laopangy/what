@@ -44,7 +44,8 @@ await page.route("**/api/outdoor/**", async route => {
     } catch (error) { status=400; body={success:false,error:error.message}; }
   } else if (pathname === "/journeys" && request.method() === "POST") {
     body={...input,saved:true}; saved=[body,...saved.filter(p=>p.id!==body.id)];
-  } else if (pathname === "/journeys") body=saved;
+  } else if (/^\/journeys\/[^/]+\/calendar$/.test(pathname)) body={success:true,count:saved[0].events.length,calendarName:"测试行程日历",lastSyncedAt:new Date().toISOString()};
+  else if (pathname === "/journeys") body=saved;
   else if (pathname.startsWith("/journeys/") && request.method() === "DELETE") {saved=saved.filter(p=>p.id!==pathname.split("/").at(-1));body={success:true};}
   else {status=503;body={success:false,error:"测试环境未配置地图"};}
   await route.fulfill({status,contentType:"application/json",body:JSON.stringify(body)});
@@ -94,6 +95,8 @@ try {
   if (output) await page.screenshot({path:path.join(output,"outdoor-itinerary-test.png"),fullPage:true});
   await page.getByRole("button",{name:"保存完整行程",exact:true}).click();
   await page.getByRole("status").filter({hasText:"完整行程已加密保存"}).waitFor();
+  await page.getByRole("button",{name:"同步到苹果日历",exact:true}).click();
+  await page.getByRole("status").filter({hasText:"测试行程日历"}).waitFor();
   await page.getByRole("button",{name:/我的行程/}).click();
   await page.getByRole("button",{name:"查看行程",exact:true}).click();
   await page.getByRole("button",{name:"修改条件 / 重新计算",exact:true}).click();
@@ -115,6 +118,15 @@ try {
   await page.getByRole("button",{name:"生成完整行程",exact:true}).click();
   await page.getByRole("alert").filter({hasText:"超过单程时间或距离上限"}).waitFor();
   assert.equal(generationCount,2);
+  const originalId = saved[0].id;
+  await page.getByRole("button",{name:/时间与范围/}).click();
+  await page.getByRole("textbox",{name:"单程交通上限小时",exact:true}).fill("2");
+  for (let i=0; i<3; i++) await page.getByRole("button",{name:"下一步",exact:true}).click();
+  await page.getByRole("button",{name:"生成完整行程",exact:true}).click();
+  await page.getByRole("button",{name:"保存完整行程",exact:true}).click();
+  await page.getByRole("status").filter({hasText:"完整行程已加密保存"}).waitFor();
+  assert.equal(saved.length,1);
+  assert.equal(saved[0].id,originalId);
   await page.getByRole("button",{name:/我的行程/}).click();
   await page.getByRole("button",{name:"删除测试公园 · 2 日行程",exact:true}).click();
   await page.getByRole("button",{name:"确认删除",exact:true}).click();

@@ -14,6 +14,7 @@ export const journeyApi = {
   recommend: (draft: TripDraft) => request<{candidates: Candidate[]; note: string}>("/recommend", draft),
   generate: (draft: TripDraft) => request<Journey>("/journeys/generate", draft),
   saved: () => request<Journey[]>("/journeys"),
+  syncCalendar: (id: string) => request<{success: boolean; count: number; calendarName: string; lastSyncedAt: string}>("/journeys/" + id + "/calendar", {}),
   save: (journey: Journey) => request<Journey>("/journeys", journey),
   remove: (id: string) => request<{success: boolean}>("/journeys/" + id, {}, "DELETE"),
 };

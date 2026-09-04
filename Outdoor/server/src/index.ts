@@ -5,6 +5,7 @@ import { config } from "./config.js";
 import { outdoorRouter } from "./routes/outdoor.js";
 import { isVaultUnlocked, unlockVault } from "./vault.js";
 import { journeyRouter } from "./routes/journeys.js";
+import { calendarRouter } from "./routes/calendar.js";
 
 const app = express();
 const allowedOrigins = new Set(["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5177", "http://127.0.0.1:5177", "http://localhost:5174", "http://127.0.0.1:5174"]);
@@ -26,6 +27,7 @@ app.post("/api/storage/unlock", async (req, res) => {
   }
 });
 app.use("/api/outdoor", journeyRouter);
+app.use("/api/outdoor", calendarRouter);
 app.use("/api/outdoor", outdoorRouter);
 app.get("/api/health", (_req, res) => res.json({ status: "ok", module: "outdoor", storage: "encrypted-file", unlocked: isVaultUnlocked(), timestamp: Date.now() }));
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
