@@ -8,15 +8,16 @@ import PlaceSearch from "./components/PlaceSearch";
 import AmapView from "./components/AmapView";
 import NumberField from "./components/NumberField";
 import DurationField, { formatDuration } from "./components/DurationField";
+import { groupRecommendations } from "./recommendationGroups";
 
 const steps = ["时间与范围", "交通与活动", "目的地与路线", "过夜与住宿", "完整行程"];
-const modeNames = {driving: "自驾", cycling: "骑行", transit: "公共交通", rail: "高铁 / 铁路"};
+const modeNames = {driving: "自驾", cycling: "公路车骑行", transit: "公共交通", rail: "高铁 / 铁路"};
 const activityNames = {hiking: "徒步爬山", cycling: "骑车探索", touring: "风景游览", leisure: "轻松旅游"};
 const today = () => new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Shanghai"}).format(new Date());
 const initialDraft = (): TripDraft => ({
   origin: null, startDate: today(), endDate: today(), startTime: "08:00", endTime: "20:00",
   maxMinutes: 120, maxKm: null, people: 2, travelers: {adults: 2, seniors: 0, children: 0, women: 0}, mode: "driving", activity: "leisure",
-  activityMinutes: 180, activityKm: 10, destination: null, dailyPlaces: [], activityEnd: null,
+  activityMinutes: 180, activityKm: 10, rideTotalKm: null, rideShape: "return", rideVia: null, destination: null, dailyPlaces: [], activityEnd: null,
   lodging: "recommend", hotel: null, rooms: 1, hotelBudget: 400, hotelPreference: "",
 });
 const dayCount = (d: TripDraft) => Math.round((Date.parse(d.endDate) - Date.parse(d.startDate)) / 86400000) + 1;
@@ -84,7 +85,7 @@ export default function App() {
       if (step === 1 && !["driving", "cycling"].includes(draft.mode)) throw new Error("请重新选择自驾或骑行");
       if (step === 1 && (!Number.isInteger(draft.activityMinutes) || draft.activityMinutes < 30 || draft.activityMinutes > 480)) throw new Error("每天活动预算应为 0 小时 30 分钟～8 小时");
       if (step === 2 && !draft.destination) throw new Error("请先选择目的地，或从推荐结果中选择");
-      if (step === 2 && ["hiking", "cycling"].includes(draft.activity) && !draft.activityEnd) throw new Error("请确认活动折返点，以计算徒步/骑行往返路线");
+      if (step === 2 && draft.mode !== "cycling" && ["hiking", "cycling"].includes(draft.activity) && !draft.activityEnd) throw new Error("请确认活动折返点，以计算徒步/骑行往返路线");
       if (step === 3) {
         if (days > 1 && (!draft.hotel || draft.lodging === "later")) throw new Error("请先确认酒店位置，完整行程需要计算住宿接驳");
         const token = ++revision.current;
@@ -105,11 +106,12 @@ export default function App() {
   }
   const events = journey?.events.filter(event => event.day === activeDay) || [];
   const currentEvent = events.find(event => event.id === selected) || events[0];
-  const previewPlaces = journey ? events.map(event => event.place) : [draft.origin, draft.destination, draft.activityEnd, draft.hotel].filter((place): place is Place => Boolean(place));
+  const previewPlaces = journey ? events.map(event => event.place) : [draft.origin, draft.rideVia, draft.destination, draft.activityEnd, draft.hotel].filter((place): place is Place => Boolean(place));
   const places = [...new Map(previewPlaces.map(place => [place.id, place])).values()];
   const legs = events.flatMap(event => event.leg ? [event.leg] : []);
   const distance = journey?.events.reduce((sum, event) => sum + (event.leg?.km || 0), 0) || 0;
   const travelMinutes = journey?.events.reduce((sum, event) => sum + (event.leg?.minutes || 0), 0) || 0;
+  const distanceGroups = groupRecommendations(candidates, draft.maxKm);
   return <div className="outdoor-root ow-root">
     <header className="outdoor-local-header">
       <div><Mountain size={22} className="text-accent"/><h1>户外</h1><p>把想去的地方，变成走得通的行程。</p></div>
@@ -179,24 +181,27 @@ export default function App() {
             </>}
             {step === 1 && <>
               <label className="ow-group-label">到达目的地的交通方式</label><div className="ow-options">
-                {(["driving", "cycling"] as const).map((key, index) => { const label = modeNames[key]; const Icon = [Car, Bike][index]; return <button key={key} aria-pressed={draft.mode === key} className={draft.mode === key ? "is-picked" : ""} onClick={() => change({mode: key as TripDraft["mode"]})}><Icon size={22}/><b>{label}</b></button>; })}
+                {(["driving", "cycling"] as const).map((key, index) => { const label = modeNames[key]; const Icon = [Car, Bike][index]; return <button key={key} aria-pressed={draft.mode === key} className={draft.mode === key ? "is-picked" : ""} onClick={() => change({mode: key, activity: key === "cycling" ? "cycling" : "leisure", activityEnd: null, rideVia: null, destination: null})}><Icon size={22}/><b>{label}</b></button>; })}
               </div>
-              <label className="ow-group-label">这次想做什么</label><div className="ow-options">
+              {draft.mode !== "cycling" && <><label className="ow-group-label">这次想做什么</label><div className="ow-options">
                 {Object.entries(activityNames).map(([key, label], index) => { const Icon = [Footprints, Bike, Car, Mountain][index]; return <button key={key} aria-pressed={draft.activity === key} className={draft.activity === key ? "is-picked" : ""} onClick={() => change({activity: key as TripDraft["activity"], activityEnd: null})}><Icon size={22}/><b>{label}</b></button>; })}
               </div>
-              <div className="ow-fields"><DurationField label="每天活动预算" value={draft.activityMinutes} onChange={value => change({activityMinutes: value ?? 0})}/>
-                {["hiking", "cycling"].includes(draft.activity) && <label>活动往返上限 / 公里<NumberField label="活动往返上限 / 公里" min={1} max={200} value={draft.activityKm} onChange={value => change({activityKm: value ?? 0})}/></label>}
+              </>}
+              {draft.mode === "cycling" && <><p className="ow-help">公路车享受骑行过程，不以景区游玩为目标。目的地请选道路交汇处或骑行补给点；普通骑行导航不等于已验证的公路车路线。</p><div className="ow-options">{([["return", "往返骑行"], ["loop", "途经点环线"]] as const).map(([value,label]) => <button key={value} className={(draft.rideShape || "return") === value ? "is-picked" : ""} onClick={() => change({rideShape:value,rideVia:null})}>{label}</button>)}</div><label>骑行总里程上限 / 公里（可选）<NumberField label="骑行总里程上限 / 公里" value={draft.rideTotalKm ?? null} min={1} max={2000} onChange={rideTotalKm => change({rideTotalKm})}/></label><p className="ow-help">单程 50 公里的往返可能接近 100 公里。环线按完整总里程筛选，去程和返程也保留已设的单程限制；环线目前支持当天骑行，可能有重合路段。</p></>}
+              <div className="ow-fields"><DurationField label={draft.mode === "cycling" ? "每天骑行时间预算" : "每天活动预算"} value={draft.activityMinutes} onChange={value => change({activityMinutes: value ?? 0})}/>
+                {draft.mode !== "cycling" && ["hiking", "cycling"].includes(draft.activity) && <label>活动往返上限 / 公里<NumberField label="活动往返上限 / 公里" min={1} max={200} value={draft.activityKm} onChange={value => change({activityKm: value ?? 0})}/></label>}
               </div>
               <p className="ow-help">交通和活动独立选择，例如「自驾到目的地，再骑车」。当前重点支持自驾和骑行；旧行程中的公共交通记录仍可查看，重新规划请改选自驾或骑行。</p>
             </>}
             {step === 2 && <>
-              <PlaceSearch label="想去的目的地" value={draft.destination} onChange={destination => change({destination, dailyPlaces: [], hotel: null, activityEnd: null})}/>
-              <div className="ow-discover"><div><b>还没想好去哪？</b><p>根据交通、活动与时间范围，查找可达地点。</p></div><button className="ow-button ow-primary" onClick={() => void recommend()}>帮我推荐</button></div>
+              {draft.mode === "cycling" && draft.rideShape === "loop" && <PlaceSearch label="环线途经点" near={draft.origin || undefined} value={draft.rideVia || null} onChange={rideVia => change({rideVia})}/>}
+              <PlaceSearch label={draft.mode === "cycling" ? "公路车终点（路口或补给点）" : "想去的目的地"} value={draft.destination} onChange={destination => change({destination, dailyPlaces: [], hotel: null, activityEnd: null})}/>
+              <div className="ow-discover"><div><b>还没想好去哪？</b><p>{draft.mode === "cycling" ? "按实际骑行道路找路线，校验终点路段与往返总里程。" : "根据交通、活动与时间范围，查找可达地点。"}</p></div><button className="ow-button ow-primary" onClick={() => void recommend()}>帮我推荐</button></div>
               {candidateNote && <p className="ow-help">{candidateNote}</p>}
-              <div className="ow-candidates">{candidates.map(candidate => <button className="ow-candidate" key={candidate.place.id} onClick={() => change({destination: candidate.place, hotel: null, dailyPlaces: [], activityEnd: null})}>
-                <Photo place={candidate.place}/><div><b>{candidate.place.name}</b><p>去程 {candidate.outbound.minutes} 分钟 · {candidate.outbound.km.toFixed(1)} km</p><small>返程 {candidate.returnRoute.minutes} 分钟 · 高德地点图片</small></div><ArrowRight size={17}/>
-              </button>)}</div>
-              {draft.destination && ["hiking", "cycling"].includes(draft.activity) && <PlaceSearch label="活动折返点（会沿实际道路返回）" near={draft.destination} value={draft.activityEnd} onChange={activityEnd => change({activityEnd})}/>}
+              {candidateNote && <div className="ow-distance-groups">{distanceGroups.map(group => <section key={group.label}><h3>{group.label}<small> · {group.items.length} {draft.mode === "cycling" ? "条路线" : "个地点"}</small></h3>{!group.items.length && <p className="ow-help">本次检索暂无匹配结果，不代表该范围没有可选路线。</p>}<div className="ow-candidates">{group.items.map(candidate => <button className="ow-candidate" key={candidate.place.id} onClick={() => change({destination: candidate.place, hotel: null, dailyPlaces: [], activityEnd: null})}>
+                <Photo place={candidate.place}/><div><b>{draft.mode === "cycling" ? (draft.rideShape === "loop" ? "途经点环线 · " : "公路车往返 · ") : ""}{candidate.place.name}</b><p>去程 {candidate.outbound.minutes} 分钟 · {candidate.outbound.km.toFixed(1)} km</p><small>返程 {candidate.returnRoute.km.toFixed(1)} km / {formatDuration(candidate.returnRoute.minutes)} · 总里程 {(candidate.outbound.km + candidate.returnRoute.km).toFixed(1)} km</small>{draft.mode === "cycling" ? <><p>总骑行 {formatDuration(candidate.outbound.minutes + candidate.returnRoute.minutes)}</p><small>路面 / 爬升 / 车流 / 补给 / 终点通行：待核实</small><p>{candidate.outbound.instructions.slice(0,3).join(" → ") || "道路名称未返回，请生成后查看地图细线"}</p></> : <small>地点图片：高德 · 停车与开放待核实</small>}</div><ArrowRight size={17}/>
+              </button>)}</div></section>)}</div>}
+              {draft.destination && draft.mode !== "cycling" && ["hiking", "cycling"].includes(draft.activity) && <PlaceSearch label="活动折返点（会沿实际道路返回）" near={draft.destination} value={draft.activityEnd} onChange={activityEnd => change({activityEnd})}/>}
               {draft.destination && days > 1 && <details className="ow-details"><summary>调整每天游玩的地点（默认都在目的地）</summary>
                 {Array.from({length: Math.min(7, Math.max(1, days))}, (_, index) => <PlaceSearch key={index} label={"第 " + (index + 1) + " 天"} value={draft.dailyPlaces[index] || draft.destination} onChange={place => {
                   const dailyPlaces = Array.from({length: days}, (_, i) => draft.dailyPlaces[i] || draft.destination!);

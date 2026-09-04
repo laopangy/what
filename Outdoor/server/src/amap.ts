@@ -86,13 +86,13 @@ export class Amap {
     }
     return data;
   }
-  async search(query: string, options: { near?: Place; type?: string; region?: string } = {}): Promise<Place[]> {
+  async search(query: string, options: { near?: Place; type?: string; region?: string; explore?: boolean } = {}): Promise<Place[]> {
     const data = await this.request(options.near ? "/v5/place/around" : "/v5/place/text", {
       ...(query ? { keywords: query } : {}),
       ...(options.type ? { types: options.type } : {}),
       ...(options.region ? { region: options.region } : {}),
-      ...(options.near ? { location: coordString(options.near), radius: "50000", sortrule: "distance" } : {}),
-      page_size: "12", show_fields: "photos",
+      ...(options.near ? { location: coordString(options.near), radius: "50000", sortrule: options.explore ? "weight" : "distance" } : {}),
+      page_size: options.explore ? "25" : "12", show_fields: "photos",
     });
     return list(data.pois).flatMap(item => {
       const p = obj(item); const location = coordinates(p.location);

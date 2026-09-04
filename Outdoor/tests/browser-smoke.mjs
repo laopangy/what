@@ -28,12 +28,18 @@ await page.route("**/api/outdoor/**", async route => {
   else if (pathname === "/settings") body = {homeAddress:""};
   else if (pathname === "/plans") body = [];
   else if (pathname === "/places") body = input.type === "hotel" ? [hotel] : [input.query.includes("起点") ? start : destination];
-  else if (pathname === "/recommend") body = {candidates:[],note:"测试：没有匹配的候选，请调整条件"};
+  else if (pathname === "/recommend") body = input.mode === "cycling" ? {
+    candidates:[8,18,28].map((km,index) => {
+      const place=point("ride-"+index,"测试骑行终点"+index,120.1+index/100);
+      const leg={from:start,to:place,mode:"cycling",minutes:30,km,paths:[[start.location,place.location]],instructions:["测试道路"],queriedAt:new Date().toISOString(),source:"amap"};
+      return {place,outbound:leg,returnRoute:{...leg,from:place,to:start}};
+    }),note:"测试公路车候选"
+  } : {candidates:[],note:"测试：没有匹配的候选，请调整条件"};
   else if (pathname === "/journeys/generate") {
     generationCount++;
     try {
       body = await buildJourney(input,{route:async (from,to,mode) => ({
-        from,to,mode,minutes:30,km:5,paths:[],instructions:["测试路段"],queriedAt:new Date().toISOString(),source:"amap",
+        from,to,mode,minutes:30,km:5,paths:[[from.location,to.location]],instructions:["测试路段"],queriedAt:new Date().toISOString(),source:"amap",
       })});
     } catch (error) { status=400; body={success:false,error:error.message}; }
   } else if (pathname === "/journeys" && request.method() === "POST") {
@@ -105,6 +111,22 @@ try {
   await page.getByRole("button",{name:"确认删除",exact:true}).click();
   await page.getByRole("heading",{name:"还没有保存的行程"}).waitFor();
   await page.getByRole("button",{name:"开始规划",exact:true}).click();
+  await page.getByRole("button",{name:/时间与范围/}).click();
+  await page.getByLabel("返程日期",{exact:true}).fill("2026-09-12");
+  await page.getByRole("textbox",{name:"单程交通上限小时",exact:true}).fill("2");
+  await page.getByRole("button",{name:"下一步",exact:true}).click();
+  await page.getByRole("button",{name:"公路车骑行",exact:true}).click();
+  await page.getByRole("textbox",{name:"骑行总里程上限 / 公里",exact:true}).fill("100");
+  await page.getByRole("button",{name:"下一步",exact:true}).click();
+  await page.getByRole("button",{name:"帮我推荐",exact:true}).click();
+  await page.getByRole("heading",{name:/10 公里内/}).waitFor();
+  await page.getByRole("heading",{name:/10–20 公里/}).waitFor();
+  await page.getByRole("heading",{name:/20–30 公里/}).waitFor();
+  await page.getByRole("button").filter({hasText:"公路车往返 · 测试骑行终点0"}).click();
+  await page.getByRole("button",{name:"下一步",exact:true}).click();
+  await page.getByRole("button",{name:"生成完整行程",exact:true}).click();
+  await page.getByRole("heading",{name:/公路车往返 · 测试骑行终点0/}).first().waitFor();
+  assert.equal(await page.getByRole("button").filter({hasText:"游览与自由活动"}).count(),0);
   await page.setViewportSize({width:390,height:844});
   await page.getByRole("button",{name:/时间与范围/}).click();
   if (output) await page.screenshot({path:path.join(output,"outdoor-mobile.png"),fullPage:true});

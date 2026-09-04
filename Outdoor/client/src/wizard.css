@@ -60,6 +60,9 @@
 .ow-root .ow-discover { display: flex; justify-content: space-between; align-items: center; gap: 14px; border-block: 1px solid #ffffff18; padding: 20px 0; margin: 12px 0; }
 .ow-root .ow-discover p { color: #c0c9ce; font-size: 11px; }
 .ow-root .ow-candidates { display: grid; gap: 10px; margin-bottom: 20px; }
+.ow-root .ow-distance-groups > section { padding-top: 18px; border-top: 1px solid #ffffff18; }
+.ow-root .ow-distance-groups h3 { font-size: 14px; color: #55f0ac; }
+.ow-root .ow-distance-groups h3 small { font-size: 11px; font-weight: 400; }
 .ow-root .ow-candidate { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid #ffffff18; border-radius: 8px; background: #ffffff05; text-align: left; }
 .ow-root .ow-candidate:hover { border-color: #00e88980; }
 .ow-root .ow-candidate > img, .ow-root .ow-candidate > .ow-photo-empty { width: 90px; height: 80px; flex-shrink: 0; border-radius: 5px; object-fit: cover; }

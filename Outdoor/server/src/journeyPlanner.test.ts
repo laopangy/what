@@ -6,6 +6,7 @@ import path from "node:path";
 import { Amap, coordinates, providerErrorMessage } from "./amap.js";
 import { draftSchema, journeySchema } from "./journeySchema.js";
 import { buildJourney, recommend, withinLimits } from "./journeyPlanner.js";
+import { groupRecommendations } from "../../client/src/recommendationGroups.js";
 import type { Place, RouteLeg, TripDraft } from "./journeyTypes.js";
 const place = (id: string, x: number): Place => ({id, name: id, address: "测试地址", location: [x, 30], citycode: "0571", adcode: "330100", photos: []});
 const origin = place("origin", 120);
@@ -53,6 +54,40 @@ test("schema rejects invalid calendar dates, end dates and negative limits", () 
   assert.equal(draftSchema.safeParse({...draft, endDate: "2026-09-20"}).success, false);
   assert.equal(draftSchema.safeParse({...draft, startTime: "25:00"}).success, false);
   assert.equal(draftSchema.safeParse({...draft, maxKm: -1}).success, false);
+});
+test("distance groups are disjoint at 10/20/50km and recommendations retain more than four results", async () => {
+  class PlacesProvider extends Amap {
+    constructor() {super("fixture");}
+    async search() {return [10,10.1,20,30,50,51].map(km=>place(String(km),120+km/1000));}
+    async route(from: Place,to: Place,mode: RouteLeg["mode"]) {
+      return {...await mockRoute(from,to,mode),km:Number(to.id === "origin" ? from.id : to.id),minutes:5};
+    }
+  }
+  const result = await recommend({...draft,maxKm:50},new PlacesProvider());
+  assert.equal(result.candidates.length,5);
+  const groups = groupRecommendations(result.candidates,50);
+  assert.deepEqual(groups.map(g=>g.items.length),[1,2,1,0,1]);
+  assert.equal(groups.flatMap(g=>g.items).length,5);
+});
+test("road-bike riding is the activity, with real return legs and total limits", async () => {
+  const input: TripDraft = {...draft,mode:"cycling",activity:"cycling",activityEnd:null,rideTotalKm:5};
+  const plan = await buildJourney(input,{route:mockRoute});
+  assert.equal(plan.events.filter(e=>e.leg).length,2);
+  assert.equal(plan.events.some(e=>e.title==="游览与自由活动"),false);
+  assert.ok(plan.title.startsWith("公路车往返"));
+  await assert.rejects(buildJourney({...input,rideTotalKm:3},{route:mockRoute}),/总里程/);
+  await assert.rejects(buildJourney({...input,activityMinutes:40},{route:mockRoute}),/骑行预算/);
+  await assert.rejects(buildJourney(input,{route:async (a,b,m)=>({...await mockRoute(a,b,m),instructions:["前方台阶"]})}),/台阶/);
+  await assert.rejects(buildJourney(input,{route:async (a,b,m)=>({...await mockRoute(a,b,m),paths:[]})}),/道路几何/);
+});
+test("road-bike loop uses three real legs and checks aggregate outbound and total distance", async () => {
+  const input: TripDraft = {...draft,mode:"cycling",rideShape:"loop",rideVia:place("via",120.05),rideTotalKm:10};
+  const plan = await buildJourney(input,{route:mockRoute});
+  assert.equal(plan.events.filter(e=>e.leg).length,3);
+  assert.equal(plan.events.at(-1)?.place.id,"origin");
+  await assert.rejects(buildJourney({...input,maxKm:3},{route:mockRoute}),/环线去程/);
+  await assert.rejects(buildJourney({...input,rideTotalKm:5},{route:mockRoute}),/总里程/);
+  assert.equal(draftSchema.safeParse({...input,endDate:"2026-09-13"}).success,false);
 });
 test("same-day journey is continuous, returns home and validates for persistence", async () => {
   const plan = await buildJourney(draft, {route: mockRoute});

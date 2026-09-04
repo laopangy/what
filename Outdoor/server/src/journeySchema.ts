@@ -16,6 +16,8 @@ export const draftSchema = z.object({
   origin: placeSchema.nullable(), startDate: date, endDate: date,
   startTime: time, endTime: time,
   maxMinutes: z.number().int().min(1).max(1440).nullable(),
+  rideTotalKm: z.number().min(1).max(2000).nullable().optional(),
+  rideShape: z.enum(["return", "loop"]).optional(), rideVia: placeSchema.nullable().optional(),
   travelers: z.object({
     adults: z.number().int().min(0).max(30), seniors: z.number().int().min(0).max(30),
     children: z.number().int().min(0).max(30), women: z.number().int().min(0).max(30),
@@ -37,6 +39,10 @@ export const draftSchema = z.object({
       ctx.addIssue({code: "custom", message: "同行总人数应等于成年人、老人和儿童之和，女性人数不能超过总人数"});
   }
   const days = (Date.parse(draft.endDate) - Date.parse(draft.startDate)) / 86400000;
+  if (draft.mode === "cycling" && draft.rideShape === "loop" && days !== 0)
+    ctx.addIssue({code:"custom",message:"环线目前支持当天骑行，请选择同一天出发和返回"});
+  if (draft.mode === "cycling" && draft.rideShape === "loop" && !draft.rideTotalKm)
+    ctx.addIssue({code:"custom",message:"环线请设置骑行总里程上限"});
   if (days < 0 || days > 6) ctx.addIssue({code: "custom", message: "行程支持 1 至 7 天，请检查起止日期"});
   if (draft.startDate === draft.endDate && draft.startTime >= draft.endTime)
     ctx.addIssue({code: "custom", message: "返程截止时间必须晚于出发时间"});
