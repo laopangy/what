@@ -10,7 +10,7 @@ import NumberField from "./components/NumberField";
 import DurationField, { formatDuration } from "./components/DurationField";
 import { groupRecommendations } from "./recommendationGroups";
 
-const travelerLabels = [["adults", "成年人（不含老人）"], ["seniors", "老人"], ["children", "儿童"], ["women", "其中女性（可选）"]] as const;
+const travelerLabels = [["adults", "成年人（不含老人）"], ["seniors", "老人"], ["children", "儿童"]] as const;
 type TravelerField = typeof travelerLabels[number][0];
 
 const steps = ["时间与范围", "交通与活动", "目的地与路线", "过夜与住宿", "完整行程"];
@@ -51,8 +51,8 @@ export default function App() {
   const revision = useRef(0);
   const days = dayCount(draft);
   const travelers = draft.travelers || {adults: draft.people, seniors: 0, children: 0, women: 0};
-  function changeTravelers(field: keyof typeof travelers, value: number | null) {
-    const next = {...travelers, [field]: value ?? 0};
+  function changeTravelers(field: TravelerField, value: number | null) {
+    const next = {...travelers, women: 0, [field]: value ?? 0};
     change({travelers: next, people: next.adults + next.seniors + next.children});
   }
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function App() {
     if (!draft.startTime || !draft.endTime || (days === 1 && draft.endTime <= draft.startTime)) throw new Error("请检查出发与返程截止时间");
     if (draft.maxMinutes === null && draft.maxKm === null) throw new Error("单程交通时间和单程距离至少填写一项");
     if ((draft.maxMinutes !== null && (!Number.isInteger(draft.maxMinutes) || draft.maxMinutes < 1 || draft.maxMinutes > 1440)) || (draft.maxKm !== null && (draft.maxKm < 1 || draft.maxKm > 3000))) throw new Error("交通时长应在 24 小时以内，距离应为 1～3000 公里");
-    if (Object.values(travelers).some(n => !Number.isInteger(n) || n < 0) || travelers.women > draft.people) throw new Error("人员数量需为非负整数，女性人数不能超过总人数");
+    if (travelerLabels.some(([field]) => !Number.isInteger(travelers[field]) || travelers[field] < 0)) throw new Error("人员数量需为非负整数");
     if (draft.people < 1 || draft.people > 30) throw new Error("同行人数应为 1～30");
   }
   async function next() {
@@ -178,7 +178,7 @@ export default function App() {
                     changeTravelers(field, 0);
                   }}>移除</button>
                 </div>)}
-                <p className="ow-help">{draft.people ? '同行共 ' + draft.people + ' 人。' : '请按需添加人员类别并填写人数。'}女性人数包含在年龄分组中，不重复计数；仅作同行信息，不据此推断体力。</p>
+                <p className="ow-help">{draft.people ? '同行共 ' + draft.people + ' 人。' : '请按需添加人员类别并填写人数。'}总人数按成年人、老人和儿童合计。</p>
               </div>
               <p className="ow-help">时间按北京时间计算，支持 1～7 天。单程限制用于交通路段；徒步/骑行活动另设上限。搜索时地点将发送至高德。</p>
             </>}
@@ -224,7 +224,7 @@ export default function App() {
             </>)}
             {step === 4 && journey && <>
               <h3>{journey.title}</h3><div className="ow-stats"><div><b>{distance.toFixed(1)}<small> km</small></b><span>规划路段总距离</span></div><div><b>{travelMinutes}<small> 分钟</small></b><span>交通及活动移动时间</span></div></div>
-              <p>同行 {draft.people} 人 · 成年人 {travelers.adults} / 老人 {travelers.seniors} / 儿童 {travelers.children} · 其中女性 {travelers.women}</p>
+              <p>同行 {draft.people} 人 · 成年人 {travelers.adults} / 老人 {travelers.seniors} / 儿童 {travelers.children}</p>
               <p>{draft.startDate} {draft.startTime} → {draft.endDate} {draft.endTime} 前到家</p>
               <p className="ow-help">高德路线数据 + 本地时间编排 · 保存的是查询快照，不是实时导航。</p>
               <div className="ow-warnings">{journey.warnings.map(warning => <p key={warning}>{warning}</p>)}</div>
