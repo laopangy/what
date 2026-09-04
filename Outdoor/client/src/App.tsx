@@ -10,13 +10,16 @@ import NumberField from "./components/NumberField";
 import DurationField, { formatDuration } from "./components/DurationField";
 import { groupRecommendations } from "./recommendationGroups";
 
+const travelerLabels = [["adults", "成年人（不含老人）"], ["seniors", "老人"], ["children", "儿童"], ["women", "其中女性（可选）"]] as const;
+type TravelerField = typeof travelerLabels[number][0];
+
 const steps = ["时间与范围", "交通与活动", "目的地与路线", "过夜与住宿", "完整行程"];
 const modeNames = {driving: "自驾", cycling: "公路车骑行", transit: "公共交通", rail: "高铁 / 铁路"};
 const activityNames = {hiking: "徒步爬山", cycling: "骑车探索", touring: "风景游览", leisure: "轻松旅游"};
 const today = () => new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Shanghai"}).format(new Date());
 const initialDraft = (): TripDraft => ({
   origin: null, startDate: today(), endDate: today(), startTime: "08:00", endTime: "20:00",
-  maxMinutes: 120, maxKm: null, people: 2, travelers: {adults: 2, seniors: 0, children: 0, women: 0}, mode: "driving", activity: "leisure",
+  maxMinutes: 120, maxKm: null, people: 0, travelers: {adults: 0, seniors: 0, children: 0, women: 0}, mode: "driving", activity: "leisure",
   activityMinutes: 180, activityKm: 10, rideTotalKm: null, rideShape: "return", rideVia: null, destination: null, dailyPlaces: [], activityEnd: null,
   lodging: "recommend", hotel: null, rooms: 1, hotelBudget: 400, hotelPreference: "",
 });
@@ -29,6 +32,7 @@ function Photo({ place }: { place: Place }) {
 }
 export default function App() {
   const [draft, setDraft] = useState<TripDraft>(initialDraft);
+  const [addedTravelers, setAddedTravelers] = useState<TravelerField[]>([]);
   const [step, setStep] = useState(0);
   const [status, setStatus] = useState<MapStatus>({ready: false, serviceReady: false, jsReady: false});
   const [home, setHome] = useState("");
@@ -129,7 +133,7 @@ export default function App() {
         <h2>我的行程</h2><p>新路线保存到加密仓库；重新出发前请更新路线数据。</p>
         {!saved.length && !legacy.length && <div className="ow-empty"><Bookmark size={32}/><h3>还没有保存的行程</h3><button className="ow-button" onClick={() => setView("planner")}>开始规划</button></div>}
         {saved.map(item => <article key={item.id}><div><h3>{item.title}</h3><p>{item.draft.startDate} — {item.draft.endDate} · {modeNames[item.draft.mode]}</p></div>
-          <button className="ow-button" onClick={() => { revision.current++; setDraft(item.draft); setJourney(item); setActiveDay(item.events[0].day); setSelected(item.events[0].id); setStep(4); setView("planner"); }}>查看行程</button>
+          <button className="ow-button" onClick={() => { revision.current++; setDraft(item.draft); setAddedTravelers([]); setJourney(item); setActiveDay(item.events[0].day); setSelected(item.events[0].id); setStep(4); setView("planner"); }}>查看行程</button>
           <button className="ow-button" aria-label={"删除" + item.title} onClick={() => setConfirmDelete(item.id)}><Trash2 size={15}/></button>
           {confirmDelete === item.id && <button className="ow-button ow-danger" disabled={!!busy} onClick={() => void run("正在删除", async () => { await journeyApi.remove(item.id); setSaved(saved.filter(p => p.id !== item.id)); setConfirmDelete(""); })}>确认删除</button>}
           {confirmDelete === item.id && <button className="ow-button" onClick={() => setConfirmDelete("")}>取消</button>}
@@ -158,8 +162,23 @@ export default function App() {
                 <label>最晚到家<input type="time" value={draft.endTime} onChange={e => change({endTime: e.target.value})}/></label>
                 <DurationField label="单程交通上限" value={draft.maxMinutes} optional onChange={maxMinutes => change({maxMinutes})}/>
                 <label>单程距离上限 / 公里<NumberField label="单程距离上限 / 公里" min={1} max={3000} value={draft.maxKm} placeholder="与时间至少填写一项" onChange={maxKm => change({maxKm})}/></label>
-                {([["adults", "成年人（不含老人）"], ["seniors", "老人"], ["children", "儿童"], ["women", "其中女性（可选）"]] as const).map(([field, label]) => <label key={field}>{label}<NumberField label={label} value={travelers[field]} max={30} onChange={value => changeTravelers(field, value)}/></label>)}
-                <p className="ow-help">同行共 {draft.people} 人。女性人数包含在年龄分组中，不重复计数；仅作同行信息，不据此推断体力。</p>
+                <label className="col-span-full">同行人员
+                  <select aria-label="添加同行人员类别" value="" onChange={event => {
+                    const field = travelerLabels.find(([key]) => key === event.target.value)?.[0];
+                    if (field) setAddedTravelers(previous => [...previous, field]);
+                  }}>
+                    <option value="" disabled>＋ 添加人员类别</option>
+                    {travelerLabels.filter(([field]) => !addedTravelers.includes(field) && travelers[field] === 0).map(([field, label]) => <option key={field} value={field}>{label}</option>)}
+                  </select>
+                </label>
+                {travelerLabels.filter(([field]) => addedTravelers.includes(field) || travelers[field] > 0).map(([field, label]) => <div key={field}>
+                  <label>{label}<NumberField label={label} value={travelers[field] || null} max={30} placeholder="填写人数" onChange={value => { setAddedTravelers(previous => previous.includes(field) ? previous : [...previous, field]); changeTravelers(field, value); }}/></label>
+                  <button type="button" className="ow-text-button" aria-label={"移除" + label} onClick={() => {
+                    setAddedTravelers(previous => previous.filter(key => key !== field));
+                    changeTravelers(field, 0);
+                  }}>移除</button>
+                </div>)}
+                <p className="ow-help">{draft.people ? '同行共 ' + draft.people + ' 人。' : '请按需添加人员类别并填写人数。'}女性人数包含在年龄分组中，不重复计数；仅作同行信息，不据此推断体力。</p>
               </div>
               <p className="ow-help">时间按北京时间计算，支持 1～7 天。单程限制用于交通路段；徒步/骑行活动另设上限。搜索时地点将发送至高德。</p>
             </>}

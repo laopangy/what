@@ -52,6 +52,14 @@ await page.route("**/api/outdoor/**", async route => {
 try {
   await page.goto("http://127.0.0.1:5177");
   await page.getByRole("heading",{name:"先定好时间，再决定走多远"}).waitFor();
+  assert.equal(await page.getByRole("textbox",{name:"成年人（不含老人）",exact:true}).count(),0);
+  await page.getByLabel("添加同行人员类别").selectOption("adults");
+  assert.equal(await page.getByRole("textbox",{name:"成年人（不含老人）",exact:true}).inputValue(),"");
+  await page.getByRole("textbox",{name:"成年人（不含老人）",exact:true}).fill("2");
+  await page.getByRole("button",{name:"移除成年人（不含老人）",exact:true}).click();
+  assert.equal(await page.getByRole("textbox",{name:"成年人（不含老人）",exact:true}).count(),0);
+  await page.getByLabel("添加同行人员类别").selectOption("adults");
+  await page.getByRole("textbox",{name:"成年人（不含老人）",exact:true}).fill("2");
   if (output) await page.screenshot({path:path.join(output,"outdoor-desktop.png"),fullPage:true});
   await page.getByRole("button",{name:"下一步",exact:true}).click();
   await page.getByRole("alert").filter({hasText:"请搜索并确认出发地"}).waitFor();
@@ -94,6 +102,7 @@ try {
   await page.getByRole("button",{name:"下一步",exact:true}).click();
   await page.getByRole("alert").filter({hasText:"至少填写一项"}).waitFor();
   await page.getByRole("textbox",{name:"单程距离上限 / 公里",exact:true}).fill("50");
+  await page.getByLabel("添加同行人员类别").selectOption("seniors");
   await page.getByRole("textbox",{name:"老人",exact:true}).fill("");
   assert.equal(await page.getByRole("textbox",{name:"老人",exact:true}).inputValue(),"");
   await page.getByRole("textbox",{name:"老人",exact:true}).pressSequentially("2");
