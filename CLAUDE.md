@@ -275,7 +275,7 @@ workbench/client ──WebSocket────────────────
 | `/api/fitness/sessions/:id` (DELETE) | 删除每日计划（包括内置计划，历史运动记录保留） |
 | `/api/fitness/profile` (PUT) | 保存资料及可选减脂目标体重/完成日期，并重新计算周期、目标速度、基础代谢、维持热量、目标缺口或盈余、四餐预算、建议摄入及三大营养素目标；未设期限时减脂默认缺口为 350 kcal，设置期限后按目标进度估算并叠加体重趋势修正 |
 | `/api/fitness/meals` (POST) | 添加饮食记录 |
-| `/api/fitness/meals/from-text` (POST) | 从“我今天中午吃了……”等自然语言识别餐次，AI 估算营养后直接写入今天对应的早餐、午餐、晚餐或加餐 |
+| `/api/fitness/meals/from-text` (POST) | AI 识别餐次并记录饮食，支持可选 `date`（真实日历日期且不晚于今天）；所选日期优先，省略时默认今天 |
 | `/api/fitness/meals/:id` (DELETE) | 删除饮食记录 |
 | `/api/fitness/workouts` (POST) | 保存逐组训练记录，支持重量＋次数、仅次数及按秒计时动作 |
 | `/api/fitness/weights` (POST) | 新增或覆盖当天身体数据 |

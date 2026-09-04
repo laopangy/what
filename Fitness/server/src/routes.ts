@@ -219,14 +219,15 @@ fitnessRouter.post("/meals", async (req, res) => {
 });
 
 fitnessRouter.post("/meals/from-text", async (req, res) => {
-  const parsed = z.object({ query: z.string().trim().min(1).max(500) }).safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ success: false, error: "请描述今天吃了什么" });
+  const parsed = z.object({ query: z.string().trim().min(1).max(500), date: date.refine((value) => { const parsedDate = new Date(`${value}T00:00:00Z`); return Number.isFinite(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === value && value <= localDate(); }, "请选择有效的今天或历史日期").optional() }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || "请描述吃了什么" });
+  const recordDate = parsed.data.date ?? localDate();
   try {
     const { mealType, foodQuery } = mealFromText(parsed.data.query);
     const calculation = await calculateFoodWithAi(foodQuery);
     const state = await readState();
     const meal = {
-      id: uuid(), date: localDate(), mealType, name: calculation.name, amount: calculation.amount,
+      id: uuid(), date: recordDate, mealType, name: calculation.name, amount: calculation.amount,
       calories: calculation.calories, protein: calculation.protein, carbs: calculation.carbs, fat: calculation.fat,
       createdAt: new Date().toISOString(),
     };

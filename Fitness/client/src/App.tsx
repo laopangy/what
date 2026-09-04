@@ -435,6 +435,7 @@ function Training({ data, refresh, notify }: { data: FitnessState; refresh: () =
 
 interface NutritionProcessState {
   mode: "calculate" | "record";
+  recordedDate?: string;
   query: string;
   status: "running" | "completed" | "failed";
   startedAt: number;
@@ -456,7 +457,7 @@ function NutritionProcess({ process, elapsedMs, open, toggle }: { process: Nutri
           <div className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0 text-accent-light"/><div><strong>AI 已返回分项估算 · {duration.toFixed(1)} 秒</strong>{result.note && <p className="text-muted mt-0.5">{result.note}</p>}</div></div>
           <div className="border-l border-accent/25 ml-1.5 pl-3 space-y-1">{result.items.map((item, index) => <div key={`${item.name}-${index}`} className="flex justify-between gap-3"><span>{index + 1}. {item.name} · {item.amount}</span><span className="text-muted shrink-0">→ {item.calories} kcal</span></div>)}</div>
           <div className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0 text-accent-light"/><div><strong>汇总 {result.items.length} 项：{result.calories} kcal</strong><p className="text-muted mt-0.5">蛋白质 {result.protein}g · 碳水 {result.carbs}g · 脂肪 {result.fat}g</p></div></div>
-          {process.mode === "record" && <div className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0 text-accent-light"/><strong>已写入今天的饮食记录</strong></div>}
+          {process.mode === "record" && <div className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0 text-accent-light"/><strong>已写入 {process.recordedDate} 的饮食记录</strong></div>}
         </>}
       </div>}
     </div>}
@@ -474,7 +475,11 @@ function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () 
   const [nutritionProcess, setNutritionProcess] = useState<NutritionProcessState | null>(null);
   const [processOpen, setProcessOpen] = useState(false);
   const [processElapsedMs, setProcessElapsedMs] = useState(0);
-  const meals = data.meals.filter((meal) => meal.date === today());
+  const meals = data.meals.filter((meal) => meal.date === form.date);
+  const recordedDates = [...new Set(data.meals.map((meal) => meal.date))].sort((a, b) => b.localeCompare(a));
+  const busy = saving || calculating || recordingFromText;
+  const selectDate = (date: string) => { if (date && date <= today() && !busy) setForm((current) => ({ ...current, date })); };
+  const moveDate = (offset: number) => { const value = new Date(`${form.date}T12:00:00`); value.setDate(value.getDate() + offset); selectDate(`${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`); };
   const totals = sumMealNutrition(meals);
   const nutrientCards: { label: string; value: number; target: number; unit: string; icon: LucideIcon; color: string }[] = [
     { label: "热量", value: totals.calories, target: data.profile.calorieTarget, unit: "kcal", icon: Flame, color: "#d99a16" },
@@ -496,9 +501,10 @@ function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () 
     setProcessOpen(true);
     return startedAt;
   };
-  const completeNutritionProcess = (mode: NutritionProcessState["mode"], startedAt: number, result: FoodCalculation) => setNutritionProcess({ mode, query: foodQuery.trim(), status: "completed", startedAt, finishedAt: Date.now(), result });
+  const completeNutritionProcess = (mode: NutritionProcessState["mode"], startedAt: number, result: FoodCalculation, recordedDate?: string) => setNutritionProcess({ recordedDate, mode, query: foodQuery.trim(), status: "completed", startedAt, finishedAt: Date.now(), result });
   const failNutritionProcess = (mode: NutritionProcessState["mode"], startedAt: number, error: unknown) => setNutritionProcess({ mode, query: foodQuery.trim(), status: "failed", startedAt, finishedAt: Date.now(), error: error instanceof Error ? error.message : "计算失败" });
   const calculate = async () => {
+    if (busy) return;
     if (!foodQuery.trim()) return notify("输入食物和分量，例如：鸡胸肉 200克");
     const startedAt = beginNutritionProcess("calculate");
     try {
@@ -511,21 +517,23 @@ function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () 
     } catch (error) { failNutritionProcess("calculate", startedAt, error); notify(error instanceof Error ? error.message : "计算失败"); } finally { setCalculating(false); }
   };
   const add = async () => {
+    if (busy) return;
     if (!form.name.trim()) return notify("先填写食物名称");
-    try { setSaving(true); await api.addMeal({ ...form, calories: Number(form.calories) || 0, protein: Number(form.protein) || 0, carbs: Number(form.carbs) || 0, fat: Number(form.fat) || 0 }); setForm(blank); await refresh(); notify("饮食记录已添加"); }
+    try { setSaving(true); await api.addMeal({ ...form, calories: Number(form.calories) || 0, protein: Number(form.protein) || 0, carbs: Number(form.carbs) || 0, fat: Number(form.fat) || 0 }); setForm({ ...blank, date: form.date }); await refresh(); notify(`${form.date} 饮食记录已添加`); }
     catch (error) { notify(error instanceof Error ? error.message : "保存失败"); } finally { setSaving(false); }
   };
   const recordFromText = async () => {
-    if (!foodQuery.trim()) return notify("例如：我今天中午吃了沙县鸡腿饭，另外加一个去皮鸭腿");
+    if (busy) return;
+    if (!foodQuery.trim()) return notify("例如：中午吃了沙县鸡腿饭，另外加一个去皮鸭腿");
     const startedAt = beginNutritionProcess("record");
     try {
       setRecordingFromText(true);
-      const result = await api.addMealFromText(foodQuery);
+      const result = await api.addMealFromText(foodQuery, form.date);
       setCalculation(result.calculation);
       await refresh();
-      completeNutritionProcess("record", startedAt, result.calculation);
+      completeNutritionProcess("record", startedAt, result.calculation, result.meal.date);
       setFoodQuery("");
-      notify(`已自动记录到今天${mealNames[result.meal.mealType]}`);
+      notify(`已自动记录到 ${result.meal.date} ${mealNames[result.meal.mealType]}`);
     } catch (error) { failNutritionProcess("record", startedAt, error); notify(error instanceof Error ? error.message : "自动记录失败"); }
     finally { setRecordingFromText(false); }
   };
@@ -533,18 +541,19 @@ function Nutrition({ data, refresh, notify }: { data: FitnessState; refresh: () 
 
   return (
     <div className="space-y-5">
-      <header><p className="text-accent-light text-[10px] tracking-[.2em] uppercase mb-2">Nutrition</p><h1 className="text-2xl font-semibold">今天吃得怎么样？</h1><p className="text-muted mt-1">先盯住总热量和蛋白质，记录不必追求绝对精确。</p></header>
+      <header><p className="text-accent-light text-[10px] tracking-[.2em] uppercase mb-2">Nutrition</p><h1 className="text-2xl font-semibold">饮食记录与历史</h1><p className="text-muted mt-1">先盯住总热量和蛋白质，记录不必追求绝对精确。</p></header>
+      <section className="panel rounded-xl p-4 space-y-3"><div className="flex flex-wrap items-end gap-2"><button className="btn-quiet" disabled={busy} onClick={() => moveDate(-1)}>前一天</button><label><span className="label">查看 / 记录日期</span><input aria-label="饮食记录日期" className="field" type="date" max={today()} value={form.date} disabled={busy} onChange={(event) => selectDate(event.target.value)}/></label><button className="btn-quiet" disabled={busy || form.date >= today()} onClick={() => moveDate(1)}>后一天</button><button className="btn-quiet" disabled={busy || form.date === today()} onClick={() => selectDate(today())}>回到今天</button><label><span className="label">已有记录的日期 · {recordedDates.length} 天</span><select aria-label="饮食历史日期" className="field" disabled={busy} value={recordedDates.includes(form.date) ? form.date : ""} onChange={(event) => selectDate(event.target.value)}><option value="">选择历史日期</option>{recordedDates.map((date) => <option key={date} value={date}>{date}</option>)}</select></label></div><p className="text-muted text-[10px]">以下为 {form.date} 的营养汇总；对比值为当前身体目标，不是历史目标快照。手动与 AI 记录均保存到此日期。</p></section>
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">{nutrientCards.map(({ label, value, target, unit, icon: Icon, color }) => <div className="panel rounded-xl p-4" key={label}><div className="flex justify-between mb-3"><span className="text-muted text-[11px]">{label}</span><Icon size={15} style={{ color }}/></div><p className="text-xl font-semibold">{value}<small className="text-muted text-[11px] font-normal ml-1">/ {target} {unit}</small></p><div className="mt-3"><Progress value={value} target={target} color={color}/></div></div>)}</div>
 
       <div className="grid xl:grid-cols-[.8fr_1.2fr] gap-4 items-start">
-        <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-4"><Plus size={16} className="text-accent-light"/><h2 className="font-semibold">添加一餐</h2></div><div className="rounded-lg border border-accent/30 bg-accent/10 p-3 mb-4"><label><span className="label !text-accent-light flex items-center gap-1"><Sparkles size={12}/>AI 智能饮食记录</span><input className="field" placeholder="例如：我今天中午吃了沙县鸡腿饭，另外加一个去皮鸭腿" value={foodQuery} onChange={(event) => { setFoodQuery(event.target.value); setCalculation(null); setNutritionProcess(null); }} onKeyDown={(event) => { if (event.key === "Enter") recordFromText(); }}/></label><div className="flex flex-wrap gap-2 mt-2"><button className="btn-primary flex-1 min-w-32" disabled={recordingFromText || calculating} onClick={recordFromText}>{recordingFromText ? "AI 识别并记录中…" : "识别并自动记录"}</button><button className="btn-quiet shrink-0" disabled={calculating || recordingFromText} onClick={calculate}>{calculating ? "AI 计算中…" : "只计算不记录"}</button><NutritionProcess process={nutritionProcess} elapsedMs={processElapsedMs} open={processOpen} toggle={() => setProcessOpen((current) => !current)}/></div>{calculation && <div className="mt-3 border-t border-accent/20 pt-2 space-y-1.5"><div className="flex justify-between text-[10px] text-accent-light"><span>AI 分项估算</span><strong>合计 {calculation.calories} kcal</strong></div>{calculation.items.map((item, index) => <div key={`${item.name}-${index}`}><div className="flex justify-between text-[10px]"><span>{item.name} · {item.amount}</span><span className="text-muted">{item.calories} kcal · 蛋白 {item.protein}g · 碳水 {item.carbs}g · 脂肪 {item.fat}g</span></div>{item.note && <p className="text-[9px] text-amber-300/80 mt-0.5">{item.note}</p>}</div>)}{calculation.note && <p className="text-[9px] text-muted border-t border-accent/15 pt-1.5">{calculation.note}</p>}</div>}<p className="text-[9px] text-muted mt-2">说出“今天早餐 / 中午 / 晚上 / 加餐吃了什么”即可由 DeepSeek 自动归类并入账；AI 未成功返回时不会保存估算结果。结果仍可使用下方表单手动调整。</p></div><div className="grid grid-cols-2 gap-3">
+        <section className="panel rounded-xl p-5"><div className="flex items-center gap-2 mb-4"><Plus size={16} className="text-accent-light"/><h2 className="font-semibold">添加一餐</h2></div><div className="rounded-lg border border-accent/30 bg-accent/10 p-3 mb-4"><label><span className="label !text-accent-light flex items-center gap-1"><Sparkles size={12}/>AI 智能饮食记录</span><input className="field" placeholder="例如：中午吃了沙县鸡腿饭，另外加一个去皮鸭腿" value={foodQuery} onChange={(event) => { setFoodQuery(event.target.value); setCalculation(null); setNutritionProcess(null); }} onKeyDown={(event) => { if (event.key === "Enter") recordFromText(); }}/></label><div className="flex flex-wrap gap-2 mt-2"><button className="btn-primary flex-1 min-w-32" disabled={recordingFromText || calculating} onClick={recordFromText}>{recordingFromText ? "AI 识别并记录中…" : "识别并自动记录"}</button><button className="btn-quiet shrink-0" disabled={calculating || recordingFromText} onClick={calculate}>{calculating ? "AI 计算中…" : "只计算不记录"}</button><NutritionProcess process={nutritionProcess} elapsedMs={processElapsedMs} open={processOpen} toggle={() => setProcessOpen((current) => !current)}/></div>{calculation && <div className="mt-3 border-t border-accent/20 pt-2 space-y-1.5"><div className="flex justify-between text-[10px] text-accent-light"><span>AI 分项估算</span><strong>合计 {calculation.calories} kcal</strong></div>{calculation.items.map((item, index) => <div key={`${item.name}-${index}`}><div className="flex justify-between text-[10px]"><span>{item.name} · {item.amount}</span><span className="text-muted">{item.calories} kcal · 蛋白 {item.protein}g · 碳水 {item.carbs}g · 脂肪 {item.fat}g</span></div>{item.note && <p className="text-[9px] text-amber-300/80 mt-0.5">{item.note}</p>}</div>)}{calculation.note && <p className="text-[9px] text-muted border-t border-accent/15 pt-1.5">{calculation.note}</p>}</div>}<p className="text-[9px] text-muted mt-2">先选择上方日期，再说出“早餐 / 中午 / 晚上 / 加餐吃了什么”。以所选日期为准，DeepSeek 识别餐次并入账；AI 未成功返回时不会保存估算结果。结果仍可使用下方表单手动调整。</p></div><div className="grid grid-cols-2 gap-3">
           <label><span className="label">餐次</span><select className="field" value={form.mealType} onChange={(event) => setForm({ ...form, mealType: event.target.value as MealEntry["mealType"] })}>{Object.entries(mealNames).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
           <label><span className="label">分量</span><input className="field" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })}/></label>
           <label className="col-span-2"><span className="label">食物或餐食</span><input className="field" placeholder="自动带出，也可以手动填写" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })}/></label>
           {(["calories", "protein", "carbs", "fat"] as const).map((key) => <label key={key}><span className="label">{{ calories: "热量 kcal", protein: "蛋白质 g", carbs: "碳水 g", fat: "脂肪 g" }[key]}</span><input className="field" type="number" min="0" value={form[key]} onChange={(event) => setForm({ ...form, [key]: normalizeNumericInput(event.target.value) })}/></label>)}
-        </div><button className="btn-primary w-full mt-4" disabled={saving} onClick={add}>{saving ? "保存中…" : "添加到今天"}</button></section>
+        </div><button className="btn-primary w-full mt-4" disabled={saving} onClick={add}>{saving ? "保存中…" : `添加到 ${form.date}`}</button></section>
 
-        <section className="panel rounded-xl overflow-hidden"><div className="px-5 py-4 border-b border-border flex justify-between"><h2 className="font-semibold">今日饮食</h2><span className="text-muted text-[11px]">{meals.length} 条记录</span></div>{meals.length === 0 ? <div className="py-16 text-center text-muted"><Apple size={28} className="mx-auto mb-3 opacity-40"/><p>还没有饮食记录</p></div> : <div className="divide-y divide-border">{meals.map((meal) => <div key={meal.id} className="px-5 py-3 flex items-center gap-3"><span className="w-10 text-muted text-[11px]">{mealNames[meal.mealType]}</span><div className="flex-1"><p>{meal.name} <span className="text-muted text-[11px]">· {meal.amount}</span></p><p className="text-muted text-[10px] mt-1">蛋白 {meal.protein}g · 碳水 {meal.carbs}g · 脂肪 {meal.fat}g</p></div><strong className="text-accent-light">{meal.calories}<small className="text-muted text-[9px] ml-1">kcal</small></strong><button className="text-muted hover:text-red-400 p-2" onClick={() => remove(meal.id)}><Trash2 size={14}/></button></div>)}</div>}</section>
+        <section className="panel rounded-xl overflow-hidden"><div className="px-5 py-4 border-b border-border flex justify-between"><h2 className="font-semibold">{form.date === today() ? "今日饮食" : `${form.date} 饮食`}</h2><span className="text-muted text-[11px]">{meals.length} 条记录</span></div>{meals.length === 0 ? <div className="py-16 text-center text-muted"><Apple size={28} className="mx-auto mb-3 opacity-40"/><p>这一天还没有饮食记录，可在左侧补录。</p></div> : <div className="divide-y divide-border">{meals.map((meal) => <div key={meal.id} className="px-5 py-3 flex items-center gap-3"><span className="w-10 text-muted text-[11px]">{mealNames[meal.mealType]}</span><div className="flex-1"><p>{meal.name} <span className="text-muted text-[11px]">· {meal.amount}</span></p><p className="text-muted text-[10px] mt-1">蛋白 {meal.protein}g · 碳水 {meal.carbs}g · 脂肪 {meal.fat}g</p></div><strong className="text-accent-light">{meal.calories}<small className="text-muted text-[9px] ml-1">kcal</small></strong><button className="text-muted hover:text-red-400 p-2" onClick={() => remove(meal.id)}><Trash2 size={14}/></button></div>)}</div>}</section>
       </div>
     </div>
   );
