@@ -2,12 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="81e41431-7143-4696-9ab7-f5e28ae4cbf5" name="更改" comment="created：&#10;11">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Music/client/tsconfig.tsbuildinfo" beforeDir="false" afterPath="$PROJECT_DIR$/Music/client/tsconfig.tsbuildinfo" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Outdoor/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/Outdoor/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Outdoor/server/src/icloudCalendar.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Outdoor/server/src/icloudCalendar.test.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Outdoor/server/src/icloudClient.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Outdoor/server/src/icloudClient.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PROJECT.md" beforeDir="false" afterPath="$PROJECT_DIR$/PROJECT.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/what.vault" beforeDir="false" afterPath="$PROJECT_DIR$/data/what.vault" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -27,20 +21,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "main",
-    "kotlin-language-version-configured": "true",
-    "nodejs_package_manager_path": "npm",
-    "ts.external.directory.path": "D:\\Apply\\IntelliJ IDEA 2025.3.6\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;D:\\Apply\\IntelliJ IDEA 2025.3.6\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>

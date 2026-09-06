@@ -1,0 +1,101 @@
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"ChangeListManager\">\r\n    <list default=\"true\" id=\"81e41431-7143-4696-9ab7-f5e28ae4cbf5\" name=\"更改\" comment=\"created：&#10;11\">\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/client/index.html\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/client/package.json\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/client/src/App.tsx\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/client/src/api.ts\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/client/src/index.css\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/client/src/main.tsx\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/client/src/types.ts\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/client/tsconfig.app.json\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/client/tsconfig.json\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/client/vite.config.ts\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/package-lock.json\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/package.json\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/server/package.json\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/server/src/config.ts\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/server/src/index.ts\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/server/src/planner.ts\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/server/src/routes.ts\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/server/src/storage.ts\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/server/src/types.ts\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/server/src/vault.ts\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/Outdoor/server/tsconfig.json\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/workbench/client/src/components/chat/OutdoorEmbed.tsx\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/.gitignore\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.gitignore\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/workspace.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/CLAUDE.md\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/CLAUDE.md\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/PROJECT.md\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/PROJECT.md\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/Tools/client/tsconfig.tsbuildinfo\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/Tools/client/tsconfig.tsbuildinfo\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/electron/main.js\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/electron/main.js\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/index.html\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/index.html\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/package.json\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/package.json\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/scripts/clean-ports.js\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/scripts/clean-ports.js\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/setup.ps1\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/setup.ps1\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/workbench/client/src/App.tsx\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/workbench/client/src/App.tsx\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/workbench/client/src/components/chat/PasswordGate.tsx\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/workbench/client/src/components/chat/PasswordGate.tsx\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/workbench/client/src/components/layout/WorkbenchLayout.tsx\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/workbench/client/src/components/layout/WorkbenchLayout.tsx\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/workbench/client/tsconfig.tsbuildinfo\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/workbench/client/tsconfig.tsbuildinfo\" afterDir=\"false\" />\r\n    </list>\r\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\r\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\r\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\r\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\r\n  </component>\r\n  <component name=\"Git.Settings\">\r\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\r\n  </component>\r\n  <component name=\"ProjectColorInfo\">{\r\n  &quot;customColor&quot;: &quot;&quot;,\r\n  &quot;associatedIndex&quot;: 1\r\n}</component>\r\n  <component name=\"ProjectId\" id=\"3GelX0vXQj1RRZS84anqNYBA0uI\" />\r\n  <component name=\"ProjectViewState\">\r\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\r\n    <option name=\"showLibraryContents\" value=\"true\" />\r\n  </component>\r\n  <component name=\"PropertiesComponent\">{\r\n  &quot;keyToString&quot;: {\r\n    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,\r\n    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,\r\n    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,\r\n    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,\r\n    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,\r\n    &quot;git-widget-placeholder&quot;: &quot;main&quot;,\r\n    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,\r\n    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,\r\n    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;\r\n  }\r\n}</component>\r\n  <component name=\"SharedIndexes\">\r\n    <attachedChunks>\r\n      <set>\r\n        <option value=\"bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.33813.25\" />\r\n        <option value=\"bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.33813.25\" />\r\n      </set>\r\n    </attachedChunks>\r\n  </component>\r\n  <component name=\"TaskManager\">\r\n    <task active=\"true\" id=\"Default\" summary=\"默认任务\">\r\n      <changelist id=\"81e41431-7143-4696-9ab7-f5e28ae4cbf5\" name=\"更改\" comment=\"\" />\r\n      <created>1784339952357</created>\r\n      <option name=\"number\" value=\"Default\" />\r\n      <option name=\"presentableId\" value=\"Default\" />\r\n      <updated>1784339952357</updated>\r\n      <workItem from=\"1784339953840\" duration=\"10240000\" />\r\n      <workItem from=\"1784512431810\" duration=\"5405000\" />\r\n      <workItem from=\"1784551080445\" duration=\"1196000\" />\r\n      <workItem from=\"1784595950951\" duration=\"5256000\" />\r\n      <workItem from=\"1784682170941\" duration=\"25000\" />\r\n      <workItem from=\"1784682246653\" duration=\"8110000\" />\r\n      <workItem from=\"1785981227446\" duration=\"5336000\" />\r\n      <workItem from=\"1786070617005\" duration=\"596000\" />\r\n      <workItem from=\"1786082223496\" duration=\"834000\" />\r\n      <workItem from=\"1786438397278\" duration=\"482000\" />\r\n      <workItem from=\"1787620069854\" duration=\"598000\" />\r\n      <workItem from=\"1787972192864\" duration=\"2311000\" />\r\n      <workItem from=\"1788137921922\" duration=\"255000\" />\r\n      <workItem from=\"1788138203652\" duration=\"5554000\" />\r\n    </task>\r\n    <servers />\r\n  </component>\r\n  <component name=\"TypeScriptGeneratedFilesManager\">\r\n    <option name=\"version\" value=\"3\" />\r\n  </component>\r\n  <component name=\"VcsManagerConfiguration\">\r\n    <MESSAGE value=\"created：&#10;添加VIP账号扫码登录功能呢个\" />\r\n    <MESSAGE value=\"0811\" />\r\n    <MESSAGE value=\"created：&#10;11\" />\r\n    <option name=\"LAST_COMMIT_MESSAGE\" value=\"created：&#10;11\" />\r\n  </component>\r\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision 8fcb64872c19b6134394a0646eada45eece043f8)
++++ b/.idea/workspace.xml	(date 1788666744398)
+@@ -2,42 +2,7 @@
+ <project version="4">
+   <component name="ChangeListManager">
+     <list default="true" id="81e41431-7143-4696-9ab7-f5e28ae4cbf5" name="更改" comment="created：&#10;11">
+-      <change afterPath="$PROJECT_DIR$/Outdoor/client/index.html" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/client/package.json" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/client/src/App.tsx" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/client/src/api.ts" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/client/src/index.css" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/client/src/main.tsx" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/client/src/types.ts" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/client/tsconfig.app.json" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/client/tsconfig.json" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/client/vite.config.ts" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/package-lock.json" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/package.json" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/server/package.json" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/server/src/config.ts" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/server/src/index.ts" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/server/src/planner.ts" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/server/src/routes.ts" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/server/src/storage.ts" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/server/src/types.ts" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/server/src/vault.ts" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/Outdoor/server/tsconfig.json" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/workbench/client/src/components/chat/OutdoorEmbed.tsx" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/CLAUDE.md" beforeDir="false" afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/PROJECT.md" beforeDir="false" afterPath="$PROJECT_DIR$/PROJECT.md" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/Tools/client/tsconfig.tsbuildinfo" beforeDir="false" afterPath="$PROJECT_DIR$/Tools/client/tsconfig.tsbuildinfo" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/electron/main.js" beforeDir="false" afterPath="$PROJECT_DIR$/electron/main.js" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/index.html" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/scripts/clean-ports.js" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/clean-ports.js" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/setup.ps1" beforeDir="false" afterPath="$PROJECT_DIR$/setup.ps1" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/workbench/client/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/src/App.tsx" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/workbench/client/src/components/chat/PasswordGate.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/src/components/chat/PasswordGate.tsx" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/workbench/client/src/components/layout/WorkbenchLayout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/src/components/layout/WorkbenchLayout.tsx" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/workbench/client/tsconfig.tsbuildinfo" beforeDir="false" afterPath="$PROJECT_DIR$/workbench/client/tsconfig.tsbuildinfo" afterDir="false" />
+     </list>
+     <option name="SHOW_DIALOG" value="false" />
+     <option name="HIGHLIGHT_CONFLICTS" value="true" />
+@@ -47,6 +12,18 @@
+   <component name="Git.Settings">
+     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+   </component>
++  <component name="GitHubPullRequestSearchHistory">{
++  &quot;lastFilter&quot;: {
++    &quot;state&quot;: &quot;OPEN&quot;,
++    &quot;assignee&quot;: &quot;laopangy&quot;
++  }
++}</component>
++  <component name="GithubPullRequestsUISettings">{
++  &quot;selectedUrlAndAccountId&quot;: {
++    &quot;url&quot;: &quot;https://github.com/laopangy/what.git&quot;,
++    &quot;accountId&quot;: &quot;539c33c3-ff94-4526-b56d-8d41a523db08&quot;
++  }
++}</component>
+   <component name="ProjectColorInfo">{
+   &quot;customColor&quot;: &quot;&quot;,
+   &quot;associatedIndex&quot;: 1
+@@ -72,8 +49,8 @@
+   <component name="SharedIndexes">
+     <attachedChunks>
+       <set>
+-        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.33813.25" />
+-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.33813.25" />
++        <option value="bundled-jdk-30f59d01ecdd-63390994e64e-intellij.indexing.shared.core-IU-262.8665.258" />
++        <option value="bundled-js-predefined-d6986cc7102b-4abd2a77f808-JavaScript-IU-262.8665.258" />
+       </set>
+     </attachedChunks>
+   </component>
+@@ -103,6 +80,17 @@
+   </component>
+   <component name="TypeScriptGeneratedFilesManager">
+     <option name="version" value="3" />
++  </component>
++  <component name="Vcs.Log.Tabs.Properties">
++    <option name="TAB_STATES">
++      <map>
++        <entry key="MAIN">
++          <value>
++            <State />
++          </value>
++        </entry>
++      </map>
++    </option>
+   </component>
+   <component name="VcsManagerConfiguration">
+     <MESSAGE value="created：&#10;添加VIP账号扫码登录功能呢个" />
