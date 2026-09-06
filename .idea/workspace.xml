@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="81e41431-7143-4696-9ab7-f5e28ae4cbf5" name="更改" comment="created：&#10;11">
-      <change beforePath="$PROJECT_DIR$/data/what.vault" beforeDir="false" afterPath="$PROJECT_DIR$/data/what.vault" afterDir="false" />
-    </list>
+    <list default="true" id="81e41431-7143-4696-9ab7-f5e28ae4cbf5" name="更改" comment="created：&#10;11" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
