@@ -26,12 +26,18 @@ export function appleUrl(value: string): URL {
 }
 
 export function responseError(status: number): Error {
-  if (status === 401) return new Error("iCloud 登录失败，请检查 Apple 账号和 App 专用密码；不能使用 Apple 账户登录密码");
-  if (status === 403) return new Error("此 iCloud 日历不允许写入，请选择自己的可编辑日历");
-  if (status === 409 || status === 412) return new Error("日历正在被其他设备修改，请稍后重新同步");
-  if (status === 429) return new Error("iCloud 请求过于频繁，请稍后再试");
-  return new Error(`iCloud 服务请求失败（${status}），请稍后重试`);
+  const message = status === 401 ? "iCloud 登录失败，请检查 Apple 账号和 App 专用密码；不能使用 Apple 账户登录密码"
+    : status === 403 ? "此 iCloud 日历不允许写入，请选择自己的可编辑日历"
+    : status === 409 || status === 412 ? "日历正在被其他设备修改，请稍后重新同步"
+    : status === 429 ? "iCloud 请求过于频繁，请稍后再试"
+    : `iCloud 服务请求失败（${status}），请稍后重试`;
+  // Attach the HTTP status so callers can distinguish provider answers from transport failures.
+  return Object.assign(new Error(message), { status });
 }
+
+// Errors whose provider-facing message is already safe to surface to the user as-is.
+const isProviderError = (error: unknown): error is Error =>
+  error instanceof Error && (error.message.startsWith("iCloud") || error.message.startsWith("此 iCloud") || error.message.startsWith("日历正在"));
 
 // Validate every redirect before forwarding credentials; never expose provider bodies/errors.
 export function createAppleFetch(transport: typeof fetch = fetch): typeof fetch {
@@ -53,7 +59,7 @@ export function createAppleFetch(transport: typeof fetch = fetch): typeof fetch 
         return response;
       }
     } catch (error) {
-      if (error instanceof Error && (error.message.startsWith("iCloud") || error.message.startsWith("此 iCloud") || error.message.startsWith("日历正在"))) throw error;
+      if (isProviderError(error)) throw error;
       throw new Error("无法连接 iCloud，请检查网络后重试");
     }
     throw new Error("iCloud 重定向次数过多，请稍后重试");
@@ -65,8 +71,13 @@ export async function connectApple(credentials: AppleCredentials, transport: typ
   let client: Awaited<ReturnType<typeof createDAVClient>>;
   try {
     client = await createDAVClient({serverUrl: "https://caldav.icloud.com", credentials, authMethod: "Basic", defaultAccountType: "caldav", fetch: safeFetch});
-  } catch {
-    throw new Error("无法连接 iCloud，请检查网络、Apple 账号和 App 专用密码，并确认已启用 iCloud 日历");
+  } catch (error) {
+    // Apple rejects wrong credentials with 403 (not just 401) during principal discovery;
+    // surface that specifically instead of masking it with a generic connectivity hint.
+    const status = (error as {status?: number}).status;
+    if (status === 401 || status === 403) throw new Error("iCloud 登录失败，请检查 Apple 账号和 App 专用密码是否正确；不能使用 Apple 账户登录密码");
+    if (isProviderError(error)) throw error;
+    throw new Error("无法连接 iCloud，请检查网络后重试");
   }
   const headers = { Authorization: `Basic ${Buffer.from(`${credentials.username}:${credentials.password}`).toString("base64")}` };
   return {
@@ -77,7 +88,10 @@ export async function connectApple(credentials: AppleCredentials, transport: typ
           const url = appleUrl(item.url).href.replace(/\/?$/, "/");
           return {id: calendarHash(url), name: typeof item.displayName === "string" ? item.displayName : "未命名日历", url};
         });
-      } catch { throw new Error("无法读取 iCloud 日历，请检查连接后重试"); }
+      } catch (error) {
+        if (isProviderError(error)) throw error;
+        throw new Error("无法读取 iCloud 日历，请检查连接后重试");
+      }
     },
     async get(url) {
       const response = await safeFetch(url, {headers});

@@ -1415,3 +1415,5 @@ Outdoor API：
 | 2026-09-04 | Codex | Outdoor/同行人员 | 移除女性人数选项、校验提示及行程展示，仅保留成年人、老人、儿童；兼容历史数据字段，调整人数时清零旧女性统计 | `Outdoor/client/src/App.tsx`, `CLAUDE.md`, `PROJECT.md` |
 
 | 2026-09-04 | Codex | 账号与服务/Outdoor | 接入 iCloud CalDAV：加密保存连接凭据、选择日历与提醒，已保存行程手动同步，固定 UID 更新、断网重试与旧活动清理；补充隔离协议/加密/浏览器测试 | `Music/client/src/components/dashboard/ICloudSettingsCard.tsx`, `Outdoor/server/src/icloud*.ts`, `calendarEvents.ts`, `routes/calendar.ts`, `Outdoor/client/src/App.tsx`, `Outdoor/tests/*`, `CLAUDE.md`, `PROJECT.md` |
+
+| 2026-09-04 | Qoder | 账号与服务/iCloud 连接 | 修复连接失败原因被统一提示掩盖的问题：实测 Apple 对无效凭据返回 403（非 401），现按状态区分提示—凭据被拒显示“iCloud 登录失败”、429 显示限流、传输层故障显示网络错误，不再一律显示“无法连接 iCloud，请检查网络…”；错误附带 HTTP 状态码供上层识别 | `Outdoor/server/src/icloudClient.ts`, `Outdoor/server/src/icloudCalendar.test.ts`, `PROJECT.md` |

@@ -36,6 +36,18 @@ test("credential transport rejects unsafe targets and redirects before forwardin
   await assert.rejects(denied("https://caldav.icloud.com/"), error => error instanceof Error && error.message.includes("App 专用密码") && !error.message.includes("secret-provider"));
 });
 
+test("connect distinguishes rejected credentials from network failures", async () => {
+  const credentials = {username: "test@example.com", password: "abcd-efgh-ijkl-mnop"};
+  for (const status of [401, 403]) {
+    const rejected = await connectApple(credentials, async () => new Response(null, {status})).then(() => null, error => error);
+    assert.ok(rejected instanceof Error && rejected.message.includes("App 专用密码"), `status ${status} should surface a login error`);
+  }
+  const offline = await connectApple(credentials, async () => { throw new Error("ECONNREFUSED"); }).then(() => null, error => error);
+  assert.ok(offline instanceof Error && offline.message.includes("网络"));
+  const throttled = await connectApple(credentials, async () => new Response(null, {status: 429})).then(() => null, error => error);
+  assert.ok(throttled instanceof Error && throttled.message.includes("过于频繁"));
+});
+
 test("CalDAV discovery and object operations use Apple credentials and conditional requests", async () => {
   const root = "https://p42-caldav.icloud.com";
   const responseXml = (href: string, props: string) => new Response('<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:response><d:href>' + href + '</d:href><d:propstat><d:prop>' + props + '</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>', {status:207, headers:{"Content-Type":"application/xml"}});
