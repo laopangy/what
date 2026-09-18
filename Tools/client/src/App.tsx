@@ -5,6 +5,7 @@ import TimerDashboard from "./components/timer/TimerDashboard";
 import ExecutionHistory from "./components/timer/ExecutionHistory";
 import JournalHome from "./components/journal/JournalHome";
 import BeadPatternMaker from "./components/beads/BeadPatternMaker";
+import YunxiaoTaskCreator from "./components/yunxiao/YunxiaoTaskCreator";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
               <Route path="/timer/history" element={<ExecutionHistory />} />
               <Route path="/journal" element={<JournalHome />} />
               <Route path="/beads" element={<BeadPatternMaker />} />
+              <Route path="/yunxiao" element={<YunxiaoTaskCreator />} />
             </Routes>
           </ToolsLayout>
         }

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Clock, ArrowRight, Grid3X3, Wrench } from "lucide-react";
+import { Clock, ArrowRight, Grid3X3, Wrench, ClipboardList } from "lucide-react";
 
 const tools = [
   {
@@ -9,6 +9,15 @@ const tools = [
     icon: Clock,
     color: "bg-indigo-500/15 text-indigo-400",
     path: "/timer",
+    active: true,
+  },
+  {
+    id: "yunxiao",
+    name: "云效任务创建",
+    description: "把文字整理为任务和预计工时，确认后关联到云效需求",
+    icon: ClipboardList,
+    color: "bg-indigo-500/15 text-indigo-400",
+    path: "/yunxiao",
     active: true,
   },
   {

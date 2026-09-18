@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import { Wrench, Clock, Grid3X3, History } from "lucide-react";
+import { Wrench, Clock, Grid3X3, History, ClipboardList } from "lucide-react";
 
 export default function ToolsLayout({ children }: { children: ReactNode }) {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -35,6 +35,18 @@ export default function ToolsLayout({ children }: { children: ReactNode }) {
             <NavLink to="/timer/history" className={linkClass}>
               <History className="w-4 h-4" />
               执行历史
+            </NavLink>
+          </nav>
+        </div>
+
+        <div className="mb-4">
+          <p className="px-3 text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+            项目协作
+          </p>
+          <nav className="flex flex-col gap-1">
+            <NavLink to="/yunxiao" className={linkClass}>
+              <ClipboardList className="w-4 h-4" />
+              云效任务创建
             </NavLink>
           </nav>
         </div>

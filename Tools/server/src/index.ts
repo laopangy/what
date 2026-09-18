@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import { errorHandler, logger } from "./middleware/errorHandler.js";
 import { timerRouter } from "./routes/timer.js";
 import { journalRouter } from "./routes/journal.js";
+import { yunxiaoRouter } from "./routes/yunxiao.js";
 import { restoreSchedules } from "./services/scheduler.js";
 import { isVaultUnlocked, unlockVault } from "./vault.js";
 
@@ -39,6 +40,7 @@ app.post("/api/storage/unlock", async (req, res) => {
 
 app.use("/api/timer", timerRouter);
 app.use("/api/journal", journalRouter);
+app.use("/api/yunxiao", yunxiaoRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", storage: "encrypted-file", unlocked: isVaultUnlocked(), timestamp: Date.now() });
