@@ -52,11 +52,27 @@ interface ApiLocation {
 interface RequirementReference { origin: string; serialNumber: string; projectCode: string; central: boolean }
 
 class YunxiaoApiError extends Error {
-  constructor(readonly status: number, operation: string, permission: string) {
+  constructor(readonly status: number, operation: string, permission: string, detail = "") {
     super(status === 403
       ? `云效拒绝${operation}（HTTP 403）：请确认个人访问令牌具有「${permission}」权限，且当前账号能访问该资源`
-      : `云效${operation}失败（HTTP ${status}）：请检查令牌、需求链接及工作项权限`);
+      : status === 400
+        ? `云效${operation}失败（HTTP 400）：请检查提交的负责人 User ID、任务类型、父需求及项目必填字段${detail ? `；云效反馈：${detail}` : ""}`
+        : `云效${operation}失败（HTTP ${status}）${detail ? `：${detail}` : "：请检查需求链接及服务状态"}`);
   }
+}
+
+function safeApiErrorDetail(data: unknown, token: string): string {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) return "";
+  const fields = data as Record<string, unknown>;
+  const safeText = (value: unknown) => typeof value === "string"
+    ? value.replaceAll(token, "[令牌已隐藏]")
+      .replace(/\bpt-[\w-]+\b/gi, "[令牌已隐藏]")
+      .replace(/Bearer\s+\S+/gi, "Bearer [令牌已隐藏]")
+      .replace(/[\r\n\t]+/g, " ").trim().slice(0, 240)
+    : "";
+  const code = safeText(fields.errorCode ?? fields.code);
+  const message = safeText(fields.errorMessage ?? fields.message ?? fields.msg ?? fields.error);
+  return [code, message].filter(Boolean).join("：");
 }
 
 function requestContext(path: string): { operation: string; permission: string } {
@@ -112,10 +128,12 @@ async function apiRequest<T>(location: ApiLocation, token: string, path: string,
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const { operation, permission } = requestContext(path);
-    throw new YunxiaoApiError(response.status, operation, permission);
+    throw new YunxiaoApiError(response.status, operation, permission, safeApiErrorDetail(data, token));
   }
   if (typeof data === "object" && data !== null && "success" in data && data.success === false) {
-    throw new Error("云效拒绝了请求，请检查项目权限与必填字段");
+    const { operation } = requestContext(path);
+    const detail = safeApiErrorDetail(data, token);
+    throw new Error(`云效${operation}被拒绝${detail ? `：${detail}` : "，请检查项目权限与必填字段"}`);
   }
   return data as T;
 }

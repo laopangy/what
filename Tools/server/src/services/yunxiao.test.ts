@@ -211,3 +211,39 @@ test("需求搜索 403 不再被当成筛选条件不支持", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("创建任务 400 显示脱敏后的云效业务错误", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.endsWith("/workitems/req123")) {
+      return Response.json({ id: "req123", serialNumber: "WBGA-13685", subject: "需求",
+        categoryId: "Req", space: { id: "project123" } });
+    }
+    if (url.includes("/workitemTypes?category=Task")) {
+      return Response.json([{ id: "type123", name: "任务", categoryId: "Task" }]);
+    }
+    if (url.endsWith("/workitemTypes/type123/fields")) return Response.json([]);
+    if (url.endsWith("/workitems")) {
+      return Response.json({ errorCode: "InvalidAssignedTo", errorMessage: "负责人无效 pt-test-token" },
+        { status: 400 });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  try {
+    await assert.rejects(() => createYunxiaoTask(connection, {
+      organizationId: "org123", parentId: "req123", projectId: "project123",
+      taskTypeId: "type123", assigneeId: "user123", customFieldValues: {},
+      task: { subject: "完成登录页", description: "实现错误提示", estimatedHours: 3,
+        estimateBasis: "explicit" },
+    }), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /创建任务失败（HTTP 400）.*InvalidAssignedTo：负责人无效/);
+      assert.match(error.message, /\[令牌已隐藏\]/);
+      assert.doesNotMatch(error.message, /pt-test-token/);
+      return true;
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

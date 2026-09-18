@@ -943,7 +943,7 @@ Tools 前端使用 React 19、React Router 7 与 Tailwind CSS 4，端口为 `517
 - 输入自然语言后调用现有 DeepSeek 配置拆分任务、生成标题/描述/验收标准、提取或推测预计工时，最多 8 条；未能估算的工时需人工填写，推测值会显式标注。
 - 草稿可编辑；逐条确认后才创建父需求下的云效任务，并调用预计工时接口登记小时数。任务创建成功但工时登记失败时返回新任务 ID 和补录提醒，避免重复提交。
 - 个人访问令牌仅在当次浏览器会话和请求中使用，不写入加密仓库、本地文件或浏览器存储；令牌不会发给 DeepSeek。服务端只允许官方云效 HTTPS 接入域名，不跟随跳转。
-- 中心版自动定位需求需要令牌具备组织管理的组织只读、项目协作的项目只读、工作项读写、工作项类型只读、工作项类型字段配置只读及预计工时读写权限；Region 版无须组织查询。云效返回 HTTP 403 时，错误会指出被拒绝的读取或写入步骤和相应权限；多组织项目搜索与需求编号筛选不会吞掉权限错误。真实云效联调需用户在本机输入令牌，本地构建与模拟请求测试不写入真实云效。
+- 中心版自动定位需求需要令牌具备组织管理的组织只读、项目协作的项目只读、工作项读写、工作项类型只读、工作项类型字段配置只读及预计工时读写权限；Region 版无须组织查询。云效返回 HTTP 403 时，错误会指出被拒绝的读取或写入步骤和相应权限；HTTP 400 创建失败时会展示云效业务错误码和脱敏后的反馈，不把参数错误误导成令牌问题。多组织项目搜索与需求编号筛选不会吞掉权限错误。真实云效联调需用户在本机输入令牌，本地构建与模拟请求测试不写入真实云效。
 
 #### 拼豆规格图
 
@@ -1430,3 +1430,4 @@ Outdoor API：
 | 2026-09-18 | Codex | Tools/云效任务创建 | 新增云效需求连接、任务类型和必填字段读取、DeepSeek 文字拆解及预计工时分析；草稿逐条编辑确认后创建关联任务并登记预计工时，令牌不落盘 | `Tools/client/src/components/yunxiao/YunxiaoTaskCreator.tsx`, `Tools/server/src/services/yunxiao.ts`, `yunxiaoAI.ts`, `routes/yunxiao.ts`, `PROJECT.md` |
 | 2026-09-18 | Codex | Tools/云效需求链接 | 云效任务创建改为直接输入需求详情链接和令牌，自动按展示编号定位组织、项目与内部工作项，创建前精确核对父需求；不再要求手填组织地址和内部 ID | `Tools/client/src/components/yunxiao/YunxiaoTaskCreator.tsx`, `Tools/server/src/services/yunxiao.ts`, `routes/yunxiao.ts`, `PROJECT.md` |
 | 2026-09-18 | Codex | Tools/云效 403 诊断 | 按接口步骤提示个人访问令牌所需权限，避免项目轮询或需求筛选吞掉 403；增加模拟回归测试 | `Tools/server/src/services/yunxiao.ts`, `yunxiao.test.ts`, `PROJECT.md` |
+| 2026-09-18 | Codex | Tools/云效创建 400 诊断 | 创建任务的 HTTP 400 提示改为参数检查，并显示云效返回的业务错误码及脱敏、截断后的错误说明；增加令牌不泄露测试 | `Tools/server/src/services/yunxiao.ts`, `yunxiao.test.ts`, `PROJECT.md` |
