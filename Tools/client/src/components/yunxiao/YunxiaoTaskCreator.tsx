@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { ArrowRight, CheckCircle2, ClipboardList, Loader2, Sparkles } from "lucide-react";
 
-interface Connection { address: string; requirementId: string; token: string }
+interface Connection { requirementUrl: string; token: string }
 interface Requirement {
-  id: string; subject: string; projectId: string; projectName: string;
+  id: string; serialNumber: string; subject: string; projectId: string; projectName: string;
+  organizationId: string;
   assigneeId: string; assigneeName: string;
 }
 interface TaskType { id: string; name: string; defaultType: boolean }
@@ -30,7 +31,7 @@ const inputClass = "w-full rounded-xl border border-slate-700 bg-slate-950/60 px
 const labelClass = "mb-1.5 block text-xs font-semibold text-slate-400";
 
 export default function YunxiaoTaskCreator() {
-  const [connection, setConnection] = useState<Connection>({ address: "", requirementId: "", token: "" });
+  const [connection, setConnection] = useState<Connection>({ requirementUrl: "", token: "" });
   const [context, setContext] = useState<{ requirement: Requirement; taskTypes: TaskType[] } | null>(null);
   const [taskTypeId, setTaskTypeId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
@@ -53,7 +54,8 @@ export default function YunxiaoTaskCreator() {
 
   const loadFields = async (selectedType: string, requirement: Requirement) => {
     const data = await post<{ fields: Field[] }>("fields", {
-      connection, projectId: requirement.projectId, taskTypeId: selectedType,
+      connection, organizationId: requirement.organizationId,
+      projectId: requirement.projectId, taskTypeId: selectedType,
     });
     setFields(data.fields);
     setFieldsReady(true);
@@ -109,7 +111,9 @@ export default function YunxiaoTaskCreator() {
     setBusy(`create-${index}`); setError("");
     try {
       const result = await post<{ id: string; effortSaved: boolean; warning?: string }>("create", {
-        connection, projectId: context.requirement.projectId, taskTypeId, assigneeId,
+        connection, organizationId: context.requirement.organizationId,
+        parentId: context.requirement.id,
+        projectId: context.requirement.projectId, taskTypeId, assigneeId,
         customFieldValues: fieldValues,
         task: {
           subject: draft.subject, description: draft.description,
@@ -137,27 +141,22 @@ export default function YunxiaoTaskCreator() {
       <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
         <h2 className="mb-4 text-base font-semibold text-slate-100">1 · 连接云效需求</h2>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="md:col-span-2"><span className={labelClass}>云效地址</span>
-            <input className={inputClass} type="url" value={connection.address}
-              onChange={(event) => updateConnection("address", event.target.value)}
-              placeholder="https://devops.aliyun.com/organization/组织ID" />
+          <label className="md:col-span-2"><span className={labelClass}>需求详情链接</span>
+            <input className={inputClass} type="url" value={connection.requirementUrl}
+              onChange={(event) => updateConnection("requirementUrl", event.target.value)}
+              placeholder="https://devops.aliyun.com/projex/req/WBGA-13685#" />
           </label>
-          <label><span className={labelClass}>需求工作项 ID</span>
-            <input className={inputClass} value={connection.requirementId}
-              onChange={(event) => updateConnection("requirementId", event.target.value)}
-              placeholder="工作项唯一 ID（不是展示编号）" />
-          </label>
-          <label><span className={labelClass}>个人访问令牌</span>
+          <label className="md:col-span-2"><span className={labelClass}>个人访问令牌</span>
             <input className={inputClass} type="password" value={connection.token}
               onChange={(event) => updateConnection("token", event.target.value)}
-              placeholder="需要项目协作工作项读写、预计工时读写权限" autoComplete="off" />
+              placeholder="在云效个人设置中创建" autoComplete="off" />
           </label>
         </div>
         <p className="mt-3 text-xs leading-relaxed text-slate-500">
-          中心版填写包含组织 ID 的地址；Region 版填写实例地址。令牌仅用于本次请求，不保存到文件或浏览器存储。
+          直接粘贴具体需求的链接，不用找组织 ID 或内部工作项 ID。令牌需具备组织只读、项目只读、工作项读写及预计工时读写权限；仅用于本次请求，不保存。
         </p>
         <button type="button" onClick={connect}
-          disabled={Boolean(busy) || !connection.address || !connection.requirementId || !connection.token}
+          disabled={Boolean(busy) || !connection.requirementUrl || !connection.token}
           className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
           {busy === "connect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
           读取需求
@@ -169,7 +168,9 @@ export default function YunxiaoTaskCreator() {
         <div className="mb-4 rounded-xl border border-indigo-500/20 bg-indigo-500/8 p-3">
           <p className="text-xs text-slate-500">父需求 · {context.requirement.projectName}</p>
           <p className="mt-1 font-medium text-slate-100">{context.requirement.subject}</p>
-          <p className="mt-1 font-mono text-xs text-slate-500">{context.requirement.id}</p>
+          <p className="mt-1 font-mono text-xs text-slate-500">
+            {context.requirement.serialNumber} · {context.requirement.id}
+          </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <label><span className={labelClass}>任务类型</span>
