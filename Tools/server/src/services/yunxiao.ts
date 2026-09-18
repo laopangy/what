@@ -51,6 +51,27 @@ interface ApiLocation {
 
 interface RequirementReference { origin: string; serialNumber: string; projectCode: string; central: boolean }
 
+class YunxiaoApiError extends Error {
+  constructor(readonly status: number, operation: string, permission: string) {
+    super(status === 403
+      ? `云效拒绝${operation}（HTTP 403）：请确认个人访问令牌具有「${permission}」权限，且当前账号能访问该资源`
+      : `云效${operation}失败（HTTP ${status}）：请检查令牌、需求链接及工作项权限`);
+  }
+}
+
+function requestContext(path: string): { operation: string; permission: string } {
+  if (path.startsWith("/organizations")) return { operation: "读取组织列表", permission: "组织管理 → 组织 → 只读" };
+  if (path === "/projects:search") return { operation: "查找项目", permission: "项目协作 → 项目 → 只读" };
+  if (path === "/workitems:search") return { operation: "搜索需求", permission: "项目协作 → 工作项 → 只读" };
+  if (/^\/workitems\/[^/]+\/estimatedEfforts$/.test(path)) {
+    return { operation: "登记预计工时", permission: "项目协作 → 预计工时 → 读写" };
+  }
+  if (path === "/workitems") return { operation: "创建任务", permission: "项目协作 → 工作项 → 读写" };
+  if (path.startsWith("/workitems/")) return { operation: "读取需求详情", permission: "项目协作 → 工作项 → 只读" };
+  if (path.endsWith("/fields")) return { operation: "读取任务字段配置", permission: "项目协作 → 工作项类型字段配置 → 只读" };
+  return { operation: "读取任务类型", permission: "项目协作 → 工作项类型 → 只读" };
+}
+
 export function parseRequirementLink(link: string): RequirementReference {
   const url = new URL(link);
   if (url.protocol !== "https:" || url.username || url.password || url.port) {
@@ -90,7 +111,8 @@ async function apiRequest<T>(location: ApiLocation, token: string, path: string,
   });
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(`云效请求失败（HTTP ${response.status}）：请检查令牌权限、地址和工作项 ID`);
+    const { operation, permission } = requestContext(path);
+    throw new YunxiaoApiError(response.status, operation, permission);
   }
   if (typeof data === "object" && data !== null && "success" in data && data.success === false) {
     throw new Error("云效拒绝了请求，请检查项目权限与必填字段");
@@ -141,7 +163,8 @@ async function findRequirement(
     const exact = Array.isArray(filtered)
       ? filtered.find((item) => item.serialNumber === serialNumber) : undefined;
     if (exact) return exact;
-  } catch {
+  } catch (error) {
+    if (!(error instanceof YunxiaoApiError && error.status === 400)) throw error;
     // Some Yunxiao projects do not expose a serial-number filter; scan pages below.
   }
   // 云效搜索以项目为范围；逐页精确匹配编号，避免把同名需求当成目标。
@@ -160,15 +183,18 @@ async function findRequirement(
 export async function getYunxiaoContext(input: ConnectionInput) {
   const reference = parseRequirementLink(input.requirementUrl);
   const matches: Array<{ location: ApiLocation; project: Project; organizationId?: string }> = [];
+  let projectAccessError: unknown;
   for (const organizationId of await listOrganizations(reference, input.token)) {
     const location = locationFor(reference, organizationId);
     try {
       const project = await findProject(location, input.token, reference.projectCode);
       if (project) matches.push({ location, project, organizationId });
-    } catch {
+    } catch (error) {
+      projectAccessError ??= error;
       // A token can list an organization without project access; try the other organizations.
     }
   }
+  if (!matches.length && projectAccessError) throw projectAccessError;
   if (matches.length !== 1) {
     throw new Error(matches.length > 1
       ? "多个组织存在相同项目编号，无法仅凭需求链接安全定位，请联系管理员确认组织"

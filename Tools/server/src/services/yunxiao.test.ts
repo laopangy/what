@@ -164,3 +164,50 @@ test("编号筛选未命中时逐页精确查找", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("组织列表 403 指明缺少的权限", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({}, { status: 403 });
+  try {
+    await assert.rejects(() => getYunxiaoContext(connection),
+      /读取组织列表（HTTP 403）.*组织管理 → 组织 → 只读/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("项目搜索 403 不被组织轮询吞掉", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => String(input).includes("/platform/organizations")
+    ? Response.json([{ id: "org123" }]) : Response.json({}, { status: 403 });
+  try {
+    await assert.rejects(() => getYunxiaoContext(connection),
+      /查找项目（HTTP 403）.*项目协作 → 项目 → 只读/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("需求搜索 403 不再被当成筛选条件不支持", async () => {
+  const originalFetch = globalThis.fetch;
+  let searchCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/platform/organizations")) return Response.json([{ id: "org123" }]);
+    if (url.endsWith("/projects:search")) {
+      return Response.json([{ id: "project123", customCode: "WBGA" }]);
+    }
+    if (url.endsWith("/workitems:search")) {
+      searchCalls += 1;
+      return Response.json({}, { status: 403 });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  try {
+    await assert.rejects(() => getYunxiaoContext(connection),
+      /搜索需求（HTTP 403）.*项目协作 → 工作项 → 只读/);
+    assert.equal(searchCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
