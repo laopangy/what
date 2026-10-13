@@ -13,6 +13,11 @@ import type { JournalEntry } from "../types/journal.js";
 
 export const journalRouter = Router();
 
+const localDate = () => {
+  const value = new Date();
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+};
+
 const createSchema = z.object({
   rawText: z.string().min(1, "内容不能为空"),
   date: z.string().optional(),
@@ -27,8 +32,7 @@ journalRouter.post("/", async (req, res) => {
   }
 
   const { rawText, date } = parsed.data;
-  const today = new Date().toISOString().slice(0, 10);
-  const entryDate = date || today;
+  const entryDate = date || localDate();
 
   // Check if entry already exists for this date
   const existing = await getEntryByDate(entryDate);

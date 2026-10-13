@@ -945,6 +945,7 @@ Tools 前端使用 React 19、React Router 7 与 Tailwind CSS 4，端口为 `517
 - 离开随手记（切换页面或关闭工作台嵌入页）、刷新页面或闲置 5 分钟（无键盘、鼠标、滚轮或触摸操作）后自动锁定，页头也提供“锁定”按钮；上锁时立即吊销服务端令牌并清空已加载的日记。
 - 因闲置、手动锁定或令牌失效上锁时，未提交的新日记和编辑中的原文草稿保留在页面内存中，解锁后自动恢复；离开随手记、刷新页面、取消或关闭编辑窗口会丢弃草稿。上锁前发出的请求返回后不会写入新的解锁会话。
 - 日记仍按原方式保存在 `data/what.vault`，本功能不新增任何落盘数据。
+- 新建日记未指定日期时使用服务端本机日期（此前按 UTC 取日期，北京时间 0–8 点写的日记会记到前一天）。
 
 #### 云效任务创建
 
@@ -1436,10 +1437,10 @@ Outdoor API：
 | 2026-09-04 | Codex | Outdoor/同行人员 | 移除女性人数选项、校验提示及行程展示，仅保留成年人、老人、儿童；兼容历史数据字段，调整人数时清零旧女性统计 | `Outdoor/client/src/App.tsx`, `CLAUDE.md`, `PROJECT.md` |
 
 | 2026-09-04 | Codex | 账号与服务/Outdoor | 接入 iCloud CalDAV：加密保存连接凭据、选择日历与提醒，已保存行程手动同步，固定 UID 更新、断网重试与旧活动清理；补充隔离协议/加密/浏览器测试 | `Music/client/src/components/dashboard/ICloudSettingsCard.tsx`, `Outdoor/server/src/icloud*.ts`, `calendarEvents.ts`, `routes/calendar.ts`, `Outdoor/client/src/App.tsx`, `Outdoor/tests/*`, `CLAUDE.md`, `PROJECT.md` |
-
 | 2026-09-04 | Qoder | 账号与服务/iCloud 连接 | 修复连接失败原因被统一提示掩盖的问题：实测 Apple 对无效凭据返回 403（非 401），现按状态区分提示—凭据被拒显示“iCloud 登录失败”、429 显示限流、传输层故障显示网络错误，不再一律显示“无法连接 iCloud，请检查网络…”；错误附带 HTTP 状态码供上层识别 | `Outdoor/server/src/icloudClient.ts`, `Outdoor/server/src/icloudCalendar.test.ts`, `PROJECT.md` |
 | 2026-09-18 | Codex | Tools/云效任务创建 | 新增云效需求连接、任务类型和必填字段读取、DeepSeek 文字拆解及预计工时分析；草稿逐条编辑确认后创建关联任务并登记预计工时，令牌不落盘 | `Tools/client/src/components/yunxiao/YunxiaoTaskCreator.tsx`, `Tools/server/src/services/yunxiao.ts`, `yunxiaoAI.ts`, `routes/yunxiao.ts`, `PROJECT.md` |
 | 2026-09-18 | Codex | Tools/云效需求链接 | 云效任务创建改为直接输入需求详情链接和令牌，自动按展示编号定位组织、项目与内部工作项，创建前精确核对父需求；不再要求手填组织地址和内部 ID | `Tools/client/src/components/yunxiao/YunxiaoTaskCreator.tsx`, `Tools/server/src/services/yunxiao.ts`, `routes/yunxiao.ts`, `PROJECT.md` |
 | 2026-09-18 | Codex | Tools/云效 403 诊断 | 按接口步骤提示个人访问令牌所需权限，避免项目轮询或需求筛选吞掉 403；增加模拟回归测试 | `Tools/server/src/services/yunxiao.ts`, `yunxiao.test.ts`, `PROJECT.md` |
 | 2026-09-18 | Codex | Tools/云效创建 400 诊断 | 创建任务的 HTTP 400 提示改为参数检查，并显示云效返回的业务错误码及脱敏、截断后的错误说明；增加令牌不泄露测试 | `Tools/server/src/services/yunxiao.ts`, `yunxiao.test.ts`, `PROJECT.md` |
 | 2026-10-13 | Qoder | Tools/随手记 | 新增进入密码：复用工作台数据密码换取 12 小时内存令牌，服务端校验全部日记接口，连续 5 次错误冷却 30 秒；离开、刷新或闲置 5 分钟自动锁定并支持手动锁定，闲置或令牌失效上锁时保留未提交草稿并在解锁后恢复；不新增落盘数据 | `Tools/server/src/vault.ts`, `services/journalLock.ts`, `services/journalLock.test.ts`, `routes/journalLock.ts`, `index.ts`, `Tools/client/src/stores/journalStore.ts`, `components/journal/JournalLockGate.tsx`, `JournalHome.tsx`, `JournalInput.tsx`, `JournalDetail.tsx`, `App.tsx`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-10-13 | Qoder | Tools/随手记 | 修复新建日记未指定日期时按 UTC 取日期：北京时间 0–8 点在随手记页面写的日记会记到前一天，改为使用服务端本机日期 | `Tools/server/src/routes/journal.ts`, `PROJECT.md` |
