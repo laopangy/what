@@ -33,7 +33,10 @@ export const config = {
     origin: process.env.CORS_ORIGIN || "http://localhost:5174",
   },
   modules: {
-    music: process.env.MUSIC_API_URL || "http://localhost:3001",
+    music: process.env.MUSIC_API_URL || "http://127.0.0.1:3001",
+    tools: process.env.TOOLS_API_URL || "http://127.0.0.1:3002",
+    fitness: process.env.FITNESS_API_URL || "http://127.0.0.1:3003",
+    outdoor: process.env.OUTDOOR_API_URL || "http://127.0.0.1:3004",
   },
 };
 

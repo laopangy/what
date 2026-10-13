@@ -54,14 +54,14 @@ what/
 | 模块 | 前端端口 | 后端端口 |
 |------|---------|---------|
 | Music | 5173 | 3001 |
-| Workbench | 5174 | 3000 |
+| Workbench | 5174 | 3000（仅监听 127.0.0.1） |
 | Tools | 5175 | 3002 |
 | Fitness | 5176 | 3003 |
 | Outdoor | 5177 | 3004 |
 
 ### Vite 代理配置
 - Music client 的 `/api` → `http://localhost:3001`，`/ws` → `ws://localhost:3001`
-- Workbench client 的 `/api` → `http://localhost:3000`
+- Workbench client 的 `/api` → `http://127.0.0.1:3000`（服务端只监听 IPv4 本机地址，代理不要改回 `localhost`，Node 可能把它解析成 `::1`）
 - Fitness client 的 `/api` → `http://localhost:3003`
 - Outdoor client 的 `/api` → `http://localhost:3004`
 
@@ -194,7 +194,7 @@ npm run dev:web
 | 10 | `.env` 文件已创建 | `cat Music/server/.env workbench/server/.env` |
 | 11 | DeepSeek API Key 已配置 | 账号与服务设置显示“已配置”；有效性需启动 workbench 后发送消息测试 |
 | 12 | Music server 启动 | `curl http://localhost:3001/api/playback/state` |
-| 13 | Workbench server 启动 | `curl http://localhost:3000/api/chat` |
+| 13 | Workbench server 启动 | `curl http://127.0.0.1:3000/api/health` |
 | 14 | Tools server 启动 | `curl http://localhost:3002/api/health` |
 
 ## 依赖关系图
@@ -210,7 +210,7 @@ workbench/client ──WebSocket────────────────
        │
        │ HTTP /api
        ▼
-  workbench/server
+  workbench/server ──HTTP（AI 模块插件）──► Tools/server :3002、Fitness/server :3003、Outdoor/server :3004
 ```
 
 ## Music 服务器 API 端点
@@ -409,7 +409,21 @@ Outdoor 后端只监听 127.0.0.1，并限制请求来源为本机 5173/5174/517
 
 ## Workbench 服务器配置项
 
-Workbench AI 对话以通用问答为主，音乐控制是按需工具能力。只有用户明确提出音乐需求，或当前消息明显延续上一轮音乐操作时，服务端才会向模型注入音乐提示及工具定义；数学、知识问答、写作和闲聊等请求不携带音乐上下文，也不会追加听歌引导。
+Workbench AI 对话是覆盖整个工作台的私人助手：普通问答、写作和闲聊直接回答；用户明确提出某个模块的需求时，服务端按意图（或由模型调用 `load_module_tools`）只加载该模块的工具，普通问答不携带模块上下文，也不会追加模块引导。各模块在对话中的能力：
+
+| 模块 | 对话中可以 | 只能到页面手动操作 |
+|------|-----------|-------------------|
+| 肌肉大 | 查看今日概况、近期记录和训练计划，估算热量，记录饮食、体重和训练，删除饮食记录（需确认） | 修改训练计划、个人资料和目标 |
+| 定时任务 | 查看任务和执行历史，启用/停用、立即执行（需确认） | 新建、修改、删除任务 |
+| 户外 | 查看已保存行程，同步到苹果日历（需确认） | 生成行程、搜索地点 |
+| 音乐 | 搜索、播放、播放控制和队列管理 | — |
+| 随手记 | 查看、新建或追加（需在对话中解锁） | 删除、覆盖已有内容 |
+| 拼豆、云效 | 打开页面 | 全部操作 |
+
+- 标注“需确认”的操作只生成确认卡片，用户点击“确认”后才由服务端执行；待确认操作只在服务端内存保存 10 分钟，服务重启后失效。
+- 随手记密码只在对话里的解锁卡片中输入，由服务端转发给 Tools 换取令牌，不进入对话历史，也不发给 AI；令牌只保存在 Tools 服务与页面内存中，闲置 5 分钟、离开 AI 对话页、刷新页面或手动锁定后吊销，相关消息随即隐藏。
+- 工具结果精简后才发给 DeepSeek（不含定时任务的请求/命令配置、户外出发地址等）；回复为纯文本。
+- 服务只监听 `127.0.0.1`。修改对话或插件逻辑后运行 `cd workbench/server && npm test`（模拟模型与模块服务，不访问 DeepSeek，也不读写数据仓库）。
 
 配置通过 `workbench/server/src/config.ts` 从环境变量读取：
 
@@ -420,7 +434,10 @@ Workbench AI 对话以通用问答为主，音乐控制是按需工具能力。�
 | `ANTHROPIC_AUTH_TOKEN` | (空) | DeepSeek API Key |
 | `ANTHROPIC_MODEL` | `deepseek-v4-pro` | 模型名称 |
 | `CORS_ORIGIN` | `http://localhost:5174` | 允许的跨域来源 |
-| `MUSIC_API_URL` | `http://localhost:3001` | Music 服务器地址 |
+| `MUSIC_API_URL` | `http://127.0.0.1:3001` | Music 服务器地址 |
+| `TOOLS_API_URL` | `http://127.0.0.1:3002` | Tools 服务器地址（定时任务、随手记） |
+| `FITNESS_API_URL` | `http://127.0.0.1:3003` | Fitness 服务器地址 |
+| `OUTDOOR_API_URL` | `http://127.0.0.1:3004` | Outdoor 服务器地址 |
 
 ## 常见问题
 

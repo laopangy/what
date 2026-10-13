@@ -1,7 +1,7 @@
 import type { ChatMessage } from "../../types/chat";
 import ToolCallCard from "./ToolCallCard";
 import LoginQRCard from "./LoginQRCard";
-import { User, Bot, Sparkles } from "lucide-react";
+import { Lock, User, Sparkles } from "lucide-react";
 
 function findLoginQr(toolCalls?: ChatMessage["toolCalls"]) {
   if (!toolCalls) return null;
@@ -37,7 +37,7 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
       <div className={`max-w-[85%] ${isUser ? "items-end" : "items-start"} flex flex-col gap-1.5`}>
         {/* Tool calls */}
         {message.toolCalls?.map((tc, i) => (
-          <ToolCallCard key={i} toolCall={tc} />
+          <ToolCallCard key={i} messageId={message.id} toolCall={tc} />
         ))}
 
         {loginQr && (
@@ -45,15 +45,26 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
         )}
 
         {/* Message bubble */}
-        <div
-          className={`px-3.5 py-2.5 rounded-xl text-[12px] leading-relaxed whitespace-pre-wrap ${
-            isUser
-              ? "bg-accent/[0.13] text-text rounded-br-sm border border-accent/20"
-              : "glass border border-border/60 text-text rounded-bl-sm"
-          }`}
-        >
-          {message.content}
-        </div>
+        {message.masked ? (
+          <div
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-dashed border-border/60 text-[12px] italic text-text-dim/60 ${
+              isUser ? "rounded-br-sm" : "rounded-bl-sm"
+            }`}
+          >
+            <Lock className="w-3 h-3" strokeWidth={1.8} />
+            随手记内容已隐藏
+          </div>
+        ) : (
+          <div
+            className={`px-3.5 py-2.5 rounded-xl text-[12px] leading-relaxed whitespace-pre-wrap ${
+              isUser
+                ? "bg-accent/[0.13] text-text rounded-br-sm border border-accent/20"
+                : "glass border border-border/60 text-text rounded-bl-sm"
+            }`}
+          >
+            {message.content}
+          </div>
+        )}
 
         {textQrUrl && (
           <LoginQRCard qrCodeUrl={textQrUrl} message="请使用网易云音乐 APP 扫码登录" />

@@ -1,19 +1,22 @@
-import { Send, Sparkles, ArrowUp } from "lucide-react";
+import { Sparkles, ArrowUp } from "lucide-react";
 import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+
+const MAX_MESSAGE_LENGTH = 20_000;
 
 interface Props {
   onSend: (text: string) => void;
   disabled?: boolean;
+  autoFocus?: boolean;
 }
 
-export default function ChatInput({ onSend, disabled }: Props) {
+export default function ChatInput({ onSend, disabled, autoFocus = true }: Props) {
   const [text, setText] = useState("");
   const [focused, setFocused] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (!disabled && ref.current) ref.current.focus();
-  }, [disabled]);
+    if (!disabled && autoFocus && ref.current) ref.current.focus();
+  }, [disabled, autoFocus]);
 
   const handleSend = () => {
     const trimmed = text.trim();
@@ -51,6 +54,7 @@ export default function ChatInput({ onSend, disabled }: Props) {
           onBlur={() => setFocused(false)}
           placeholder="输入消息，Enter 发送，Shift+Enter 换行…"
           rows={1}
+          maxLength={MAX_MESSAGE_LENGTH}
           disabled={disabled}
           className="flex-1 resize-none bg-transparent text-[12px] text-text placeholder:text-text-dim/45 outline-none py-1.5 disabled:opacity-50 leading-relaxed"
         />

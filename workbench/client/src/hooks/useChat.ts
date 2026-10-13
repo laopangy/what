@@ -1,35 +1,51 @@
+import { useNavigate } from "react-router-dom";
 import { useChatStore } from "../stores/chatStore";
 import { chatApi } from "../api/client";
-import type { ChatMessage } from "../types/chat";
+import type { ChatResponse } from "../types/chat";
+
+const HISTORY_LIMIT = 40;
+const CONTINUE_AFTER_UNLOCK = "已解锁随手记，请继续";
 
 export function useChat() {
-  const { messages, isLoading, addMessage, setLoading } = useChatStore();
+  const messages = useChatStore((s) => s.messages);
+  const isLoading = useChatStore((s) => s.isLoading);
+  const navigate = useNavigate();
 
   const sendMessage = async (text: string) => {
-    addMessage({ role: "user", content: text });
-    setLoading(true);
+    const store = useChatStore.getState();
+    if (store.isLoading) return;
+    // Later turns can quote journal content from history, so they stay sensitive until everything is masked.
+    const followsSensitive = store.messages.some((m) => m.sensitive && !m.masked);
+    const { journalToken: token, lockCount } = store;
+    const userId = store.addMessage({ role: "user", content: text });
+    const history = useChatStore.getState().messages.slice(-HISTORY_LIMIT).map(({ role, content }) => ({ role, content }));
+    store.setLoading(true);
 
+    let reply: ChatResponse | undefined;
+    let failure = "";
     try {
-      const history = useChatStore.getState().messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-      const res = await chatApi.send(history);
-      if (res.success && res.data) {
-        addMessage({
-          role: "assistant",
-          content: res.data.content,
-          toolCalls: res.data.toolCalls as ChatMessage["toolCalls"],
-        });
-      } else {
-        addMessage({ role: "assistant", content: `出错了: ${res.error || "未知错误"}` });
-      }
+      const res = await chatApi.send(history, token);
+      if (res.success && res.data) reply = res.data;
+      else failure = `出错了：${res.error ?? "未知错误"}`;
     } catch {
-      addMessage({ role: "assistant", content: "网络错误，请检查服务器连接。" });
-    } finally {
-      setLoading(false);
+      failure = "网络错误，请检查服务器连接。";
     }
+
+    const current = useChatStore.getState();
+    const lockedWhileWaiting = current.lockCount !== lockCount;
+    // The Tools session expired on its own: revoke it here too and hide what it revealed before this turn.
+    if (reply?.journalLocked && current.journalToken) current.lockJournal();
+    const sensitive = followsSensitive || reply?.sensitive === true;
+    if (sensitive) current.updateMessage(userId, { sensitive: true });
+    current.addMessage(reply
+      ? { role: "assistant", content: reply.content, toolCalls: reply.toolCalls, sensitive: sensitive || undefined, journalLocked: reply.journalLocked }
+      : { role: "assistant", content: failure });
+    if (lockedWhileWaiting && sensitive) current.lockJournal();
+    current.setLoading(false);
+    if (reply?.navigate) navigate(reply.navigate);
   };
 
-  return { messages, isLoading, sendMessage };
+  const continueAfterUnlock = () => sendMessage(CONTINUE_AFTER_UNLOCK);
+
+  return { messages, isLoading, sendMessage, continueAfterUnlock };
 }

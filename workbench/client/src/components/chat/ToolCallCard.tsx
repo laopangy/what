@@ -1,58 +1,50 @@
-import type { ToolCall } from "../../types/chat";
-import { ChevronDown, ChevronUp, Search, Play, Pause, SkipForward, SkipBack, Volume2, ListMusic, Heart, Sparkles, User, Clock, Plus, BookOpen, Disc, Zap } from "lucide-react";
 import { useState } from "react";
+import {
+  Activity, BookOpen, CalendarClock, ChevronDown, ChevronUp, Clock, Dumbbell, ExternalLink, Flame, History,
+  ListChecks, ListMusic, Mountain, Music, NotebookPen, Pause, Play, Plus, Power, QrCode, Route, Salad, Scale,
+  Search, SkipBack, SkipForward, Timer, User, Utensils, Volume2, Zap, type LucideIcon,
+} from "lucide-react";
+import type { ToolCall } from "../../types/chat";
+import ConfirmActionCard from "./ConfirmActionCard";
 
-const toolIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  search_songs: Search, search_playlists: Search, search_albums: Search,
-  play_song: Play, play_playlist: Play,
-  pause: Pause, resume: Play, stop: Pause, next_track: SkipForward, prev_track: SkipBack,
-  set_volume: Volume2, seek: Clock,
-  get_playback_state: Play, get_queue: ListMusic,
-  add_to_queue: Plus, clear_queue: ListMusic,
-  get_playlist: ListMusic, get_playlist_tracks: ListMusic,
-  get_daily_recommend: Sparkles, get_personal_fm: Sparkles,
-  get_liked_songs: Heart, get_user_profile: User,
-  get_listening_history: Clock, like_song: Heart, dislike_song: Heart,
-  get_lyrics: BookOpen, get_album: Disc, get_album_tracks: Disc,
-  create_playlist: Plus, add_to_playlist: Plus,
+const TOOL_ICONS: Record<string, LucideIcon> = {
+  search_songs: Search, search_playlists: Search,
+  play_song: Play, play_playlist: Play, resume: Play, pause: Pause, stop: Pause,
+  next_track: SkipForward, prev_track: SkipBack, set_volume: Volume2, seek: Clock,
+  get_playback_state: Music, get_queue: ListMusic, clear_queue: ListMusic, add_to_queue: Plus,
+  get_user_profile: User, get_login_qr: QrCode,
+  fitness_today: Flame, fitness_history: Activity, fitness_plan: ListChecks, fitness_estimate_food: Salad,
+  fitness_log_meal: Utensils, fitness_delete_meal: Utensils, fitness_log_weight: Scale, fitness_log_workout: Dumbbell,
+  timer_list: Timer, timer_history: History, timer_toggle: Power, timer_trigger: Play,
+  outdoor_list_journeys: Mountain, outdoor_get_journey: Route, outdoor_sync_calendar: CalendarClock,
+  journal_list: BookOpen, journal_read: BookOpen, journal_write: NotebookPen,
+  open_module: ExternalLink,
 };
 
-const toolLabels: Record<string, string> = {
-  search_songs: "搜索歌曲", search_playlists: "搜索歌单", search_albums: "搜索专辑",
-  play_song: "播放歌曲", play_playlist: "播放歌单",
-  pause: "暂停", resume: "继续", stop: "停止",
-  next_track: "下一首", prev_track: "上一首",
-  set_volume: "设置音量", seek: "跳转进度",
-  get_playback_state: "播放状态", get_queue: "播放队列",
-  add_to_queue: "添加到队列", clear_queue: "清空队列",
-  get_playlist: "歌单详情", get_playlist_tracks: "歌单歌曲",
-  get_daily_recommend: "每日推荐", get_personal_fm: "私人FM",
-  get_liked_songs: "我喜欢的", get_user_profile: "用户信息",
-  get_listening_history: "播放历史", like_song: "收藏歌曲", dislike_song: "取消收藏",
-  get_lyrics: "查看歌词", get_album: "专辑详情", get_album_tracks: "专辑歌曲",
-  create_playlist: "创建歌单", add_to_playlist: "添加歌曲到歌单",
+const summaryOf = ({ name, args, result }: ToolCall) => {
+  if (name === "open_module" && result && typeof result === "object") {
+    const page = (result as Record<string, unknown>).page;
+    if (typeof page === "string") return page;
+  }
+  return Object.values(args).find((value): value is string => typeof value === "string" && value.length > 0);
 };
 
-export default function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
+export default function ToolCallCard({ messageId, toolCall }: { messageId: string; toolCall: ToolCall }) {
   const [open, setOpen] = useState(false);
-  const Icon = toolIcons[toolCall.name] || Zap;
-  const label = toolLabels[toolCall.name] || toolCall.name;
-
-  const summary: string | undefined = toolCall.args
-    ? (Object.values(toolCall.args).find((v) => typeof v === "string" && v.length > 0) as string)
-    : undefined;
+  const Icon = TOOL_ICONS[toolCall.name] ?? Zap;
+  const summary = summaryOf(toolCall);
 
   return (
     <div className="mb-1.5 text-xs">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
         className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-accent/[0.07] border border-accent/20 text-accent-dim hover:bg-accent/[0.11] hover:border-accent/30 smooth group"
       >
         <Icon className="w-3 h-3 text-accent-dim/70 group-hover:text-accent-dim smooth" />
-        <span className="font-medium">{label}</span>
-        {summary && (
-          <span className="text-text-dim/50 truncate max-w-[120px]">· {String(summary)}</span>
-        )}
+        <span className="font-medium">{toolCall.label ?? toolCall.name}</span>
+        {summary && <span className="text-text-dim/50 truncate max-w-[160px]">· {summary}</span>}
         <span className="ml-auto text-accent-dim/40">
           {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </span>
@@ -62,6 +54,7 @@ export default function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
           {JSON.stringify(toolCall.result, null, 2)}
         </pre>
       )}
+      {toolCall.confirmation && <ConfirmActionCard messageId={messageId} confirmation={toolCall.confirmation} />}
     </div>
   );
 }

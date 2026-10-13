@@ -3,24 +3,37 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ToolConfirmation {
+  actionId: string;
+  summary: string;
+  expiresAt: number;
+}
+
 export interface ToolCall {
   name: string;
+  module?: string;
+  label?: string;
   args: Record<string, unknown>;
   result?: unknown;
+  confirmation?: ToolConfirmation;
 }
 
 export interface ChatResponse {
   content: string;
   toolCalls: ToolCall[];
+  navigate?: string;
+  journalLocked?: boolean;
+  sensitive?: boolean;
 }
 
 export interface DeepSeekMessage {
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant";
   content: string | DeepSeekContentBlock[];
 }
 
+// Thinking blocks and other provider-specific blocks are passed back unchanged.
 export interface DeepSeekContentBlock {
-  type: "text" | "tool_use" | "tool_result";
+  type: string;
   text?: string;
   id?: string;
   name?: string;
@@ -40,8 +53,8 @@ export interface DeepSeekTool {
 }
 
 export interface DeepSeekResponse {
-  id: string;
-  model: string;
-  stop_reason: "end_turn" | "tool_use" | "max_tokens" | "stop_sequence";
+  id?: string;
+  model?: string;
+  stop_reason: string | null;
   content: DeepSeekContentBlock[];
 }
