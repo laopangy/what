@@ -10,10 +10,10 @@ interface JournalDetailProps {
 }
 
 export default function JournalDetail({ entry, onClose }: JournalDetailProps) {
-  const { deleteEntry, updateEntry, reprocessEntry, submitting } = useJournalStore();
+  const { deleteEntry, updateEntry, reprocessEntry, submitting, editDraft, setEditDraft } = useJournalStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [editText, setEditText] = useState(entry.rawText);
+  const editText = editDraft?.id === entry.id ? editDraft.text : undefined;
+  const editing = editText !== undefined;
   const { structured, date, rawText } = entry;
 
   const handleDelete = async () => {
@@ -27,10 +27,9 @@ export default function JournalDetail({ entry, onClose }: JournalDetailProps) {
   };
 
   const handleEdit = async () => {
-    if (!editText.trim() || submitting) return;
+    if (!editText?.trim() || submitting) return;
     try {
       await updateEntry(entry.id, editText.trim());
-      setEditing(false);
     } catch {
       // error shown by store
     }
@@ -93,11 +92,11 @@ export default function JournalDetail({ entry, onClose }: JournalDetailProps) {
         {/* Content */}
         <div className="p-6 space-y-5">
           {/* Edit mode */}
-          {editing && (
+          {editText !== undefined && (
             <div className="space-y-3">
               <textarea
                 value={editText}
-                onChange={(e) => setEditText(e.target.value)}
+                onChange={(e) => setEditDraft({ id: entry.id, text: e.target.value })}
                 onKeyDown={handleKeyDown}
                 placeholder="编辑日记原文..."
                 rows={10}
@@ -109,10 +108,7 @@ export default function JournalDetail({ entry, onClose }: JournalDetailProps) {
               </p>
               <div className="flex items-center justify-end gap-3">
                 <button
-                  onClick={() => {
-                    setEditing(false);
-                    setEditText(entry.rawText);
-                  }}
+                  onClick={() => setEditDraft(null)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
                 >
                   取消
@@ -260,10 +256,7 @@ export default function JournalDetail({ entry, onClose }: JournalDetailProps) {
         <div className="flex items-center justify-between p-5 border-t border-slate-800">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setEditing(!editing);
-                setEditText(entry.rawText);
-              }}
+              onClick={() => setEditDraft(editing ? null : { id: entry.id, text: entry.rawText })}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
             >
               <Pencil className="w-3.5 h-3.5" />

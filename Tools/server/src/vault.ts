@@ -1,4 +1,4 @@
-import { pbkdf2Sync, randomBytes, createCipheriv, createDecipheriv } from "crypto";
+import { pbkdf2Sync, randomBytes, createCipheriv, createDecipheriv, createHash, timingSafeEqual } from "crypto";
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "fs";
 import path from "path";
 import { config } from "./config.js";
@@ -98,6 +98,12 @@ export async function unlockVault(password: string): Promise<void> {
 
 export function isVaultUnlocked(): boolean {
   return activePassword !== null;
+}
+
+const digest = (value: string) => createHash("sha256").update(value, "utf8").digest();
+
+export function verifyVaultPassword(candidate: string): boolean {
+  return activePassword !== null && timingSafeEqual(digest(candidate), digest(activePassword));
 }
 
 export async function readVault(): Promise<VaultData> {

@@ -1,17 +1,22 @@
 import { useState, useEffect } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useJournalStore } from "../../stores/journalStore";
 import JournalInput from "./JournalInput";
 import JournalCard from "./JournalCard";
 import JournalDetail from "./JournalDetail";
 import EmptyState from "../shared/EmptyState";
 import LoadingSpinner from "../shared/LoadingSpinner";
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen, Lock, Plus } from "lucide-react";
 
 export default function JournalHome() {
-  const { entries, loading, submitting, error, fetchEntries, createEntry } =
-    useJournalStore();
-  const [showInput, setShowInput] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { entries, loading, submitting, error } = useJournalStore(
+    useShallow((s) => ({ entries: s.entries, loading: s.loading, submitting: s.submitting, error: s.error }))
+  );
+  const { fetchEntries, createEntry, lock, setDraft, setEditDraft } = useJournalStore.getState();
+  const [showInput, setShowInput] = useState(() => useJournalStore.getState().draft.trim() !== "");
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => useJournalStore.getState().editDraft?.id ?? null
+  );
   const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
@@ -45,16 +50,26 @@ export default function JournalHome() {
             用白话文写日记，AI 帮你整理
           </p>
         </div>
-        <button
-          onClick={() => {
-            setSelectedId(null);
-            setShowInput(true);
-          }}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-indigo-500/20"
-        >
-          <Plus className="w-4 h-4" />
-          写日记
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => lock(true)}
+            title="锁定随手记"
+            className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+          >
+            <Lock className="w-4 h-4" />
+            锁定
+          </button>
+          <button
+            onClick={() => {
+              setSelectedId(null);
+              setShowInput(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-indigo-500/20"
+          >
+            <Plus className="w-4 h-4" />
+            写日记
+          </button>
+        </div>
       </div>
 
       {/* Error */}
@@ -68,7 +83,10 @@ export default function JournalHome() {
       {showInput && (
         <JournalInput
           onSubmit={handleSubmit}
-          onClose={() => setShowInput(false)}
+          onClose={() => {
+            setDraft("");
+            setShowInput(false);
+          }}
           submitting={submitting}
           error={submitError}
         />
@@ -78,7 +96,10 @@ export default function JournalHome() {
       {selected && (
         <JournalDetail
           entry={selected}
-          onClose={() => setSelectedId(null)}
+          onClose={() => {
+            setEditDraft(null);
+            setSelectedId(null);
+          }}
         />
       )}
 

@@ -125,6 +125,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\setup.ps1 -ForceS
 - `.env` 格式可参考 `Music/server/.env.example` 和 `workbench/server/.env.example`
 - 首次进入工作台需输入数据密码。密码只用于运行时验证和密钥派生，不写入仓库文件或项目文档
 - 解锁页采用与工作台一致的灰蓝玻璃与 QQ 绿设计：双栏说明数据保护方式，提供连接中、解锁中和内联错误状态；Electron 锁屏时仍显示最小化、最大化和关闭按钮。进入工作台后会定期检查 Tools 与 Fitness 的解锁状态，任一服务重启并重新上锁时自动返回密码页
+- 进入随手记需再次输入工作台数据密码；离开随手记、刷新页面或闲置 5 分钟后自动锁定，也可手动锁定。解锁令牌只保存在 Tools 服务与页面内存中，Tools 服务重启后需重新解锁
 - 定时器、执行历史、日记、Fitness 数据和户外行程统一保存在根目录 `data/what.vault`。文件使用随机盐、PBKDF2-SHA256 和 AES-256-GCM 加密，并作为二进制文件随 Git 项目在 A/B 电脑间同步；运行期锁和临时文件仍由 Git 忽略
 - 启动前会运行 `npm run check:data-sync`，检查加密数据是否未提交、未推送或落后于本地记录的远端分支；Electron 启动及退出时也会显示同步提醒。密文无法安全合并，换电脑前必须在当前电脑提交并推送，另一台电脑先拉取再打开
 - 所有用户生成的业务数据必须进入加密仓库，禁止在模块 `server/data/` 中保留明文 JSON；开发和构建前会运行 `npm run check:data-security` 检查旧明文文件及加密信封结构，迁移脚本写入成功后会立即删除明文源文件
@@ -246,10 +247,13 @@ workbench/client ──WebSocket────────────────
 | `/api/analyze/style` | 分析网易云或 QQ 歌单（body: `{ playlistIds, provider }`）并返回品味画像与推荐歌曲 |
 | `/api/theme/cover-image` | 受限代理 QQ/网易云专辑封面，供本地播放器提取动态主题色 |
 
-## Tools 服务器 API 端点（定时器）
+## Tools 服务器 API 端点（定时器与随手记）
 
 | 路由 | 用途 |
 |------|------|
+| `/api/journal-lock/unlock` (POST) | 用工作台数据密码换取随手记访问令牌（12 小时有效，仅存内存）；连续 5 次错误冷却 30 秒并返回 429 与 `Retry-After`，数据仓库未解锁时返回 423 |
+| `/api/journal-lock/lock` (POST) | 吊销请求头 `X-Journal-Token` 中的随手记令牌 |
+| `/api/journal/*` | 随手记日记接口，必须携带有效的 `X-Journal-Token`，否则返回 401 `JOURNAL_LOCKED` |
 | `/api/timer` | 获取所有定时器 |
 | `/api/timer` (POST) | 创建定时器 |
 | `/api/timer/:id` | 获取单个定时器 |

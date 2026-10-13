@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 import { X, Sparkles, Send } from "lucide-react";
+import { useJournalStore } from "../../stores/journalStore";
 
 interface JournalInputProps {
   onSubmit: (text: string) => Promise<void>;
@@ -14,7 +15,15 @@ export default function JournalInput({
   submitting,
   error,
 }: JournalInputProps) {
-  const [text, setText] = useState("");
+  const text = useJournalStore((s) => s.draft);
+  const setText = useJournalStore((s) => s.setDraft);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // A restored draft should continue from its end rather than from the first character.
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
+  }, []);
 
   const handleSubmit = async () => {
     if (!text.trim() || submitting) return;
@@ -48,6 +57,7 @@ export default function JournalInput({
         {/* Body */}
         <div className="p-5">
           <textarea
+            ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}

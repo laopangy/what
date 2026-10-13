@@ -935,6 +935,17 @@ toolRegistry.ts
 
 Tools 前端使用 React 19、React Router 7 与 Tailwind CSS 4，端口为 `5175`。侧栏按定时任务、项目协作与图像工具分组，目前提供定时器、执行历史、日记、云效任务创建和拼豆规格图。
 
+#### 随手记
+
+路由：`/journal` 与工作台嵌入的 `/embed/journal`；服务端：`POST /api/journal-lock/unlock`、`/lock`，日记接口 `/api/journal/*`。
+
+- 进入随手记需再次输入工作台数据密码，不单独设置密码；服务端以时间安全比较校验当前已解锁的数据仓库密码，数据仓库未解锁时返回 423 并提示先在工作台解锁。
+- 解锁成功后签发 32 字节随机访问令牌，有效期 12 小时，只保存在服务端内存和页面内存中，不写入加密仓库、本地文件或浏览器存储，Tools 服务重启后全部失效。所有 `/api/journal/*` 请求必须携带 `X-Journal-Token`，缺失或失效时返回 401 `JOURNAL_LOCKED`，前端随即回到锁屏。
+- 连续 5 次密码错误后冷却 30 秒（HTTP 429 与 `Retry-After`），锁屏实时倒计时，冷却期间正确密码同样被拒绝。
+- 离开随手记（切换页面或关闭工作台嵌入页）、刷新页面或闲置 5 分钟（无键盘、鼠标、滚轮或触摸操作）后自动锁定，页头也提供“锁定”按钮；上锁时立即吊销服务端令牌并清空已加载的日记。
+- 因闲置、手动锁定或令牌失效上锁时，未提交的新日记和编辑中的原文草稿保留在页面内存中，解锁后自动恢复；离开随手记、刷新页面、取消或关闭编辑窗口会丢弃草稿。上锁前发出的请求返回后不会写入新的解锁会话。
+- 日记仍按原方式保存在 `data/what.vault`，本功能不新增任何落盘数据。
+
 #### 云效任务创建
 
 路由：`/yunxiao`；服务端：`POST /api/yunxiao/context`、`/fields`、`/analyze`、`/create`。
@@ -1431,3 +1442,4 @@ Outdoor API：
 | 2026-09-18 | Codex | Tools/云效需求链接 | 云效任务创建改为直接输入需求详情链接和令牌，自动按展示编号定位组织、项目与内部工作项，创建前精确核对父需求；不再要求手填组织地址和内部 ID | `Tools/client/src/components/yunxiao/YunxiaoTaskCreator.tsx`, `Tools/server/src/services/yunxiao.ts`, `routes/yunxiao.ts`, `PROJECT.md` |
 | 2026-09-18 | Codex | Tools/云效 403 诊断 | 按接口步骤提示个人访问令牌所需权限，避免项目轮询或需求筛选吞掉 403；增加模拟回归测试 | `Tools/server/src/services/yunxiao.ts`, `yunxiao.test.ts`, `PROJECT.md` |
 | 2026-09-18 | Codex | Tools/云效创建 400 诊断 | 创建任务的 HTTP 400 提示改为参数检查，并显示云效返回的业务错误码及脱敏、截断后的错误说明；增加令牌不泄露测试 | `Tools/server/src/services/yunxiao.ts`, `yunxiao.test.ts`, `PROJECT.md` |
+| 2026-10-13 | Qoder | Tools/随手记 | 新增进入密码：复用工作台数据密码换取 12 小时内存令牌，服务端校验全部日记接口，连续 5 次错误冷却 30 秒；离开、刷新或闲置 5 分钟自动锁定并支持手动锁定，闲置或令牌失效上锁时保留未提交草稿并在解锁后恢复；不新增落盘数据 | `Tools/server/src/vault.ts`, `services/journalLock.ts`, `services/journalLock.test.ts`, `routes/journalLock.ts`, `index.ts`, `Tools/client/src/stores/journalStore.ts`, `components/journal/JournalLockGate.tsx`, `JournalHome.tsx`, `JournalInput.tsx`, `JournalDetail.tsx`, `App.tsx`, `CLAUDE.md`, `PROJECT.md` |
