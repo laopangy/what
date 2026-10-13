@@ -11,7 +11,8 @@ let lastState: string | null = null;
 const clients = new Set<WebSocket>();
 
 export function setupWebSocket(server: Server): void {
-  wss = new WebSocketServer({ server });
+  // Browsers skip CORS for WebSockets, so the handshake must check the origin itself.
+  wss = new WebSocketServer({ server, verifyClient: ({ origin }: { origin?: string }) => !origin || config.allowedOrigins.has(origin) });
 
   wss.on("connection", (ws) => {
     clients.add(ws);

@@ -23,17 +23,14 @@ import { settingsRouter } from "./routes/settings.js";
 import { qqRouter } from "./routes/qq.js";
 
 const app = express();
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow Music client (5173), Workbench client (5174), Electron, and same-origin
-    const allowed = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"];
-    if (!origin || allowed.includes(origin) || origin.startsWith("file://")) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Be permissive in dev — the OS firewall is the real gate
-    }
-  },
-}));
+app.use(cors({ origin: (origin, callback) => callback(null, !origin || config.allowedOrigins.has(origin)) }));
+app.use((req, res, next) => {
+  if (req.headers.origin && !config.allowedOrigins.has(req.headers.origin)) {
+    res.status(403).json({ success: false, error: "不允许的请求来源" });
+    return;
+  }
+  next();
+});
 app.use(express.json());
 app.use(logger);
 
@@ -57,7 +54,7 @@ app.use(errorHandler);
 const server = createServer(app);
 setupWebSocket(server);
 
-server.listen(config.port, () => {
+server.listen(config.port, "127.0.0.1", () => {
   console.log(`Server running on http://localhost:${config.port}`);
   const ai = getActiveAiConfig();
   console.log(`AI provider: DeepSeek, model: ${ai.model}`);

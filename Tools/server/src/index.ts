@@ -11,20 +11,14 @@ import { isVaultUnlocked, unlockVault } from "./vault.js";
 
 const app = express();
 
-app.use(cors({
-  origin: (origin, callback) => {
-    const allowed = [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:5175",
-    ];
-    if (!origin || allowed.includes(origin) || origin.startsWith("file://")) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Permissive in dev
-    }
-  },
-}));
+app.use(cors({ origin: (origin, callback) => callback(null, !origin || config.allowedOrigins.has(origin)) }));
+app.use((req, res, next) => {
+  if (req.headers.origin && !config.allowedOrigins.has(req.headers.origin)) {
+    res.status(403).json({ success: false, error: "不允许的请求来源" });
+    return;
+  }
+  next();
+});
 app.use(express.json());
 app.use(logger);
 
@@ -51,7 +45,7 @@ app.get("/api/health", (_req, res) => {
 app.use(errorHandler);
 
 async function start(): Promise<void> {
-  app.listen(config.port, () => {
+  app.listen(config.port, "127.0.0.1", () => {
     console.log(`Timer server running on http://localhost:${config.port} (encrypted vault locked)`);
   });
 }

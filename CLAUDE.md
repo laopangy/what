@@ -54,16 +54,21 @@ what/
 | 模块 | 前端端口 | 后端端口 |
 |------|---------|---------|
 | Music | 5173 | 3001 |
-| Workbench | 5174 | 3000（仅监听 127.0.0.1） |
+| Workbench | 5174 | 3000 |
 | Tools | 5175 | 3002 |
 | Fitness | 5176 | 3003 |
 | Outdoor | 5177 | 3004 |
 
+所有后端只监听 `127.0.0.1`，不对局域网开放。Tools、Fitness、Music 只接受本机 5173–5177 前端（`localhost` 或 `127.0.0.1`）和打包版 Electron（`file://`，其 WebSocket 握手带这个来源）的跨域请求，其他来源（包括 `null`）返回 403，Music 的 WebSocket 握手同样校验来源；不带 Origin 的请求（服务间调用、Electron 主进程、打包版页面的 fetch）不受影响。浏览器跨站发起的简单 GET（图片、脚本标签等）同样不带 Origin，所以 GET 接口必须保持只读。白名单写在各服务 `config.ts` 的 `allowedOrigins` 中，不读取环境变量。
+
 ### Vite 代理配置
 - Music client 的 `/api` → `http://localhost:3001`，`/ws` → `ws://localhost:3001`
-- Workbench client 的 `/api` → `http://127.0.0.1:3000`（服务端只监听 IPv4 本机地址，代理不要改回 `localhost`，Node 可能把它解析成 `::1`）
+- Workbench client 的 `/api` → `http://127.0.0.1:3000`
+- Tools client 的 `/api` → `http://localhost:3002`
 - Fitness client 的 `/api` → `http://localhost:3003`
 - Outdoor client 的 `/api` → `http://localhost:3004`
+
+后端只监听 IPv4，代理目标写 `localhost` 时依赖 Node 在 `::1` 连接失败后回退到 `127.0.0.1`；新增代理或服务地址直接写 `127.0.0.1`。
 
 ## 新电脑完整配置流程
 
@@ -338,7 +343,6 @@ workbench/client ──WebSocket────────────────
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
 | `PORT` | `3002` | 服务器端口 |
-| `CORS_ORIGIN` | `http://localhost:5175` | 允许的跨域来源 |
 | `vaultFile` | `data/what.vault` | 根目录加密数据仓库；由代码固定定位，无需环境变量 |
 
 ## Fitness 服务器配置项
@@ -403,7 +407,6 @@ Outdoor 后端只监听 127.0.0.1，并限制请求来源为本机 5173/5174/517
 | `ANTHROPIC_BASE_URL` | `https://api.deepseek.com/anthropic` | LLM API 地址 |
 | `ANTHROPIC_AUTH_TOKEN` | (空) | DeepSeek API Key |
 | `ANTHROPIC_MODEL` | `deepseek-v4-pro` | 模型名称 |
-| `CORS_ORIGIN` | `http://localhost:5173` | 允许的跨域来源 |
 | `NETEASE_COOKIE` | (空) | 网易云登录 Cookie |
 | `QQ_MUSIC_COOKIE` | (空) | QQ 音乐 Cookie；会员/版权受限歌曲播放时需要 |
 

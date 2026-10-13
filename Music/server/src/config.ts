@@ -31,6 +31,8 @@ function cookieStr(): string {
   return `MUSIC_U=${raw}`;
 }
 
+const CLIENT_PORTS = [5173, 5174, 5175, 5176, 5177];
+
 export const config = {
   port: parseInt(process.env.PORT || "3001"),
   ncmCliCommand: process.env.NCM_CLI_PATH
@@ -43,9 +45,11 @@ export const config = {
     apiKey: process.env.ANTHROPIC_AUTH_TOKEN || "",
     model: process.env.ANTHROPIC_MODEL || "deepseek-v4-pro",
   },
-  cors: {
-    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
-  },
+  // Local front-ends plus the packaged Electron page; "null" stays rejected because any site can send it from a sandboxed iframe.
+  allowedOrigins: new Set([
+    ...CLIENT_PORTS.flatMap((port) => [`http://localhost:${port}`, `http://127.0.0.1:${port}`]),
+    "file://",
+  ]),
   netease: {
     cookie: cookieStr(),
   },

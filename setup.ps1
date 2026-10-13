@@ -579,7 +579,6 @@ function Initialize-EnvironmentFiles {
     Set-EnvValue -Path $musicEnv -Key "PORT" -Value "3001" -PreserveExisting
     Set-EnvValue -Path $musicEnv -Key "NCM_CLI_PATH" -Value $ncmPath
     Set-EnvValue -Path $musicEnv -Key "THEME_IMAGES_DIR" -Value "../client/public/images" -PreserveExisting
-    Set-EnvValue -Path $musicEnv -Key "CORS_ORIGIN" -Value "http://localhost:5173" -PreserveExisting
     Set-EnvValue -Path $musicEnv -Key "ANTHROPIC_AUTH_TOKEN" -Value "" -PreserveExisting
     Set-EnvValue -Path $musicEnv -Key "ANTHROPIC_BASE_URL" -Value "https://api.deepseek.com/anthropic" -PreserveExisting
     Set-EnvValue -Path $musicEnv -Key "ANTHROPIC_MODEL" -Value "deepseek-v4-pro" -PreserveExisting

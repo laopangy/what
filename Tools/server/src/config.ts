@@ -30,11 +30,15 @@ function loadEnv() {
 }
 loadEnv();
 
+const CLIENT_PORTS = [5173, 5174, 5175, 5176, 5177];
+
 export const config = {
   port: parseInt(process.env.PORT || "3002"),
-  cors: {
-    origin: process.env.CORS_ORIGIN || "http://localhost:5175",
-  },
+  // Local front-ends plus the packaged Electron page; "null" stays rejected because any site can send it from a sandboxed iframe.
+  allowedOrigins: new Set([
+    ...CLIENT_PORTS.flatMap((port) => [`http://localhost:${port}`, `http://127.0.0.1:${port}`]),
+    "file://",
+  ]),
   vaultFile: process.env.VAULT_FILE || path.resolve(import.meta.dirname, "..", "..", "..", "data", "what.vault"),
   maxHistory: 100,
   moduleName: "tools",

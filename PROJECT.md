@@ -1322,14 +1322,21 @@ Outdoor API：
 | 模块 | 前端端口 | 后端端口 | Vite 代理 |
 |------|---------|---------|-----------|
 | Music | 5173 | 3001 | `/api` → `http://localhost:3001`<br>`/ws` → `ws://localhost:3001` |
-| Workbench | 5174 | 3000（仅监听 127.0.0.1） | `/api` → `http://127.0.0.1:3000`（`/api/music/*` 再由 Workbench server 转发到 `:3001`） |
+| Workbench | 5174 | 3000 | `/api` → `http://127.0.0.1:3000`（`/api/music/*` 再由 Workbench server 转发到 `:3001`） |
 | Tools | 5175 | 3002 | `/api` → `http://localhost:3002` |
 | Fitness | 5176 | 3003 | `/api` → `http://localhost:3003` |
 | Outdoor | 5177 | 3004 | `/api` → `http://localhost:3004` |
 
+**网络访问**：
+- 所有后端只监听 `127.0.0.1`，不对局域网开放；代理目标写 `localhost` 时由 Node 从 `::1` 回退到 `127.0.0.1`
+- Tools、Fitness、Music 只接受本机 5173–5177 前端（`localhost` 与 `127.0.0.1`）和打包版 Electron（`file://`）的跨域请求，白名单定义在各自 `config.ts` 的 `allowedOrigins`；其他来源（含 `null`）返回 403，不带 Origin 的请求（服务间调用、Electron 主进程、打包版页面的 fetch）放行
+- Outdoor 只允许本机 5173/5174/5177；Workbench 只按 `CORS_ORIGIN` 返回跨域响应头，不拒绝其他来源
+- 浏览器跨站发起的简单 GET（图片、脚本标签等）不带 Origin，GET 接口必须保持只读
+
 **WebSocket 连接**：
 - Music client → `ws://localhost:5173/ws`（经 Vite 代理到 `:3001`）
 - Workbench MiniPlayer → 直连 `ws://localhost:3001/ws`
+- 浏览器不对 WebSocket 执行 CORS，Music 在握手时按同一白名单校验 Origin
 
 **启动时端口清理**：
 - `scripts/clean-ports.js` 在 `npm run dev` 前执行
@@ -1350,7 +1357,6 @@ Outdoor API：
 | `ANTHROPIC_BASE_URL` | `https://api.deepseek.com/anthropic` | LLM API 地址 |
 | `ANTHROPIC_AUTH_TOKEN` | (空) | API Key |
 | `ANTHROPIC_MODEL` | `deepseek-v4-pro` | 模型名称 |
-| `CORS_ORIGIN` | `http://localhost:5173` | 跨域来源 |
 | `NETEASE_COOKIE` | (空) | 🆕 网易云 Cookie（`MUSIC_U=xxx`，支持 VIP 歌曲） |
 | `QQ_MUSIC_COOKIE` | (空) | QQ 音乐 Cookie（公开搜索/歌词无需配置，会员或版权受限歌曲播放需要） |
 
@@ -1547,3 +1553,4 @@ Outdoor API：
 | 2026-10-13 | Qoder | Tools/随手记 | 新增进入密码：复用工作台数据密码换取 12 小时内存令牌，服务端校验全部日记接口，连续 5 次错误冷却 30 秒；离开、刷新或闲置 5 分钟自动锁定并支持手动锁定，闲置或令牌失效上锁时保留未提交草稿并在解锁后恢复；不新增落盘数据 | `Tools/server/src/vault.ts`, `services/journalLock.ts`, `services/journalLock.test.ts`, `routes/journalLock.ts`, `index.ts`, `Tools/client/src/stores/journalStore.ts`, `components/journal/JournalLockGate.tsx`, `JournalHome.tsx`, `JournalInput.tsx`, `JournalDetail.tsx`, `App.tsx`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-10-13 | Qoder | Tools/随手记 | 修复新建日记未指定日期时按 UTC 取日期：北京时间 0–8 点在随手记页面写的日记会记到前一天，改为使用服务端本机日期 | `Tools/server/src/routes/journal.ts`, `PROJECT.md` |
 | 2026-10-13 | Qoder | Workbench/AI 对话 | AI 对话升级为覆盖整个工作台的私人助手：插件化按需加载肌肉大、定时任务、户外、音乐和随手记工具，可打开模块页面；删除饮食记录、启停或立即执行定时任务、同步行程到苹果日历需用户点击确认卡片才执行（服务端内存保存 10 分钟、一次性使用）；随手记在对话内用工作台数据密码解锁，密码不进入对话，令牌只在内存，闲置 5 分钟、离开对话页或手动锁定后吊销并隐藏相关消息；工具结果精简后再发给 DeepSeek，回复改为纯文本；Workbench server 只监听 127.0.0.1；新增服务端测试 | `workbench/server/src/index.ts`, `config.ts`, `routes/chat.ts`, `routes/chat.test.ts`, `services/chatService.ts`, `services/chatService.test.ts`, `services/pendingActions.ts`, `tools/*Plugin.ts`, `tools/plugins.test.ts`, `tools/types.ts`, `tools/moduleFetch.ts`, `tools/dates.ts`, `tools/toolRegistry.ts`（删除）, `types/chat.ts`, `package.json`, `workbench/client/src/api/client.ts`, `stores/chatStore.ts`, `hooks/useChat.ts`, `hooks/useJournalSession.ts`, `types/chat.ts`, `components/chat/ChatPanel.tsx`, `ChatInput.tsx`, `MessageBubble.tsx`, `ToolCallCard.tsx`, `ConfirmActionCard.tsx`, `JournalUnlockCard.tsx`, `ToolsEmbed.tsx`, `vite.config.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-10-13 | Qoder | Tools/Fitness/Music 网络访问 | 后端只监听 127.0.0.1；跨域白名单限定本机 5173–5177 前端与打包版 Electron（file://），其他来源（含 null）返回 403，不带 Origin 的请求不受影响；Music WebSocket 握手校验来源；移除未生效的 CORS_ORIGIN 配置 | `Tools/server/src/config.ts`, `index.ts`, `Fitness/server/src/config.ts`, `index.ts`, `Music/server/src/config.ts`, `index.ts`, `services/wsManager.ts`, `Music/server/.env.example`, `setup.ps1`, `CLAUDE.md`, `PROJECT.md` |

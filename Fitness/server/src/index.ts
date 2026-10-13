@@ -5,7 +5,14 @@ import { fitnessRouter } from "./routes.js";
 import { isVaultUnlocked, unlockVault } from "./vault.js";
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: (origin, callback) => callback(null, !origin || config.allowedOrigins.has(origin)) }));
+app.use((req, res, next) => {
+  if (req.headers.origin && !config.allowedOrigins.has(req.headers.origin)) {
+    res.status(403).json({ success: false, error: "不允许的请求来源" });
+    return;
+  }
+  next();
+});
 app.use(express.json());
 app.post("/api/storage/unlock", async (req, res) => {
   const password = typeof req.body?.password === "string" ? req.body.password : "";
@@ -26,7 +33,7 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
   res.status(message === "数据仓库尚未解锁" ? 423 : 500).json({ success: false, error: message });
 });
 async function start(): Promise<void> {
-  app.listen(config.port, () => console.log(`Fitness server running on http://localhost:${config.port} (encrypted vault locked)`));
+  app.listen(config.port, "127.0.0.1", () => console.log(`Fitness server running on http://localhost:${config.port} (encrypted vault locked)`));
 }
 
 start().catch((error: unknown) => {
