@@ -22,7 +22,7 @@ what/
 │   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
 │   ├── server/             # Express 5 + TypeScript（node-cron 调度等）
 │   └── server/             # 定时器、执行历史和日记写入根目录加密仓库
-│   └── 子工具: 定时器 ⏰、拼豆规格图
+│   └── 子工具: 定时器、拼豆规格图、桌面灵宠
 ├── Fitness/                # 💪 肌肉大（训练、饮食与身体数据管理，已上线）
 │   ├── client/             # React 19 + Vite 6 + Tailwind 4 + TypeScript
 │   ├── server/             # Express 5 + TypeScript + Zod
@@ -64,7 +64,7 @@ what/
 ### Vite 代理配置
 - Music client 的 `/api` → `http://localhost:3001`，`/ws` → `ws://localhost:3001`
 - Workbench client 的 `/api` → `http://127.0.0.1:3000`
-- Tools client 的 `/api` → `http://localhost:3002`
+- Tools client 的 `/api` 与 `/pet-assets` → `http://localhost:3002`
 - Fitness client 的 `/api` → `http://localhost:3003`
 - Outdoor client 的 `/api` → `http://localhost:3004`
 
@@ -180,7 +180,7 @@ npm run dev:web
 - 门户页面：用浏览器打开 `what/index.html`
 - AI 工作台：http://localhost:5174
 - 音乐播放器：http://localhost:5173
-- 工具模块：http://localhost:5175（定时器、拼豆规格图）
+- 工具模块：http://localhost:5175（定时器、拼豆规格图、桌面灵宠）
 - 户外模块：http://localhost:5177（完整行程规划、骑行、自驾与高铁方案）
 
 ## 启动验证清单
@@ -252,7 +252,7 @@ workbench/client ──WebSocket────────────────
 | `/api/analyze/style` | 分析网易云或 QQ 歌单（body: `{ playlistIds, provider }`）并返回品味画像与推荐歌曲 |
 | `/api/theme/cover-image` | 受限代理 QQ/网易云专辑封面，供本地播放器提取动态主题色 |
 
-## Tools 服务器 API 端点（定时器与随手记）
+## Tools 服务器 API 端点（定时器、随手记与桌面灵宠）
 
 | 路由 | 用途 |
 |------|------|
@@ -268,6 +268,12 @@ workbench/client ──WebSocket────────────────
 | `/api/timer/:id/trigger` | 手动触发执行 |
 | `/api/timer/:id/history` | 执行历史 |
 | `/api/timer/history/all` | 全部执行历史 |
+| `/api/pets` | 获取六类内置灵宠目录、当前设置和养成状态；当前完整开放 `mist-cat` |
+| `/api/pets/events` | SSE 推送灵宠设置、位置和养成状态变化，避免 Workbench 轮询解密仓库 |
+| `/api/pets/settings` (PUT) | 保存启用状态、名称、尺寸、透明度、自主行为、活跃程度和对话气泡设置 |
+| `/api/pets/position` (PUT) | 保存 0-1 归一化拖拽位置 |
+| `/api/pets/interactions` (POST) | 记录点击、双击、抚摸、喂食、玩耍、睡眠或唤醒；亲密度奖励冷却 30 秒 |
+| `/pet-assets/*` | 只读提供项目内置灵宠动作清单和透明 Sprite 图集 |
 | `/api/health` | 健康检查 |
 
 ## Fitness 服务器 API 端点（肌肉大）
@@ -335,6 +341,12 @@ workbench/client ──WebSocket────────────────
   "updatedAt": "ISO timestamp"
 }
 ```
+
+### 桌面灵宠数据模型
+
+灵宠配置位于 `data/what.vault` 的 `desktopPets` 字段，包含 `schemaVersion`、`settings`、归一化 `position`、按角色保存的 `care` 和 `updatedAt`。设置、位置、亲密度、心情与互动次数落盘；当前动作、方向、气泡和逐帧位置只保存在 Workbench 内存。内置动作资源位于 `Tools/server/assets/pets/`，不属于用户业务数据。
+
+当前阶段使用 Canvas 2D 播放 6 × 4 Sprite 图集。小猫“雾团”提供待机、行走、入睡、睡眠、开心、好奇、伸展、舔爪、醒来和拖拽动作；其余五类角色在动作资源完成前返回 `available: false`。图片自定义、图像生成和 AI 对话能力当前返回未配置状态，不得显示模拟生成结果。
 
 ## Tools 服务器配置项
 
@@ -421,7 +433,7 @@ Workbench AI 对话是覆盖整个工作台的私人助手：普通问答、写�
 | 户外 | 查看已保存行程，同步到苹果日历（需确认） | 生成行程、搜索地点 |
 | 音乐 | 搜索、播放、播放控制和队列管理 | — |
 | 随手记 | 查看、新建或追加（需在对话中解锁） | 删除、覆盖已有内容 |
-| 拼豆、云效 | 打开页面 | 全部操作 |
+| 拼豆、云效、桌面灵宠 | 打开页面 | 全部操作 |
 
 - 标注“需确认”的操作只生成确认卡片，用户点击“确认”后才由服务端执行；待确认操作只在服务端内存保存 10 分钟，服务重启后失效。
 - 随手记密码只在对话里的解锁卡片中输入，由服务端转发给 Tools 换取令牌，不进入对话历史，也不发给 AI；令牌只保存在 Tools 服务与页面内存中，闲置 5 分钟、离开 AI 对话页、刷新页面或手动锁定后吊销，相关消息随即隐藏。

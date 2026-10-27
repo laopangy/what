@@ -244,6 +244,7 @@ test("the tool loop stops after maxSteps with an explanation", async () => {
 test("open_module navigates only to whitelisted pages", async () => {
   const cases: [Record<string, unknown>, string | undefined, unknown][] = [
     [{ module: "tools", page: "timer-history" }, "/tools?page=timer-history", { opened: true, page: "工具 · 执行历史" }],
+    [{ module: "tools", page: "pet" }, "/tools?page=pet", { opened: true, page: "工具 · 桌面灵宠" }],
     [{ module: "tools", page: "constructor" }, "/tools", { opened: true, page: "工具" }],
     [{ module: "music", page: "timer" }, "/music", { opened: true, page: "音乐" }],
     [{ module: "constructor" }, undefined, { error: "不支持打开这个页面" }],

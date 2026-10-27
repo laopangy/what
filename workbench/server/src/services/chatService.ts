@@ -69,7 +69,7 @@ const BASE_PROMPT = `你是阿潘阿潘潘工具栈中的私人助手。你既�
 - 肌肉大：不能修改训练计划、个人资料和目标。
 - 户外：不能生成新行程或搜索地点。
 - 随手记：不能删除或覆盖已有内容，只能查看和追加。
-- 拼豆、云效：没有对话操作能力，只能打开页面。
+- 拼豆、云效、桌面灵宠：没有对话操作能力，只能打开页面。
 
 请用中文回复，语气自然友好，回答简洁。对话界面只显示纯文本，不要使用 Markdown 语法（如 **加粗**、# 标题、表格、反引号）；需要分条时每条单独一行，用“- ”或数字开头即可。`;
 
@@ -90,6 +90,7 @@ const TOOL_PAGES = new Map([
   ["timer", "定时任务"],
   ["timer-history", "执行历史"],
   ["beads", "拼豆"],
+  ["pet", "桌面灵宠"],
   ["yunxiao", "云效"],
 ]);
 
@@ -157,12 +158,12 @@ function coreTools(plugins: ModuleToolPlugin[]): DeepSeekTool[] {
           module: {
             type: "string",
             enum: [...OPEN_TARGETS.keys()],
-            description: "music=音乐，fitness=肌肉大，outdoor=户外，journal=随手记，tools=工具（定时任务、拼豆、云效）",
+            description: "music=音乐，fitness=肌肉大，outdoor=户外，journal=随手记，tools=工具（定时任务、拼豆、云效、桌面灵宠）",
           },
           page: {
             type: "string",
             enum: [...TOOL_PAGES.keys()],
-            description: "仅 module=tools 时使用：timer=定时任务，timer-history=执行历史，beads=拼豆，yunxiao=云效",
+            description: "仅 module=tools 时使用：timer=定时任务，timer-history=执行历史，beads=拼豆，pet=桌面灵宠，yunxiao=云效",
           },
         },
         required: ["module"],

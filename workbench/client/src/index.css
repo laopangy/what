@@ -192,6 +192,16 @@ body::after {
   transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
 }
 
+@keyframes petBubbleIn {
+  from { opacity: 0; transform: translate(-50%, 6px) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+.pet-bubble { animation: petBubbleIn 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-bubble { animation: none; }
+}
+
 button, a { -webkit-tap-highlight-color: transparent; }
 button:active, a:active { transform: translateY(1px); }
 button:focus-visible, a:focus-visible {

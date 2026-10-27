@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { ArrowLeft, BookOpen, ChevronRight, Dumbbell, Home, Mountain, Music, Radio, RefreshCw, Search, Settings, Sparkles, Wrench } from "lucide-react";
+import DesktopPetLayer from "../pet/DesktopPetLayer";
 import WindowTitleBar from "./WindowTitleBar";
 
 const modules = [
@@ -61,6 +62,7 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
           <WindowTitleBar />
         </header>
         <main className="h-full overflow-hidden pt-14">{children}</main>
+        <DesktopPetLayer />
       </section>
     </div>
   );

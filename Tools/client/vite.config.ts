@@ -9,6 +9,7 @@ export default defineConfig(({ command }) => ({
     port: 5175,
     proxy: {
       "/api": "http://localhost:3002",
+      "/pet-assets": "http://localhost:3002",
     },
   },
 }));

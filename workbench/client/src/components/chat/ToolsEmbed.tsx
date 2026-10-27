@@ -5,6 +5,7 @@ const PAGES = new Map([
   ["timer", "/timer"],
   ["timer-history", "/timer/history"],
   ["beads", "/beads"],
+  ["pet", "/pet"],
   ["yunxiao", "/yunxiao"],
 ]);
 

@@ -6,6 +6,7 @@ import ExecutionHistory from "./components/timer/ExecutionHistory";
 import JournalHome from "./components/journal/JournalHome";
 import JournalLockGate from "./components/journal/JournalLockGate";
 import BeadPatternMaker from "./components/beads/BeadPatternMaker";
+import PetCenter from "./components/pet/PetCenter";
 import YunxiaoTaskCreator from "./components/yunxiao/YunxiaoTaskCreator";
 
 const lockedJournal = (
@@ -31,6 +32,7 @@ export default function App() {
               <Route path="/timer/history" element={<ExecutionHistory />} />
               <Route path="/journal" element={lockedJournal} />
               <Route path="/beads" element={<BeadPatternMaker />} />
+              <Route path="/pet" element={<PetCenter />} />
               <Route path="/yunxiao" element={<YunxiaoTaskCreator />} />
             </Routes>
           </ToolsLayout>

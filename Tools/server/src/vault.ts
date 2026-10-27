@@ -2,12 +2,14 @@ import { pbkdf2Sync, randomBytes, createCipheriv, createDecipheriv, createHash, 
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "fs";
 import path from "path";
 import { config } from "./config.js";
+import type { DesktopPetData } from "./types/pet.js";
 
 export interface VaultData {
   timers?: unknown[];
   history?: unknown[];
   journals?: unknown[];
   fitness?: unknown;
+  desktopPets?: DesktopPetData;
 }
 
 interface VaultEnvelope {

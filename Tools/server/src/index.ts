@@ -1,10 +1,12 @@
 import express from "express";
 import cors from "cors";
+import path from "node:path";
 import { config } from "./config.js";
 import { errorHandler, logger } from "./middleware/errorHandler.js";
 import { timerRouter } from "./routes/timer.js";
 import { journalRouter } from "./routes/journal.js";
 import { journalLockRouter, requireJournalToken } from "./routes/journalLock.js";
+import { petRouter } from "./routes/pet.js";
 import { yunxiaoRouter } from "./routes/yunxiao.js";
 import { restoreSchedules } from "./services/scheduler.js";
 import { isVaultUnlocked, unlockVault } from "./vault.js";
@@ -21,6 +23,10 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 app.use(logger);
+app.use("/pet-assets", express.static(path.resolve(import.meta.dirname, "..", "assets", "pets"), {
+  immutable: true,
+  maxAge: "7d",
+}));
 
 app.post("/api/storage/unlock", async (req, res) => {
   const password = typeof req.body?.password === "string" ? req.body.password : "";
@@ -36,6 +42,7 @@ app.post("/api/storage/unlock", async (req, res) => {
 app.use("/api/timer", timerRouter);
 app.use("/api/journal-lock", journalLockRouter);
 app.use("/api/journal", requireJournalToken, journalRouter);
+app.use("/api/pets", petRouter);
 app.use("/api/yunxiao", yunxiaoRouter);
 
 app.get("/api/health", (_req, res) => {

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import { Wrench, Clock, Grid3X3, History, ClipboardList } from "lucide-react";
+import { Wrench, Clock, Grid3X3, History, ClipboardList, PawPrint } from "lucide-react";
 
 export default function ToolsLayout({ children }: { children: ReactNode }) {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -59,6 +59,18 @@ export default function ToolsLayout({ children }: { children: ReactNode }) {
             <NavLink to="/beads" className={linkClass}>
               <Grid3X3 className="w-4 h-4" />
               拼豆规格图
+            </NavLink>
+          </nav>
+        </div>
+
+        <div className="mb-4">
+          <p className="px-3 text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+            桌面体验
+          </p>
+          <nav className="flex flex-col gap-1">
+            <NavLink to="/pet" className={linkClass}>
+              <PawPrint className="w-4 h-4" />
+              桌面灵宠
             </NavLink>
           </nav>
         </div>

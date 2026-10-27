@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Clock, ArrowRight, Grid3X3, Wrench, ClipboardList } from "lucide-react";
+import { Clock, ArrowRight, Grid3X3, Wrench, ClipboardList, PawPrint } from "lucide-react";
 
 const tools = [
   {
@@ -27,6 +27,15 @@ const tools = [
     icon: Grid3X3,
     color: "bg-indigo-500/15 text-indigo-400",
     path: "/beads",
+    active: true,
+  },
+  {
+    id: "pet",
+    name: "桌面灵宠",
+    description: "创建你的专属桌面伙伴，让可爱的灵宠陪伴你工作、互动与成长",
+    icon: PawPrint,
+    color: "bg-indigo-500/15 text-indigo-400",
+    path: "/pet",
     active: true,
   },
 ];
