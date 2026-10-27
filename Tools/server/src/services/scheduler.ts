@@ -1,9 +1,27 @@
 import cron from "node-cron";
 import { v4 as uuidv4 } from "uuid";
 import type { Timer, ExecutionRecord } from "../types/timer.js";
+import { publishPetWorkspaceEvent } from "./petEvents.js";
 import { getAllTimers, saveTimer, saveExecution, updateExecution } from "./storage.js";
 
 const jobs = new Map<string, cron.ScheduledTask>();
+
+function getExecutionEventStatus(result: string): "success" | "failed" {
+  if (/^Exit code: /i.test(result)) return "failed";
+  const httpStatus = /^HTTP (\d{3})/.exec(result);
+  return httpStatus && Number(httpStatus[1]) >= 400 ? "failed" : "success";
+}
+
+function getExecutionFailureReason(result: string): string | undefined {
+  const exitCode = /^Exit code: (\S+)/i.exec(result)?.[1];
+  if (exitCode) return `命令退出码 ${exitCode}`;
+  const httpStatus = /^HTTP (\d{3})/.exec(result)?.[1];
+  return httpStatus && Number(httpStatus) >= 400 ? `HTTP ${httpStatus}` : undefined;
+}
+
+function getPetEventLabel(name: string): string {
+  return name.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, 40) || "定时任务";
+}
 
 const SUPPLY_WATCH_TIMER_PREFIX = "supply-watch-source-plan";
 const OPENCLI_DIR = "D:\\work\\Projects\\OpenCLI";
@@ -85,6 +103,8 @@ async function executeTask(timer: Timer): Promise<void> {
     status: "running",
   };
   await saveExecution(record);
+  const eventLabel = getPetEventLabel(timer.name);
+  publishPetWorkspaceEvent({ source: "timer", status: "running", label: eventLabel, occurredAt: record.startedAt });
 
   const startTime = Date.now();
   try {
@@ -114,19 +134,26 @@ async function executeTask(timer: Timer): Promise<void> {
       }
     }
 
+    const finishedAt = new Date().toISOString();
+    const eventStatus = getExecutionEventStatus(result);
     await updateExecution(record.id, {
-      status: "success",
-      finishedAt: new Date().toISOString(),
+      status: eventStatus,
+      finishedAt,
       result: result.slice(0, 2000), // Truncate
+      error: eventStatus === "failed" ? getExecutionFailureReason(result) : undefined,
     });
-    console.log(`[Timer] "${timer.name}" executed successfully (${Date.now() - startTime}ms)`);
+    publishPetWorkspaceEvent({ source: "timer", status: eventStatus, label: eventLabel, occurredAt: finishedAt });
+    if (eventStatus === "success") console.log(`[Timer] "${timer.name}" executed successfully (${Date.now() - startTime}ms)`);
+    else console.error(`[Timer] "${timer.name}" execution failed (${Date.now() - startTime}ms)`);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    const finishedAt = new Date().toISOString();
     await updateExecution(record.id, {
       status: "failed",
-      finishedAt: new Date().toISOString(),
+      finishedAt,
       error: message,
     });
+    publishPetWorkspaceEvent({ source: "timer", status: "failed", label: eventLabel, occurredAt: finishedAt });
     console.error(`[Timer] "${timer.name}" failed: ${message}`);
   }
 

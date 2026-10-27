@@ -2,16 +2,21 @@ import { readVault, updateVault } from "../vault.js";
 import {
   PET_CATALOG,
   createDefaultDesktopPetData,
+  type CustomPetAsset,
+  type CustomPetMode,
+  type CustomPetRecord,
   type DesktopPetData,
   type PetCareState,
   type PetInteractionType,
   type PetPosition,
   type PetSettings,
+  type PublicDesktopPetData,
 } from "../types/pet.js";
 
 const clamp = (value: number, minimum: number, maximum: number) => Math.min(maximum, Math.max(minimum, value));
 const finiteOr = (value: unknown, fallback: number) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
-const availablePetIds = new Set(PET_CATALOG.filter((pet) => pet.available).map((pet) => pet.id));
+const builtinPetIds = new Set(PET_CATALOG.filter((pet) => pet.available).map((pet) => pet.id));
+const customModes = new Set<CustomPetMode>(["static", "animated-image", "sprite"]);
 
 function normalizeCare(value: Partial<PetCareState> | undefined): PetCareState {
   return {
@@ -22,17 +27,63 @@ function normalizeCare(value: Partial<PetCareState> | undefined): PetCareState {
   };
 }
 
+function normalizeCustomPets(value: unknown): CustomPetRecord[] {
+  if (!Array.isArray(value)) return [];
+  const normalized: CustomPetRecord[] = [];
+  for (const item of value.slice(0, 12)) {
+    if (!item || typeof item !== "object") continue;
+    const candidate = item as Partial<CustomPetRecord>;
+    const asset = candidate.asset as Partial<CustomPetAsset> | undefined;
+    if (
+      typeof candidate.id !== "string" ||
+      typeof candidate.name !== "string" ||
+      !asset ||
+      !customModes.has(asset.mode as CustomPetMode) ||
+      typeof asset.imageDataUrl !== "string" ||
+      !asset.imageDataUrl.startsWith("data:image/")
+    ) continue;
+    const now = new Date().toISOString();
+    normalized.push({
+      id: candidate.id.slice(0, 64),
+      name: candidate.name.trim().slice(0, 24) || "自定义灵宠",
+      personality: typeof candidate.personality === "string" ? candidate.personality.slice(0, 120) : "独特、亲近",
+      description: typeof candidate.description === "string" ? candidate.description.slice(0, 240) : "由图片创建的专属伙伴",
+      asset: {
+        mode: asset.mode as CustomPetMode,
+        mimeType: asset.mimeType === "image/jpeg" || asset.mimeType === "image/webp" || asset.mimeType === "image/gif" ? asset.mimeType : "image/png",
+        imageDataUrl: asset.imageDataUrl,
+        referenceDataUrls: Array.isArray(asset.referenceDataUrls) ? asset.referenceDataUrls.filter((source): source is string => typeof source === "string" && source.startsWith("data:image/")).slice(0, 3) : [],
+        width: clamp(Math.floor(finiteOr(asset.width, 512)), 1, 4096),
+        height: clamp(Math.floor(finiteOr(asset.height, 512)), 1, 4096),
+        backgroundRemoved: asset.backgroundRemoved === true,
+        animation: asset.animation ? {
+          columns: clamp(Math.floor(finiteOr(asset.animation.columns, 1)), 1, 12),
+          rows: clamp(Math.floor(finiteOr(asset.animation.rows, 1)), 1, 12),
+          fps: clamp(Math.floor(finiteOr(asset.animation.fps, 8)), 1, 30),
+          actionRows: asset.animation.actionRows === true,
+          frameCount: typeof asset.animation.frameCount === "number"
+            ? clamp(Math.floor(asset.animation.frameCount), 1, 144)
+            : undefined,
+        } : undefined,
+      },
+      createdAt: typeof candidate.createdAt === "string" ? candidate.createdAt : now,
+      updatedAt: typeof candidate.updatedAt === "string" ? candidate.updatedAt : now,
+    });
+  }
+  return normalized;
+}
+
 export function normalizeDesktopPetData(value: Partial<DesktopPetData> | undefined): DesktopPetData {
   const defaults = createDefaultDesktopPetData();
+  const customPets = normalizeCustomPets(value?.customPets);
+  const petIds = [...PET_CATALOG.map((pet) => pet.id), ...customPets.map((pet) => pet.id)];
   const settings = value?.settings;
-  const activePetId = typeof settings?.activePetId === "string" && availablePetIds.has(settings.activePetId)
+  const activePetId = typeof settings?.activePetId === "string" && petIds.includes(settings.activePetId)
     ? settings.activePetId
     : defaults.settings.activePetId;
   const position = value?.position;
   const careEntries = value?.care && typeof value.care === "object" ? value.care : {};
-  const care = Object.fromEntries(
-    PET_CATALOG.map((pet) => [pet.id, normalizeCare(careEntries[pet.id])]),
-  );
+  const care = Object.fromEntries(petIds.map((petId) => [petId, normalizeCare(careEntries[petId])]));
 
   return {
     schemaVersion: 1,
@@ -58,6 +109,7 @@ export function normalizeDesktopPetData(value: Partial<DesktopPetData> | undefin
       y: clamp(finiteOr(position?.y, defaults.position.y), 0, 1),
     },
     care,
+    customPets,
     updatedAt: typeof value?.updatedAt === "string" ? value.updatedAt : defaults.updatedAt,
   };
 }
@@ -67,12 +119,69 @@ export async function getDesktopPetData(): Promise<DesktopPetData> {
   return normalizeDesktopPetData(data.desktopPets);
 }
 
+export function toPublicDesktopPetData(data: DesktopPetData): PublicDesktopPetData {
+  return {
+    ...data,
+    customPets: data.customPets.map(({ asset, ...pet }) => ({
+      ...pet,
+      source: "custom" as const,
+      asset: {
+        mode: asset.mode,
+        mimeType: asset.mimeType,
+        width: asset.width,
+        height: asset.height,
+        backgroundRemoved: asset.backgroundRemoved,
+        animation: asset.animation,
+        assetUrl: `/api/pets/custom/${encodeURIComponent(pet.id)}/asset`,
+      },
+    })),
+  };
+}
+
+export async function getCustomPetAsset(id: string): Promise<CustomPetAsset | undefined> {
+  return (await getDesktopPetData()).customPets.find((pet) => pet.id === id)?.asset;
+}
+
+export async function saveCustomPet(record: CustomPetRecord): Promise<DesktopPetData> {
+  return updateVault((vault) => {
+    const current = normalizeDesktopPetData(vault.desktopPets);
+    const index = current.customPets.findIndex((pet) => pet.id === record.id);
+    if (index >= 0) current.customPets[index] = record;
+    else {
+      if (current.customPets.length >= 12) throw new Error("最多保存 12 只自定义灵宠");
+      current.customPets.push(record);
+    }
+    current.care[record.id] ??= normalizeCare(undefined);
+    if (current.settings.activePetId === record.id) current.settings.customName = record.name;
+    current.updatedAt = new Date().toISOString();
+    vault.desktopPets = current;
+    return current;
+  });
+}
+
+export async function deleteCustomPet(id: string): Promise<{ data: DesktopPetData; deleted: boolean }> {
+  return updateVault((vault) => {
+    const current = normalizeDesktopPetData(vault.desktopPets);
+    const nextPets = current.customPets.filter((pet) => pet.id !== id);
+    const deleted = nextPets.length !== current.customPets.length;
+    if (!deleted) return { data: current, deleted: false };
+    current.customPets = nextPets;
+    delete current.care[id];
+    if (current.settings.activePetId === id) {
+      current.settings.activePetId = "mist-cat";
+      current.settings.customName = "雾团";
+    }
+    current.updatedAt = new Date().toISOString();
+    vault.desktopPets = current;
+    return { data: current, deleted: true };
+  });
+}
+
 export async function updatePetSettings(updates: Partial<PetSettings>): Promise<DesktopPetData> {
   return updateVault((data) => {
     const current = normalizeDesktopPetData(data.desktopPets);
-    if (updates.activePetId && !availablePetIds.has(updates.activePetId)) {
-      throw new Error("该灵宠尚未开放");
-    }
+    const known = updates.activePetId && (builtinPetIds.has(updates.activePetId) || current.customPets.some((pet) => pet.id === updates.activePetId));
+    if (updates.activePetId && !known) throw new Error("灵宠不存在或尚未开放");
     const next = normalizeDesktopPetData({
       ...current,
       settings: { ...current.settings, ...updates },

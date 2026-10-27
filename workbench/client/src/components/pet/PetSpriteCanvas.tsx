@@ -8,11 +8,12 @@ type SpriteAssets = {
   images: Record<string, HTMLImageElement>;
 };
 
-let assetsPromise: Promise<SpriteAssets> | null = null;
+const assetPromises = new Map<string, Promise<SpriteAssets>>();
 
-function loadAssets(): Promise<SpriteAssets> {
-  if (assetsPromise) return assetsPromise;
-  assetsPromise = fetch(`${ASSET_BASE}/pet-assets/mist-cat/manifest.json`)
+function loadAssets(petId: string): Promise<SpriteAssets> {
+  const existing = assetPromises.get(petId);
+  if (existing) return existing;
+  const promise = fetch(`${ASSET_BASE}/pet-assets/${encodeURIComponent(petId)}/manifest.json`)
     .then(async (response) => {
       if (!response.ok) throw new Error("灵宠动画清单加载失败");
       const manifest = await response.json() as PetSpriteManifest;
@@ -27,14 +28,17 @@ function loadAssets(): Promise<SpriteAssets> {
       ));
       return { manifest, images: Object.fromEntries(entries) };
     });
-  return assetsPromise;
+  assetPromises.set(petId, promise);
+  return promise;
 }
 
 export default function PetSpriteCanvas({
+  petId,
   action,
   direction,
   onError,
 }: {
+  petId: string;
   action: PetAction;
   direction: "left" | "right";
   onError: (message: string) => void;
@@ -59,7 +63,7 @@ export default function PetSpriteCanvas({
     let lastKey = "";
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-    loadAssets().then(({ manifest, images }) => {
+    loadAssets(petId).then(({ manifest, images }) => {
       if (cancelled) return;
       const canvas = canvasRef.current;
       const context = canvas?.getContext("2d");
@@ -118,7 +122,7 @@ export default function PetSpriteCanvas({
       cancelled = true;
       cancelAnimationFrame(animationFrame);
     };
-  }, [onError]);
+  }, [onError, petId]);
 
   return <canvas ref={canvasRef} className="h-full w-full" aria-hidden="true" />;
 }

@@ -4,7 +4,8 @@ export type PetInteractionType = "click" | "double-click" | "pet" | "feed" | "pl
 export interface PetCatalogEntry {
   id: string;
   name: string;
-  species: "cat" | "dog" | "fox" | "rabbit" | "red-panda" | "robot";
+  species: "cat" | "dog" | "fox" | "rabbit" | "red-panda" | "robot" | "custom";
+  source?: "builtin" | "custom" | "ai";
   personality: string;
   description: string;
   signatureActions: string[];
@@ -37,12 +38,53 @@ export interface PetCareState {
   lastRewardAt: string | null;
 }
 
+export type CustomPetMode = "static" | "animated-image" | "sprite";
+
+export interface CustomPetAnimationConfig {
+  columns: number;
+  rows: number;
+  fps: number;
+  actionRows: boolean;
+  frameCount?: number;
+}
+
+export interface CustomPetAsset {
+  mode: CustomPetMode;
+  mimeType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+  imageDataUrl: string;
+  referenceDataUrls: string[];
+  width: number;
+  height: number;
+  backgroundRemoved: boolean;
+  animation?: CustomPetAnimationConfig;
+}
+
+export interface CustomPetRecord {
+  id: string;
+  name: string;
+  personality: string;
+  description: string;
+  asset: CustomPetAsset;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomPetSummary extends Omit<CustomPetRecord, "asset"> {
+  source: "custom";
+  asset: Omit<CustomPetAsset, "imageDataUrl" | "referenceDataUrls"> & { assetUrl: string };
+}
+
 export interface DesktopPetData {
   schemaVersion: 1;
   settings: PetSettings;
   position: PetPosition;
   care: Record<string, PetCareState>;
+  customPets: CustomPetRecord[];
   updatedAt: string;
+}
+
+export interface PublicDesktopPetData extends Omit<DesktopPetData, "customPets"> {
+  customPets: CustomPetSummary[];
 }
 
 export const PET_CATALOG: PetCatalogEntry[] = [
@@ -62,7 +104,7 @@ export const PET_CATALOG: PetCatalogEntry[] = [
     personality: "活泼、热情",
     description: "热衷陪伴，见到你就会摇尾巴。",
     signatureActions: ["摇尾巴", "邀玩", "嗅闻"],
-    available: false,
+    available: true,
   },
   {
     id: "ember-fox",
@@ -71,7 +113,7 @@ export const PET_CATALOG: PetCatalogEntry[] = [
     personality: "灵动、调皮",
     description: "步伐轻快，偶尔会藏起来观察你。",
     signatureActions: ["潜行", "转圈", "卷尾睡觉"],
-    available: false,
+    available: true,
   },
   {
     id: "cloud-rabbit",
@@ -80,7 +122,7 @@ export const PET_CATALOG: PetCatalogEntry[] = [
     personality: "温柔、谨慎",
     description: "会认真倾听周围的动静。",
     signatureActions: ["蹦跳", "竖耳", "鼻尖轻动"],
-    available: false,
+    available: true,
   },
   {
     id: "bamboo-panda",
@@ -89,7 +131,7 @@ export const PET_CATALOG: PetCatalogEntry[] = [
     personality: "呆萌、悠闲",
     description: "动作慢悠悠，最擅长把自己团起来。",
     signatureActions: ["翻滚", "打哈欠", "抱尾巴"],
-    available: false,
+    available: true,
   },
   {
     id: "pixel-robot",
@@ -98,7 +140,7 @@ export const PET_CATALOG: PetCatalogEntry[] = [
     personality: "理性、可靠",
     description: "会扫描工作台状态并切换电子表情。",
     signatureActions: ["扫描", "充电", "状态灯切换"],
-    available: false,
+    available: true,
   },
 ];
 
@@ -127,6 +169,7 @@ export function createDefaultDesktopPetData(now = new Date().toISOString()): Des
         lastRewardAt: null,
       },
     },
+    customPets: [],
     updatedAt: now,
   };
 }

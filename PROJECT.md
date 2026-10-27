@@ -1033,15 +1033,17 @@ Tools 前端使用 React 19、React Router 7 与 Tailwind CSS 4，端口为 `517
 
 #### 桌面灵宠
 
-路由：`/pet`；服务端：`GET /api/pets`、`GET /api/pets/events`、`PUT /api/pets/settings`、`PUT /api/pets/position`、`POST /api/pets/interactions`；动作资源：`/pet-assets/*`。
+路由：`/pet`；服务端覆盖目录、SSE、设置、位置、互动、自定义资源 CRUD、按需资源读取、AI 状态与文本对话；动作资源：`/pet-assets/*`。
 
-- 灵宠中心提供“我的灵宠、灵宠广场、自定义、AI 创作”四个分区。当前完整开放小猫“雾团”，另外五类角色显示真实资源制作状态，不伪装为可用。
-- 雾团使用两张 6 × 4 透明 Sprite 图集与 Canvas 2D 分帧渲染，提供待机、行走、入睡、睡眠、开心、好奇、伸展、舔爪、醒来和拖拽动作；动作切换由有限状态机约束。
-- `DesktopPetLayer` 挂在 Workbench 全局布局中，切换 AI、音乐、工具、户外或健身路由时保持单实例。悬浮层默认点击穿透，只有角色命中区和右键菜单响应事件。
+- 灵宠中心提供“我的灵宠、灵宠广场、自定义、AI 创作”四个分区。雾团、晴尾、烬耳、云芽、竹丸和零一六个内置角色全部可用，各自使用独立 6 × 4 透明 Sprite 图集、动作表现、行为权重和对话风格。
+- Canvas 2D 分帧渲染提供待机、行走、入睡、睡眠、开心、好奇、伸展、整理、醒来和拖拽动作；动作切换由有限状态机约束。
+- `DesktopPetLayer` 挂在 Workbench 全局布局中，切换 AI、音乐、工具、户外或健身路由时保持单实例。悬浮层默认点击穿透，只有角色命中区、右键菜单与对话面板响应事件。
 - 支持单击与双击抑制、悬停、Pointer Capture 拖拽、边界限制、位置记忆、右键抚摸/喂食/玩耍/休息/暂停/隐藏、自主行为、对话气泡和 `prefers-reduced-motion` 降级。
-- 配置、归一化位置、亲密度、心情与互动次数保存在 `data/what.vault` 的 `desktopPets` 字段；亲密度奖励有 30 秒冷却。运行中动作和逐帧坐标仅在内存，不高频重写密文。
-- Tools 服务通过 SSE 推送设置变化，Workbench 不轮询解密仓库。生成素材作为项目内置资源，不属于用户业务数据。
-- 图片自定义和 AI 创作当前只展示依赖说明：尚未实现主体识别、抠图、用户动作资源导入和图像生成服务，不返回模拟结果。系统级 Windows 透明桌宠窗口也未实现。
+- 自定义灵宠支持静态图片最多四张、裁剪缩放、位置调整、边界连通颜色去背景和手动取色；也支持 GIF/WebP 原动画、Sprite Sheet 与最多 24 张 PNG 序列打包。服务端校验 MIME、文件签名、尺寸、布局与 8 MB 总量，拒绝 SVG。
+- 自定义图片只在 `data/what.vault` 内保存完整 Base64；目录与 SSE 仅返回轻量摘要，Workbench 按需读取资源。设置、位置、亲密度、心情与互动次数同样加密保存，运行中动作和逐帧坐标只保留在内存。
+- DeepSeek 文本配置可用于真实灵宠对话，最近历史限制为八条，不发送工作台敏感上下文；未配置或请求失败时显示真实错误，不生成本地伪回复。当前 DeepSeek 配置不支持图像生成，因此 AI 文生图保持“未接通”。
+- 工作台联动由设置开关控制：音乐 WebSocket 的播放、暂停和换曲，定时任务 SSE 的开始、成功和失败，以及 AI 请求生命周期会驱动动作与气泡；不通过轮询反复解密仓库。
+- 系统级 Windows 透明桌宠窗口尚未实现，当前范围仍是工作台窗口内跨路由常驻。
 
 #### 随手记
 
@@ -1567,3 +1569,4 @@ Outdoor API：
 | 2026-10-13 | Qoder | Workbench/AI 对话 | AI 对话升级为覆盖整个工作台的私人助手：插件化按需加载肌肉大、定时任务、户外、音乐和随手记工具，可打开模块页面；删除饮食记录、启停或立即执行定时任务、同步行程到苹果日历需用户点击确认卡片才执行（服务端内存保存 10 分钟、一次性使用）；随手记在对话内用工作台数据密码解锁，密码不进入对话，令牌只在内存，闲置 5 分钟、离开对话页或手动锁定后吊销并隐藏相关消息；工具结果精简后再发给 DeepSeek，回复改为纯文本；Workbench server 只监听 127.0.0.1；新增服务端测试 | `workbench/server/src/index.ts`, `config.ts`, `routes/chat.ts`, `routes/chat.test.ts`, `services/chatService.ts`, `services/chatService.test.ts`, `services/pendingActions.ts`, `tools/*Plugin.ts`, `tools/plugins.test.ts`, `tools/types.ts`, `tools/moduleFetch.ts`, `tools/dates.ts`, `tools/toolRegistry.ts`（删除）, `types/chat.ts`, `package.json`, `workbench/client/src/api/client.ts`, `stores/chatStore.ts`, `hooks/useChat.ts`, `hooks/useJournalSession.ts`, `types/chat.ts`, `components/chat/ChatPanel.tsx`, `ChatInput.tsx`, `MessageBubble.tsx`, `ToolCallCard.tsx`, `ConfirmActionCard.tsx`, `JournalUnlockCard.tsx`, `ToolsEmbed.tsx`, `vite.config.ts`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-10-13 | Qoder | Tools/Fitness/Music 网络访问 | 后端只监听 127.0.0.1；跨域白名单限定本机 5173–5177 前端与打包版 Electron（file://），其他来源（含 null）返回 403，不带 Origin 的请求不受影响；Music WebSocket 握手校验来源；移除未生效的 CORS_ORIGIN 配置 | `Tools/server/src/config.ts`, `index.ts`, `Fitness/server/src/config.ts`, `index.ts`, `Music/server/src/config.ts`, `index.ts`, `services/wsManager.ts`, `Music/server/.env.example`, `setup.ps1`, `CLAUDE.md`, `PROJECT.md` |
 | 2026-10-27 | Qoder | Tools/桌面灵宠 | 新增灵宠中心、六宠目录与首只完整小猫；使用 48 帧透明图集、Canvas 动画、有限状态机和自主行为，支持点击、双击、悬停、拖拽、右键菜单、气泡、轻量养成、跨路由常驻与 SSE 配置同步；设置、位置和养成数据加密写入 what.vault，自定义图片和 AI 图像生成明确标为待接入 | `Tools/client/src/components/pet/*`, `Tools/server/src/routes/pet.ts`, `services/pet*.ts`, `types/pet.ts`, `assets/pets/*`, `workbench/client/src/components/pet/*`, `stores/petStore.ts`, `api/petApi.ts`, `types/pet.ts`, `WorkbenchLayout.tsx`, `chatService.ts`, `CLAUDE.md`, `PROJECT.md` |
+| 2026-10-27 | Qoder | Tools/桌面灵宠完整能力 | 开放六只独立 Sprite 灵宠；新增静态图片裁剪与去背景、GIF/WebP、Sprite Sheet 和 PNG 序列自定义灵宠，完整资源加密保存且按需读取；接通真实 DeepSeek 文本对话并明确保持图像生成未接通；新增音乐、定时任务和 AI 生命周期联动，以及自定义资源边界校验、服务测试和浏览器验收 | `Tools/client/src/components/pet/*`, `Tools/client/src/api/petApi.ts`, `Tools/server/src/routes/pet.ts`, `services/pet*.ts`, `services/scheduler.ts`, `types/pet.ts`, `assets/pets/*`, `workbench/client/src/components/pet/*`, `api/petApi.ts`, `stores/chatStore.ts`, `hooks/useChat.ts`, `types/pet.ts`, `CLAUDE.md`, `PROJECT.md` |

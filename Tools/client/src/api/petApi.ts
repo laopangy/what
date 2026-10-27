@@ -1,4 +1,4 @@
-import type { DesktopPetData, PetOverview, PetSettings } from "../types/pet";
+import type { CustomPetAssetInput, CustomPetSummary, DesktopPetData, PetOverview, PetSettings } from "../types/pet";
 
 const BASE = "/api/pets";
 
@@ -9,8 +9,27 @@ async function request<T>(path = "", init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+export interface CustomPetPayload {
+  name: string;
+  personality: string;
+  description: string;
+  asset: CustomPetAssetInput;
+}
+
 export const petApi = {
   getOverview: () => request<PetOverview>(),
+  createCustom: (payload: CustomPetPayload) => request<{ success: true; state: DesktopPetData; pet: CustomPetSummary }>("/custom", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }),
+  updateCustom: (id: string, payload: CustomPetPayload) => request<{ success: true; state: DesktopPetData; pet: CustomPetSummary }>(`/custom/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }),
+  deleteCustom: (id: string) => request<{ success: true; state: DesktopPetData }>(`/custom/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  getCustomAsset: (id: string) => request<{ success: true; asset: CustomPetAssetInput }>(`/custom/${encodeURIComponent(id)}/asset`),
   updateSettings: (updates: Partial<PetSettings>) => request<{ success: true; state: DesktopPetData }>("/settings", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

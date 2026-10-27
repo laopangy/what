@@ -2,11 +2,12 @@ import { useEffect, useRef } from "react";
 import type { PetAction, PetSpriteManifest } from "../../types/pet";
 
 type Assets = { manifest: PetSpriteManifest; images: Record<string, HTMLImageElement> };
-let assetsPromise: Promise<Assets> | null = null;
+const assetPromises = new Map<string, Promise<Assets>>();
 
-function loadAssets(): Promise<Assets> {
-  if (assetsPromise) return assetsPromise;
-  assetsPromise = fetch("/pet-assets/mist-cat/manifest.json").then(async (response) => {
+function loadAssets(petId: string): Promise<Assets> {
+  const existing = assetPromises.get(petId);
+  if (existing) return existing;
+  const promise = fetch(`/pet-assets/${encodeURIComponent(petId)}/manifest.json`).then(async (response) => {
     if (!response.ok) throw new Error("动作资源加载失败");
     const manifest = await response.json() as PetSpriteManifest;
     const entries = await Promise.all(Object.entries(manifest.sheets).map(([key, source]) =>
@@ -19,10 +20,11 @@ function loadAssets(): Promise<Assets> {
     ));
     return { manifest, images: Object.fromEntries(entries) };
   });
-  return assetsPromise;
+  assetPromises.set(petId, promise);
+  return promise;
 }
 
-export default function PetPreviewCanvas({ action, className = "" }: { action: PetAction; className?: string }) {
+export default function PetPreviewCanvas({ petId, action, className = "" }: { petId: string; action: PetAction; className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const actionRef = useRef(action);
   const startedAtRef = useRef(performance.now());
@@ -37,7 +39,7 @@ export default function PetPreviewCanvas({ action, className = "" }: { action: P
     let animationFrame = 0;
     let lastKey = "";
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    loadAssets().then(({ manifest, images }) => {
+    loadAssets(petId).then(({ manifest, images }) => {
       const canvas = canvasRef.current;
       const context = canvas?.getContext("2d");
       if (cancelled || !canvas || !context) return;
@@ -79,7 +81,7 @@ export default function PetPreviewCanvas({ action, className = "" }: { action: P
       cancelled = true;
       cancelAnimationFrame(animationFrame);
     };
-  }, []);
+  }, [petId]);
 
-  return <canvas ref={canvasRef} className={className} aria-label="雾团动作预览" />;
+  return <canvas ref={canvasRef} className={className} aria-label="灵宠动作预览" />;
 }

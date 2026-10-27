@@ -4,7 +4,8 @@ export type PetAction = "idle" | "walk" | "sleep-enter" | "sleep" | "happy" | "c
 export interface PetCatalogEntry {
   id: string;
   name: string;
-  species: "cat" | "dog" | "fox" | "rabbit" | "red-panda" | "robot";
+  species: "cat" | "dog" | "fox" | "rabbit" | "red-panda" | "robot" | "custom";
+  source?: "builtin" | "custom" | "ai";
   personality: string;
   description: string;
   signatureActions: string[];
@@ -25,6 +26,38 @@ export interface PetSettings {
   soundEnabled: boolean;
 }
 
+export type CustomPetMode = "static" | "animated-image" | "sprite";
+
+export interface CustomPetAnimationConfig {
+  columns: number;
+  rows: number;
+  fps: number;
+  actionRows: boolean;
+  frameCount?: number;
+}
+
+export interface CustomPetAssetInput {
+  mode: CustomPetMode;
+  mimeType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+  imageDataUrl: string;
+  referenceDataUrls: string[];
+  width: number;
+  height: number;
+  backgroundRemoved: boolean;
+  animation?: CustomPetAnimationConfig;
+}
+
+export interface CustomPetSummary {
+  id: string;
+  name: string;
+  personality: string;
+  description: string;
+  source: "custom";
+  asset: Omit<CustomPetAssetInput, "imageDataUrl" | "referenceDataUrls"> & { assetUrl: string };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DesktopPetData {
   schemaVersion: 1;
   settings: PetSettings;
@@ -35,6 +68,7 @@ export interface DesktopPetData {
     totalInteractions: number;
     lastRewardAt: string | null;
   }>;
+  customPets: CustomPetSummary[];
   updatedAt: string;
 }
 

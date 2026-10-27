@@ -1,4 +1,5 @@
 import type {
+  CustomPetAsset,
   DesktopPetData,
   PetInteractionType,
   PetOverview,
@@ -7,6 +8,30 @@ import type {
 } from "../types/pet";
 
 const PET_API = "http://localhost:3002/api/pets";
+
+export interface PetDialogueMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+
+export interface PetWorkspaceEvent {
+  source: "timer";
+  status: "running" | "success" | "failed";
+  label: string;
+  occurredAt: string;
+}
+
+interface PetAiStatus {
+  success: true;
+  dialogue: {
+    configured: boolean;
+    provider: string;
+    model: string;
+  };
+  imageGeneration: {
+    configured: boolean;
+  };
+}
 
 async function request<T>(path = "", init?: RequestInit): Promise<T> {
   const response = await fetch(`${PET_API}${path}`, {
@@ -19,6 +44,17 @@ async function request<T>(path = "", init?: RequestInit): Promise<T> {
 }
 
 export const getPetOverview = () => request<PetOverview>();
+
+export const getPetAiStatus = () => request<PetAiStatus>("/ai/status");
+
+export const sendPetDialogue = (payload: { message: string; currentAction: string; history: PetDialogueMessage[] }) =>
+  request<{ success: true; reply: string }>("/dialogue", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const getCustomPetAsset = (id: string) =>
+  request<{ success: true; asset: CustomPetAsset }>(`/custom/${encodeURIComponent(id)}/asset`);
 
 export const updatePetSettings = (updates: Partial<PetSettings>) =>
   request<{ success: true; state: DesktopPetData }>("/settings", {
@@ -38,13 +74,26 @@ export const recordPetInteraction = (type: PetInteractionType) =>
     body: JSON.stringify({ type }),
   });
 
-export function subscribeToPetState(onState: (state: DesktopPetData) => void): () => void {
+export function subscribeToPetState(
+  onState: (state: DesktopPetData) => void,
+  onWorkspaceEvent?: (event: PetWorkspaceEvent) => void,
+): () => void {
   const source = new EventSource(`${PET_API}/events`);
   source.addEventListener("state", (event) => {
     try {
       onState(JSON.parse((event as MessageEvent<string>).data) as DesktopPetData);
     } catch {
       source.close();
+    }
+  });
+  source.addEventListener("workspace", (event) => {
+    try {
+      const data = JSON.parse((event as MessageEvent<string>).data) as Partial<PetWorkspaceEvent>;
+      if (data.source === "timer" && (data.status === "running" || data.status === "success" || data.status === "failed") && typeof data.label === "string" && typeof data.occurredAt === "string") {
+        onWorkspaceEvent?.(data as PetWorkspaceEvent);
+      }
+    } catch {
+      return;
     }
   });
   return () => source.close();

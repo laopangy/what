@@ -33,8 +33,19 @@ const profiles: Record<PetActivityLevel, WeightedBehavior[]> = {
   ],
 };
 
-export function choosePetBehavior(level: PetActivityLevel, previous: PetAction): PetAction {
-  const options = profiles[level].filter((item) => item.action !== previous);
+const petBias: Record<string, Partial<Record<PetAction, number>>> = {
+  "sunny-dog": { walk: 1.55, happy: 1.7, "sleep-enter": 0.55, groom: 0.65 },
+  "ember-fox": { walk: 1.7, stretch: 1.65, curious: 1.3, "sleep-enter": 0.7 },
+  "cloud-rabbit": { walk: 1.25, curious: 1.7, happy: 1.25, groom: 0.7 },
+  "bamboo-panda": { walk: 0.6, groom: 1.5, stretch: 1.45, "sleep-enter": 2 },
+  "pixel-robot": { walk: 1.2, curious: 1.55, happy: 1.4, groom: 0.45, "sleep-enter": 0.75 },
+};
+
+export function choosePetBehavior(level: PetActivityLevel, previous: PetAction, petId: string): PetAction {
+  const bias = petBias[petId] ?? {};
+  const options = profiles[level]
+    .filter((item) => item.action !== previous)
+    .map((item) => ({ ...item, weight: item.weight * (bias[item.action] ?? 1) }));
   const total = options.reduce((sum, item) => sum + item.weight, 0);
   let cursor = Math.random() * total;
   for (const option of options) {

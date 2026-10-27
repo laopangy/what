@@ -21,7 +21,7 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(express.json());
+app.use(express.json({ limit: "12mb" }));
 app.use(logger);
 app.use("/pet-assets", express.static(path.resolve(import.meta.dirname, "..", "assets", "pets"), {
   immutable: true,

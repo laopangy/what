@@ -17,11 +17,12 @@ import {
   Save,
   SlidersHorizontal,
   Sparkles,
-  Upload,
   WandSparkles,
 } from "lucide-react";
 import { petApi } from "../../api/petApi";
 import type { PetAction, PetCatalogEntry, PetOverview, PetSettings } from "../../types/pet";
+import CustomPetManager from "./CustomPetCreator";
+import CustomPetPreview from "./CustomPetPreview";
 import PetPreviewCanvas from "./PetPreviewCanvas";
 
 type Section = "mine" | "square" | "custom" | "ai";
@@ -81,6 +82,7 @@ export default function PetCenter() {
   }, []);
 
   const currentPet = useMemo(() => overview?.catalog.find((pet) => pet.id === overview.state.settings.activePetId), [overview]);
+  const currentCustomPet = useMemo(() => overview?.state.customPets.find((pet) => pet.id === overview.state.settings.activePetId), [overview]);
   const care = overview?.state.care[overview.state.settings.activePetId];
 
   const updateDraft = <K extends keyof PetSettings>(key: K, value: PetSettings[K]) => {
@@ -198,7 +200,11 @@ export default function PetCenter() {
               <div className="grid min-h-[410px] md:grid-cols-[minmax(260px,.92fr)_minmax(280px,1.08fr)]">
                 <div className="relative grid place-items-center overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgb(99_124_132_/.32),transparent_58%),linear-gradient(145deg,rgb(77_94_104_/.78),rgb(48_61_70_/.88))] p-5">
                   <div className="absolute inset-x-8 bottom-10 h-10 rounded-[50%] bg-slate-950/18 blur-xl" />
-                  <PetPreviewCanvas action={previewAction} className="relative z-10 h-auto w-full max-w-[290px] drop-shadow-[0_20px_20px_rgb(20_30_37_/.23)]" />
+                  {currentCustomPet ? (
+                    <CustomPetPreview pet={currentCustomPet} action={previewAction} className="relative z-10 h-auto w-full max-w-[290px] drop-shadow-[0_20px_20px_rgb(20_30_37_/.23)]" />
+                  ) : (
+                    <PetPreviewCanvas petId={draft.activePetId} action={previewAction} className="relative z-10 h-auto w-full max-w-[290px] drop-shadow-[0_20px_20px_rgb(20_30_37_/.23)]" />
+                  )}
                   <div className="absolute left-4 top-4 rounded-lg border border-white/10 bg-slate-950/26 px-2.5 py-1.5 text-[10px] text-white/64 backdrop-blur-md">
                     实时动作预览
                   </div>
@@ -267,6 +273,7 @@ export default function PetCenter() {
                 </label>
                 <Toggle label="自主活动" description="空闲时散步、观察、整理毛发和睡觉" checked={draft.autonomous} onChange={(value) => updateDraft("autonomous", value)} />
                 <Toggle label="对话气泡" description="互动或自主行为时偶尔说话" checked={draft.dialogueEnabled} onChange={(value) => updateDraft("dialogueEnabled", value)} />
+                <Toggle label="工作台联动" description="响应音乐、定时任务和 AI 请求状态" checked={draft.eventLinkEnabled} onChange={(value) => updateDraft("eventLinkEnabled", value)} />
               </div>
               <button type="button" disabled={!dirty || saving || !draft.customName.trim()} onClick={() => void saveDraft()} className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white/[0.09] text-xs font-semibold text-white transition hover:bg-white/[0.13] disabled:cursor-not-allowed disabled:opacity-35">
                 {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -286,7 +293,7 @@ export default function PetCenter() {
           <main className="mt-6">
             <div className="max-w-xl">
               <h2 className="text-xl font-semibold tracking-[-0.025em] text-white">灵宠广场</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-400">每个角色都有独立动作和行为配置。雾团已完成，其他角色会在对应动作资源完成后开放。</p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">六个角色均使用独立动作图集、行为权重和互动风格，切换后无需刷新工作台。</p>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {overview.catalog.map((pet) => (
@@ -297,6 +304,7 @@ export default function PetCenter() {
                     </span>
                     <span className={`rounded-lg px-2 py-1 text-[10px] ${pet.available ? "bg-emerald-400/12 text-emerald-300" : "bg-white/[0.05] text-slate-500"}`}>{pet.available ? "可启用" : "动作制作中"}</span>
                   </div>
+                  {pet.available && pet.source !== "custom" && <PetPreviewCanvas petId={pet.id} action="idle" className="mx-auto -mb-3 -mt-8 h-28 w-28" />}
                   <h3 className="mt-5 text-base font-semibold text-slate-100">{pet.name}</h3>
                   <p className="mt-1 text-xs text-indigo-200/70">{pet.personality}</p>
                   <p className="mt-3 text-xs leading-5 text-slate-400">{pet.description}</p>
@@ -307,23 +315,9 @@ export default function PetCenter() {
           </main>
         )}
 
-        {section === "custom" && (
-          <UnavailablePanel
-            icon={Upload}
-            title="图片自定义将在资源管线完成后开放"
-            description="当前尚未提供主体识别或自动动画生成服务，因此不会把单张图片伪装成完整动态角色。"
-            items={["PNG、JPG、WebP 上传与裁剪", "手动蒙版与边缘去背景", "Sprite Sheet 和 PNG 序列动作导入", "压缩后加密写入 what.vault"]}
-          />
-        )}
+        {section === "custom" && <CustomPetManager pets={overview.state.customPets} onChanged={load} />}
 
-        {section === "ai" && (
-          <UnavailablePanel
-            icon={WandSparkles}
-            title="AI 图像生成服务尚未配置"
-            description="现有 DeepSeek 配置仅支持文本模型。文生图和图生动作必须接入真实服务后才能启用。"
-            items={["独立图像服务适配层", "真实任务状态与失败重试", "生成结果确认后再保存", "服务密钥只保存在后端"]}
-          />
-        )}
+        {section === "ai" && <AiServicesPanel dialogueConfigured={overview.capabilities.aiDialogue} />}
       </div>
     </div>
   );
@@ -384,17 +378,31 @@ function SpeciesIcon({ species }: { species: PetCatalogEntry["species"] }) {
   return <Icon className="h-5 w-5" strokeWidth={1.6} />;
 }
 
-function UnavailablePanel({ icon: Icon, title, description, items }: { icon: typeof Upload; title: string; description: string; items: string[] }) {
+function AiServicesPanel({ dialogueConfigured }: { dialogueConfigured: boolean }) {
   return (
-    <main className="mt-6 grid min-h-[470px] place-items-center rounded-2xl border border-white/[0.08] bg-slate-900/42 p-6">
-      <div className="max-w-lg text-center">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-indigo-500/12 text-indigo-300 ring-1 ring-inset ring-indigo-400/20"><Icon className="h-6 w-6" strokeWidth={1.55} /></span>
-        <h2 className="mt-5 text-xl font-semibold tracking-[-0.025em] text-white">{title}</h2>
-        <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-400">{description}</p>
-        <div className="mx-auto mt-7 grid max-w-md gap-2 text-left sm:grid-cols-2">
-          {items.map((item) => <div key={item} className="flex items-center gap-2 rounded-xl bg-white/[0.035] px-3 py-2.5 text-[11px] text-slate-400 ring-1 ring-inset ring-white/[0.05]"><Check className="h-3.5 w-3.5 shrink-0 text-indigo-300" />{item}</div>)}
-        </div>
-        <button type="button" disabled className="mt-7 inline-flex cursor-not-allowed items-center gap-2 rounded-xl bg-white/[0.055] px-4 py-2.5 text-xs text-slate-500"><LoaderCircle className="h-3.5 w-3.5" />依赖能力尚未接通</button>
+    <main className="mt-6 rounded-2xl border border-white/[0.08] bg-slate-900/42 p-6 lg:p-8">
+      <div className="max-w-xl">
+        <p className="text-[10px] font-medium tracking-[0.12em] text-indigo-300">服务接入状态</p>
+        <h2 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-white">AI 能力</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-400">所有请求均由后端发起，服务密钥不会发送到浏览器。未接通的能力不会返回伪造结果。</p>
+      </div>
+      <div className="mt-7 grid gap-4 md:grid-cols-2">
+        <section className="rounded-2xl border border-white/[0.08] bg-slate-950/20 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-indigo-500/13 text-indigo-300"><Bot className="h-5 w-5" strokeWidth={1.6} /></span>
+            <span className={`rounded-lg px-2.5 py-1 text-[10px] font-medium ${dialogueConfigured ? "bg-emerald-400/12 text-emerald-300" : "bg-amber-300/10 text-amber-200"}`}>{dialogueConfigured ? "已配置" : "未配置"}</span>
+          </div>
+          <h3 className="mt-5 text-sm font-semibold text-slate-100">灵宠文本对话</h3>
+          <p className="mt-2 text-xs leading-5 text-slate-400">{dialogueConfigured ? "已读取 DeepSeek 文本服务配置。右键工作台灵宠并选择“和我说说话”即可发起真实请求。" : "请先在账号与服务设置中配置 AI Key，之后可从灵宠右键菜单发起真实对话。"}</p>
+        </section>
+        <section className="rounded-2xl border border-white/[0.08] bg-slate-950/20 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/[0.055] text-slate-400"><WandSparkles className="h-5 w-5" strokeWidth={1.6} /></span>
+            <span className="rounded-lg bg-white/[0.055] px-2.5 py-1 text-[10px] font-medium text-slate-500">未接通</span>
+          </div>
+          <h3 className="mt-5 text-sm font-semibold text-slate-100">文生图与动作生成</h3>
+          <p className="mt-2 text-xs leading-5 text-slate-400">现有 DeepSeek 配置不提供图像生成。接入独立图像服务、真实任务状态与失败重试后才会开放。</p>
+        </section>
       </div>
     </main>
   );

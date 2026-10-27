@@ -1,13 +1,20 @@
 import type { Request, Response } from "express";
-import type { DesktopPetData } from "../types/pet.js";
+import type { PublicDesktopPetData } from "../types/pet.js";
 
 const clients = new Set<Response>();
+
+export interface PetWorkspaceEvent {
+  source: "timer";
+  status: "running" | "success" | "failed";
+  label: string;
+  occurredAt: string;
+}
 
 const send = (response: Response, event: string, data: unknown) => {
   response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 };
 
-export function subscribeToPetEvents(request: Request, response: Response, initial: DesktopPetData): void {
+export function subscribeToPetEvents(request: Request, response: Response, initial: PublicDesktopPetData): void {
   response.status(200);
   response.set({
     "Content-Type": "text/event-stream",
@@ -24,6 +31,10 @@ export function subscribeToPetEvents(request: Request, response: Response, initi
   });
 }
 
-export function publishPetState(state: DesktopPetData): void {
+export function publishPetState(state: PublicDesktopPetData): void {
   for (const client of clients) send(client, "state", state);
+}
+
+export function publishPetWorkspaceEvent(event: PetWorkspaceEvent): void {
+  for (const client of clients) send(client, "workspace", event);
 }

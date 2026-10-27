@@ -4,15 +4,22 @@ import type { ChatMessage, ToolConfirmation } from "../types/chat";
 
 const MASKED_CONTENT = "[随手记内容已隐藏]";
 
+export interface ChatRequestEvent {
+  sequence: number;
+  status: "started" | "succeeded" | "failed";
+}
+
 interface ChatState {
   messages: ChatMessage[];
   isLoading: boolean;
+  lastRequestEvent: ChatRequestEvent | null;
   journalToken: string | null;
   lockCount: number;
   addMessage: (msg: Omit<ChatMessage, "id" | "timestamp">) => string;
   updateMessage: (id: string, patch: Partial<Omit<ChatMessage, "id">>) => void;
   updateConfirmation: (messageId: string, actionId: string, patch: Partial<ToolConfirmation>) => void;
   setLoading: (v: boolean) => void;
+  setRequestStatus: (status: ChatRequestEvent["status"]) => void;
   setJournalToken: (token: string | null) => void;
   lockJournal: () => void;
   clear: () => void;
@@ -30,6 +37,7 @@ let nextId = 1;
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isLoading: false,
+  lastRequestEvent: null,
   journalToken: null,
   lockCount: 0,
   addMessage: (msg) => {
@@ -48,6 +56,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       })),
     })),
   setLoading: (v) => set({ isLoading: v }),
+  setRequestStatus: (status) => set((state) => ({
+    lastRequestEvent: { sequence: (state.lastRequestEvent?.sequence ?? 0) + 1, status },
+  })),
   setJournalToken: (token) => set({ journalToken: token }),
   lockJournal: () => {
     const token = get().journalToken;

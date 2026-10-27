@@ -20,6 +20,7 @@ export function useChat() {
     const userId = store.addMessage({ role: "user", content: text });
     const history = useChatStore.getState().messages.slice(-HISTORY_LIMIT).map(({ role, content }) => ({ role, content }));
     store.setLoading(true);
+    store.setRequestStatus("started");
 
     let reply: ChatResponse | undefined;
     let failure = "";
@@ -41,6 +42,7 @@ export function useChat() {
       ? { role: "assistant", content: reply.content, toolCalls: reply.toolCalls, sensitive: sensitive || undefined, journalLocked: reply.journalLocked }
       : { role: "assistant", content: failure });
     if (lockedWhileWaiting && sensitive) current.lockJournal();
+    current.setRequestStatus(reply ? "succeeded" : "failed");
     current.setLoading(false);
     if (reply?.navigate) navigate(reply.navigate);
   };

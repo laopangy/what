@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Coffee, EyeOff, Hand, MessageCircle, Moon, Pause, Play, Settings, Sparkles, Sun } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { subscribeToPetState } from "../../api/petApi";
+import { onMusicEvent } from "../../api/musicSocket";
+import { subscribeToPetState, type PetWorkspaceEvent } from "../../api/petApi";
+import { useChatStore } from "../../stores/chatStore";
 import { usePetStore } from "../../stores/petStore";
-import type { PetAction, PetInteractionType, PetPosition } from "../../types/pet";
+import type { PetAction, PetInteractionType, PetPosition, PetSettings } from "../../types/pet";
 import { choosePetBehavior, nextBehaviorDelay } from "./behaviorEngine";
 import { chooseDialogue } from "./dialogue";
 import { actionDuration, canEnterPetAction } from "./petMachine";
+import CustomPetRenderer from "./CustomPetRenderer";
+import PetDialoguePanel from "./PetDialoguePanel";
 import PetSpriteCanvas from "./PetSpriteCanvas";
 
 const PET_SIZE = 210;
@@ -32,15 +36,20 @@ export default function DesktopPetLayer() {
   const draggedRef = useRef(false);
   const dragStartRef = useRef({ pointerX: 0, pointerY: 0, x: 0, y: 0 });
   const hoverCooldownRef = useRef(0);
+  const settingsRef = useRef<PetSettings | undefined>(undefined);
+  const musicStateRef = useRef({ initialized: false, playing: false, trackKey: "" });
   const [action, setAction] = useState<PetAction>("idle");
   const [direction, setDirection] = useState<"left" | "right">("right");
   const [bubble, setBubble] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [assetError, setAssetError] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [dialogueOpen, setDialogueOpen] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
   const settings = state?.settings;
+  settingsRef.current = settings;
+  const customPet = state?.customPets.find((pet) => pet.id === settings?.activePetId);
   const scale = settings?.scale ?? 1;
 
   const applyPosition = useCallback((position = positionRef.current) => {
@@ -74,17 +83,17 @@ export default function DesktopPetLayer() {
   }, [clearActionTimer]);
 
   const showBubble = useCallback((message: string) => {
-    if (!settings?.dialogueEnabled) return;
+    if (!settingsRef.current?.dialogueEnabled) return;
     if (bubbleTimerRef.current !== null) window.clearTimeout(bubbleTimerRef.current);
     setBubble(message);
     bubbleTimerRef.current = window.setTimeout(() => setBubble(null), 3_200);
-  }, [settings?.dialogueEnabled]);
+  }, []);
 
   const playInteraction = useCallback((next: PetAction, type: PetInteractionType) => {
     setPetAction(next, true);
-    showBubble(chooseDialogue(next));
+    showBubble(chooseDialogue(next, settings?.activePetId));
     void interact(type).catch(() => undefined);
-  }, [interact, setPetAction, showBubble]);
+  }, [interact, setPetAction, settings?.activePetId, showBubble]);
 
   const moveTo = useCallback((target: PetPosition, duration = 2_000) => {
     if (reducedMotion || draggingRef.current) return;
@@ -113,10 +122,68 @@ export default function DesktopPetLayer() {
     movementFrameRef.current = requestAnimationFrame(tick);
   }, [applyPosition, reducedMotion]);
 
+  const reactToTimerEvent = useCallback((event: PetWorkspaceEvent) => {
+    const current = settingsRef.current;
+    if (!current?.enabled || !current.eventLinkEnabled) return;
+    const label = event.label.length > 20 ? `${event.label.slice(0, 20)}…` : event.label;
+    if (event.status === "running") {
+      setPetAction("curious", false);
+      showBubble(`任务「${label}」开始执行。`);
+    } else if (event.status === "success") {
+      setPetAction("happy", false);
+      showBubble(`任务「${label}」完成啦。`);
+    } else {
+      setPetAction("curious", false);
+      showBubble(`任务「${label}」执行失败，请查看记录。`);
+    }
+  }, [setPetAction, showBubble]);
+
   useEffect(() => {
     void load();
-    return subscribeToPetState(applyState);
-  }, [applyState, load]);
+    return subscribeToPetState(applyState, reactToTimerEvent);
+  }, [applyState, load, reactToTimerEvent]);
+
+  useEffect(() => onMusicEvent("playback:state", (data) => {
+    if (!data || typeof data !== "object") return;
+    const snapshot = data as { playing?: unknown; song?: { id?: unknown; name?: unknown; artist?: unknown } };
+    if (typeof snapshot.playing !== "boolean") return;
+    const previous = musicStateRef.current;
+    const songName = typeof snapshot.song?.name === "string" ? snapshot.song.name : "";
+    const songArtist = typeof snapshot.song?.artist === "string" ? snapshot.song.artist : "";
+    const songId = typeof snapshot.song?.id === "string" ? snapshot.song.id : "";
+    const trackKey = songName ? songId || `${songName}\u0000${songArtist}` : previous.trackKey;
+    musicStateRef.current = { initialized: true, playing: snapshot.playing, trackKey };
+    if (!previous.initialized) return;
+    const current = settingsRef.current;
+    if (!current?.enabled || !current.eventLinkEnabled) return;
+    if (snapshot.playing && trackKey && previous.trackKey && trackKey !== previous.trackKey) {
+      setPetAction("happy", false);
+      showBubble(songName ? `换到《${songName.slice(0, 24)}》啦。` : "换一首继续听吧。");
+    } else if (!previous.playing && snapshot.playing) {
+      setPetAction("happy", false);
+      showBubble(songName ? `一起听《${songName.slice(0, 24)}》吧。` : "音乐开始啦。");
+    } else if (previous.playing && !snapshot.playing) {
+      setPetAction("curious", false);
+      showBubble("音乐暂停了，休息一下吧。");
+    }
+  }), [setPetAction, showBubble]);
+
+  useEffect(() => useChatStore.subscribe((current, previous) => {
+    const event = current.lastRequestEvent;
+    if (!event || event.sequence === previous.lastRequestEvent?.sequence) return;
+    const petSettings = settingsRef.current;
+    if (!petSettings?.enabled || !petSettings.eventLinkEnabled) return;
+    if (event.status === "started") {
+      setPetAction("curious", false);
+      showBubble("我陪你一起想一想。");
+    } else if (event.status === "succeeded") {
+      setPetAction("happy", false);
+      showBubble("回答准备好了，快看看吧。");
+    } else {
+      setPetAction("curious", false);
+      showBubble("这次没有连上，要不要再试试？");
+    }
+  }), [setPetAction, showBubble]);
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -125,6 +192,10 @@ export default function DesktopPetLayer() {
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    setAssetError(null);
+  }, [settings?.activePetId]);
 
   useEffect(() => {
     if (!state) return;
@@ -154,7 +225,7 @@ export default function DesktopPetLayer() {
           schedule();
           return;
         }
-        const next = choosePetBehavior(settings.activityLevel, actionRef.current);
+        const next = choosePetBehavior(settings.activityLevel, actionRef.current, settings.activePetId);
         if (next === "walk") {
           const target = {
             x: Math.max(0.04, Math.min(0.96, positionRef.current.x + (Math.random() - 0.5) * 0.42)),
@@ -168,7 +239,7 @@ export default function DesktopPetLayer() {
           }, 8_000 + Math.random() * 5_000);
         } else if (next !== "idle") {
           setPetAction(next, false);
-          if (Math.random() < 0.28) showBubble(chooseDialogue(next));
+          if (Math.random() < 0.28) showBubble(chooseDialogue(next, settings.activePetId));
         }
         schedule();
       }, nextBehaviorDelay(settings.activityLevel));
@@ -178,7 +249,7 @@ export default function DesktopPetLayer() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [moveTo, paused, reducedMotion, setPetAction, settings?.activityLevel, settings?.autonomous, settings?.enabled, showBubble]);
+  }, [moveTo, paused, reducedMotion, setPetAction, settings?.activePetId, settings?.activityLevel, settings?.autonomous, settings?.enabled, showBubble]);
 
   useEffect(() => () => {
     clearActionTimer();
@@ -251,7 +322,7 @@ export default function DesktopPetLayer() {
       return;
     }
     setPetAction("sleep-enter", true, "sleep");
-    showBubble(chooseDialogue("sleep"));
+    showBubble(chooseDialogue("sleep", settings?.activePetId));
     void interact("sleep").catch(() => undefined);
   };
 
@@ -273,8 +344,10 @@ export default function DesktopPetLayer() {
           <div className="absolute inset-5 grid place-items-center rounded-2xl border border-red-200/20 bg-[#2c3942]/95 px-4 text-center text-[10px] leading-5 text-red-100">
             {assetError}
           </div>
+        ) : customPet ? (
+          <CustomPetRenderer pet={customPet} action={action} direction={direction} onError={setAssetError} />
         ) : (
-          <PetSpriteCanvas action={action} direction={direction} onError={setAssetError} />
+          <PetSpriteCanvas petId={settings.activePetId} action={action} direction={direction} onError={setAssetError} />
         )}
         <button
           type="button"
@@ -302,6 +375,19 @@ export default function DesktopPetLayer() {
         />
       </div>
 
+      {dialogueOpen && (
+        <PetDialoguePanel
+          key={settings.activePetId}
+          petName={settings.customName}
+          currentAction={action}
+          onClose={() => setDialogueOpen(false)}
+          onReply={(reply) => {
+            setPetAction("happy", true);
+            showBubble(reply);
+          }}
+        />
+      )}
+
       {menu && (
         <div
           className="pointer-events-auto absolute z-30 w-44 overflow-hidden rounded-xl border border-white/12 bg-[#2a3740]/96 p-1.5 text-[11px] text-white shadow-[0_18px_44px_rgb(20_32_40_/.42)] backdrop-blur-xl"
@@ -311,7 +397,7 @@ export default function DesktopPetLayer() {
           <MenuButton icon={Hand} label="抚摸" onClick={() => runMenuAction("pet", "happy")} />
           <MenuButton icon={Coffee} label="喂食" onClick={() => runMenuAction("feed", "happy")} />
           <MenuButton icon={Sparkles} label="玩一会儿" onClick={() => runMenuAction("play", "stretch")} />
-          <MenuButton icon={MessageCircle} label="和我说说话" onClick={() => { setMenu(null); showBubble(chooseDialogue("idle")); }} />
+          <MenuButton icon={MessageCircle} label="和我说说话" onClick={() => { setMenu(null); setDialogueOpen(true); }} />
           <MenuButton icon={action === "sleep" ? Sun : Moon} label={action === "sleep" ? "唤醒灵宠" : "进入休息"} onClick={toggleRest} />
           <div className="my-1 h-px bg-white/[0.08]" />
           <MenuButton icon={paused ? Play : Pause} label={paused ? "恢复自主活动" : "暂停自主活动"} onClick={() => {

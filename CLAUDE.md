@@ -268,12 +268,17 @@ workbench/client ──WebSocket────────────────
 | `/api/timer/:id/trigger` | 手动触发执行 |
 | `/api/timer/:id/history` | 执行历史 |
 | `/api/timer/history/all` | 全部执行历史 |
-| `/api/pets` | 获取六类内置灵宠目录、当前设置和养成状态；当前完整开放 `mist-cat` |
-| `/api/pets/events` | SSE 推送灵宠设置、位置和养成状态变化，避免 Workbench 轮询解密仓库 |
-| `/api/pets/settings` (PUT) | 保存启用状态、名称、尺寸、透明度、自主行为、活跃程度和对话气泡设置 |
+| `/api/pets` | 获取六只可用内置灵宠、自定义灵宠摘要、当前设置、养成状态和真实能力开关 |
+| `/api/pets/events` | SSE 推送灵宠状态，以及定时任务开始、成功、失败等白名单工作台事件 |
+| `/api/pets/settings` (PUT) | 保存启用状态、角色、名称、尺寸、透明度、自主行为、活跃程度、气泡和工作台联动开关 |
 | `/api/pets/position` (PUT) | 保存 0-1 归一化拖拽位置 |
 | `/api/pets/interactions` (POST) | 记录点击、双击、抚摸、喂食、玩耍、睡眠或唤醒；亲密度奖励冷却 30 秒 |
-| `/pet-assets/*` | 只读提供项目内置灵宠动作清单和透明 Sprite 图集 |
+| `/api/pets/custom` (POST) | 创建自定义灵宠；校验格式、文件签名、尺寸、动画布局与 8 MB 资源总量后加密保存 |
+| `/api/pets/custom/:id` (PUT/DELETE) | 编辑或删除自定义灵宠；删除当前角色时自动切回雾团 |
+| `/api/pets/custom/:id/asset` | 按需读取自定义完整图片资源；目录与 SSE 不携带 Base64 |
+| `/api/pets/ai/status` | 返回 DeepSeek 文本对话和图像生成的真实配置状态 |
+| `/api/pets/dialogue` (POST) | 使用后端 DeepSeek 配置生成最多 60 字的角色化回复，最多携带最近 8 条对话 |
+| `/pet-assets/*` | 只读提供六只内置灵宠的动作清单和透明 Sprite 图集 |
 | `/api/health` | 健康检查 |
 
 ## Fitness 服务器 API 端点（肌肉大）
@@ -344,9 +349,9 @@ workbench/client ──WebSocket────────────────
 
 ### 桌面灵宠数据模型
 
-灵宠配置位于 `data/what.vault` 的 `desktopPets` 字段，包含 `schemaVersion`、`settings`、归一化 `position`、按角色保存的 `care` 和 `updatedAt`。设置、位置、亲密度、心情与互动次数落盘；当前动作、方向、气泡和逐帧位置只保存在 Workbench 内存。内置动作资源位于 `Tools/server/assets/pets/`，不属于用户业务数据。
+灵宠配置位于 `data/what.vault` 的 `desktopPets` 字段，包含 `schemaVersion`、`settings`、归一化 `position`、按角色保存的 `care`、`customPets` 和 `updatedAt`。自定义灵宠完整图片 Base64 只存在密文内，公共 API 与 SSE 返回不含图片正文的摘要，资源通过 `/api/pets/custom/:id/asset` 按需读取。设置、位置、亲密度、心情与互动次数落盘；当前动作、方向、气泡、聊天历史和逐帧位置只保存在 Workbench 内存。内置动作资源位于 `Tools/server/assets/pets/`，不属于用户业务数据。
 
-当前阶段使用 Canvas 2D 播放 6 × 4 Sprite 图集。小猫“雾团”提供待机、行走、入睡、睡眠、开心、好奇、伸展、舔爪、醒来和拖拽动作；其余五类角色在动作资源完成前返回 `available: false`。图片自定义、图像生成和 AI 对话能力当前返回未配置状态，不得显示模拟生成结果。
+Canvas 2D 播放六套独立 6 × 4 Sprite 图集。自定义资源支持静态图片、GIF/WebP 原动画和 Sprite Sheet/PNG 序列；服务端拒绝 SVG、伪造文件签名、缺少布局的 Sprite 与超限资源。DeepSeek 文本配置用于真实对话，未配置时返回 503；图像生成仍未接通，不得显示模拟结果。音乐、定时任务和 AI 请求联动只发送白名单状态与短标签，不携带命令、输出或工作台敏感内容。
 
 ## Tools 服务器配置项
 
